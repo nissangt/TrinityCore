@@ -424,7 +424,7 @@ void TradeData::SetAccepted(bool state, bool crosssend /*= false*/)
 KillRewarder::KillRewarder(Player* killer, Unit* victim, bool isBattleGround) :
     // 1. Initialize internal variables to default values.
     _killer(killer), _victim(victim), _isBattleGround(isBattleGround),
-    _group(killer->GetGroup()), _groupRate(1.0f),
+    _isPvP(false), _group(killer->GetGroup()), _groupRate(1.0f),
     _maxLevel(0), _maxNotGrayMember(NULL), _count(0), _sumLevel(0), _isFullXP(false), _xp(0)
 {
     // mark the credit as pvp if victim is player
@@ -2649,18 +2649,7 @@ void Player::ResetAllPowers()
     }
 }
 
-bool Player::CanInteractWithNPCs(bool alive) const
-{
-    if (alive && !isAlive())
-        return false;
-    if (isInFlight())
-        return false;
-
-    return true;
-}
-
-Creature*
-Player::GetNPCIfCanInteractWith(uint64 guid, uint32 npcflagmask)
+Creature* Player::GetNPCIfCanInteractWith(uint64 guid, uint32 npcflagmask)
 {
     // unit checks
     if (!guid)
@@ -2669,43 +2658,46 @@ Player::GetNPCIfCanInteractWith(uint64 guid, uint32 npcflagmask)
     if (!IsInWorld())
         return NULL;
 
+    if (isInFlight())
+        return NULL;
+
     // exist (we need look pets also for some interaction (quest/etc)
-    Creature *unit = ObjectAccessor::GetCreatureOrPetOrVehicle(*this,guid);
-    if (!unit)
+    Creature* creature = ObjectAccessor::GetCreatureOrPetOrVehicle(*this, guid);
+    if (!creature)
         return NULL;
 
-    // player check
-    if (!CanInteractWithNPCs(!unit->isSpiritService()))
-        return NULL;
-
-    // appropriate npc type
-    if (npcflagmask && !unit->HasFlag(UNIT_NPC_FLAGS, npcflagmask))
+    // Deathstate checks
+    if (!isAlive() && !(creature->GetCreatureInfo()->type_flags & CREATURE_TYPEFLAGS_GHOST))
         return NULL;
 
     // alive or spirit healer
-    if (!unit->isAlive() && (!unit->isSpiritService() || isAlive()))
+    if (!creature->isAlive() && !(creature->GetCreatureInfo()->type_flags & CREATURE_TYPEFLAGS_DEAD_INTERACT))
+        return NULL;
+
+    // appropriate npc type
+    if (npcflagmask && !creature->HasFlag(UNIT_NPC_FLAGS, npcflagmask))
         return NULL;
 
     // not allow interaction under control, but allow with own pets
-    if (unit->GetCharmerGUID())
+    if (creature->GetCharmerGUID())
         return NULL;
 
     // not enemy
-    if (unit->IsHostileTo(this))
+    if (creature->IsHostileTo(this))
         return NULL;
 
     // not unfriendly
-    if (FactionTemplateEntry const* factionTemplate = sFactionTemplateStore.LookupEntry(unit->getFaction()))
+    if (FactionTemplateEntry const* factionTemplate = sFactionTemplateStore.LookupEntry(creature->getFaction()))
         if (factionTemplate->faction)
             if (FactionEntry const* faction = sFactionStore.LookupEntry(factionTemplate->faction))
                 if (faction->reputationListID >= 0 && GetReputationMgr().GetRank(faction) <= REP_UNFRIENDLY)
                     return NULL;
 
     // not too far
-    if (!unit->IsWithinDistInMap(this,INTERACTION_DISTANCE))
+    if (!creature->IsWithinDistInMap(this, INTERACTION_DISTANCE))
         return NULL;
 
-    return unit;
+    return creature;
 }
 
 GameObject* Player::GetGameObjectIfCanInteractWith(uint64 guid, GameobjectTypes type) const
@@ -4878,7 +4870,9 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
             trans->PAppend("DELETE FROM character_reputation WHERE guid = '%u'",guid);
             trans->PAppend("DELETE FROM character_spell WHERE guid = '%u'",guid);
             trans->PAppend("DELETE FROM character_spell_cooldown WHERE guid = '%u'",guid);
-            trans->PAppend("DELETE FROM gm_tickets WHERE playerGuid = '%u'", guid);
+            stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PLAYER_GM_TICKETS);
+            stmt->setUInt32(0, guid);
+            trans->Append(stmt);
             trans->PAppend("DELETE FROM item_instance WHERE owner_guid = '%u'",guid);
             trans->PAppend("DELETE FROM character_social WHERE guid = '%u' OR friend='%u'",guid,guid);
             trans->PAppend("DELETE FROM mail WHERE receiver = '%u'",guid);

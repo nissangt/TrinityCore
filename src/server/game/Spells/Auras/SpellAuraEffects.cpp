@@ -3250,7 +3250,7 @@ void AuraEffect::HandleAuraModShapeshift(AuraApplication const * aurApp, uint8 m
         {
             if (Item *pItem = target->ToPlayer()->GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND))
             {
-                    target->ToPlayer()->_ApplyWeaponDamage(EQUIPMENT_SLOT_MAINHAND, pItem->GetProto(), NULL, apply);
+                    target->ToPlayer()->_ApplyWeaponDamage(EQUIPMENT_SLOT_MAINHAND, pItem->GetTemplate(), NULL, apply);
             }
         }
     }
@@ -3351,7 +3351,7 @@ void AuraEffect::HandleAuraTransform(AuraApplication const * aurApp, uint8 mode,
             }
             else
             {
-                CreatureInfo const * ci = ObjectMgr::GetCreatureTemplate(GetMiscValue());
+                CreatureTemplate const * ci = sObjectMgr->GetCreatureTemplate(GetMiscValue());
                 if (!ci)
                 {
                     target->SetDisplayId(16358);              // pig pink ^_^
@@ -3410,18 +3410,17 @@ void AuraEffect::HandleAuraTransform(AuraApplication const * aurApp, uint8 mode,
             if (!target->GetAuraEffectsByType(SPELL_AURA_MOUNTED).empty())
             {
                 uint32 cr_id = target->GetAuraEffectsByType(SPELL_AURA_MOUNTED).front()->GetMiscValue();
-                if (CreatureInfo const* ci = ObjectMgr::GetCreatureTemplate(cr_id))
+                if (CreatureTemplate const* ci = sObjectMgr->GetCreatureTemplate(cr_id))
                 {
                     uint32 team = 0;
                     if (target->GetTypeId() == TYPEID_PLAYER)
                         team = target->ToPlayer()->GetTeam();
 
-                    uint32 display_id = sObjectMgr->ChooseDisplayId(team,ci);
-                    CreatureModelInfo const *minfo = sObjectMgr->GetCreatureModelRandomGender(display_id);
-                    if (minfo)
-                        display_id = minfo->modelid;
+                    uint32 displayID = sObjectMgr->ChooseDisplayId(team,ci);
 
-                    target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID,display_id);
+                    CreatureModelInfo const *minfo = sObjectMgr->GetCreatureModelRandomGender(displayID);
+
+                    target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID,displayID);
                 }
             }
         }
@@ -3623,7 +3622,7 @@ void AuraEffect::HandleAuraModDisarm(AuraApplication const * aurApp, uint8 mode,
             uint8 attacktype = Player::GetAttackBySlot(slot);
 
             if (attacktype < MAX_ATTACK)
-                target->ToPlayer()->_ApplyWeaponDamage(slot, pItem->GetProto(), NULL, !apply);
+                target->ToPlayer()->_ApplyWeaponDamage(slot, pItem->GetTemplate(), NULL, !apply);
         }
     }
 
@@ -3867,7 +3866,7 @@ void AuraEffect::HandleAuraMounted(AuraApplication const * aurApp, uint8 mode, b
                 creatureEntry = 15665;
         }
 
-        CreatureInfo const* ci = ObjectMgr::GetCreatureTemplate(creatureEntry);
+        CreatureTemplate const* ci = sObjectMgr->GetCreatureTemplate(creatureEntry);
         if (!ci)
         {
             sLog->outErrorDb("AuraMounted: `creature_template`='%u' not found in database (only need its modelid)",GetMiscValue());
@@ -3878,18 +3877,16 @@ void AuraEffect::HandleAuraMounted(AuraApplication const * aurApp, uint8 mode, b
         if (target->GetTypeId() == TYPEID_PLAYER)
             team = target->ToPlayer()->GetTeam();
 
-        uint32 display_id = sObjectMgr->ChooseDisplayId(team,ci);
-        CreatureModelInfo const *minfo = sObjectMgr->GetCreatureModelRandomGender(display_id);
-        if (minfo)
-            display_id = minfo->modelid;
+        uint32 displayID = sObjectMgr->ChooseDisplayId(team,ci);
+        CreatureModelInfo const *minfo = sObjectMgr->GetCreatureModelRandomGender(displayID);
 
         //some spell has one aura of mount and one of vehicle
         for (uint32 i = 0; i < MAX_SPELL_EFFECTS; ++i)
             if (GetSpellProto()->Effect[i] == SPELL_EFFECT_SUMMON
                 && GetSpellProto()->EffectMiscValue[i] == GetMiscValue())
-                display_id = 0;
+                displayID = 0;
 
-        target->Mount(display_id, ci->VehicleId, GetMiscValue());
+        target->Mount(displayID, ci->VehicleId, GetMiscValue());
     }
     else
     {
@@ -4525,9 +4522,8 @@ void AuraEffect::HandleAuraModStateImmunity(AuraApplication const * aurApp, uint
     Unit * target = aurApp->GetTarget();
 
     if ((apply) && GetSpellProto()->AttributesEx & SPELL_ATTR1_DISPEL_AURAS_ON_IMMUNITY)
-    {
-        target->RemoveAurasByType(AuraType(GetMiscValue()), NULL , GetBase());
-    }
+        target->RemoveAurasByType(AuraType(GetMiscValue()), 0 , GetBase());
+
     // stop handling the effect if it was removed by linked event
     if (apply && aurApp->GetRemoveMode())
         return;
@@ -6151,18 +6147,16 @@ void AuraEffect::HandleAuraDummy(AuraApplication const * aurApp, uint8 mode, boo
                         else
                             creatureEntry = target->GetAuraEffectsByType(SPELL_AURA_MOUNTED).front()->GetMiscValue();
 
-                        if (CreatureInfo const* creatureInfo = ObjectMgr::GetCreatureTemplate(creatureEntry))
+                        if (CreatureTemplate const* creatureInfo = sObjectMgr->GetCreatureTemplate(creatureEntry))
                         {
                             uint32 team = 0;
                             if (target->GetTypeId() == TYPEID_PLAYER)
                                 team = target->ToPlayer()->GetTeam();
 
-                            uint32 display_id = sObjectMgr->ChooseDisplayId(team, creatureInfo);
-                            CreatureModelInfo const *minfo = sObjectMgr->GetCreatureModelRandomGender(display_id);
-                            if (minfo)
-                                display_id = minfo->modelid;
+                            uint32 displayID = sObjectMgr->ChooseDisplayId(team, creatureInfo);
+                            CreatureModelInfo const *minfo = sObjectMgr->GetCreatureModelRandomGender(displayID);
 
-                            target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, display_id);
+                            target->SetUInt32Value(UNIT_FIELD_MOUNTDISPLAYID, displayID);
                         }
                     }
                     break;
@@ -6395,7 +6389,7 @@ void AuraEffect::HandleAuraEmpathy(AuraApplication const * aurApp, uint8 mode, b
             return;
     }
 
-    CreatureInfo const * ci = ObjectMgr::GetCreatureTemplate(target->GetEntry());
+    CreatureTemplate const * ci = sObjectMgr->GetCreatureTemplate(target->GetEntry());
     if (ci && ci->type == CREATURE_TYPE_BEAST)
         target->ApplyModUInt32Value(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_SPECIALINFO, apply);
 }

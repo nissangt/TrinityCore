@@ -1439,6 +1439,7 @@ enum GameobjectTypes
 };
 
 #define MAX_GAMEOBJECT_TYPE                  36             // sending to client this or greater value can crash client.
+#define MAX_GAMEOBJECT_DATA                  24             // Max number of uint32 vars in gameobject_template data field
 
 enum GameObjectFlags
 {
@@ -2700,6 +2701,8 @@ enum SummonCategory
     SUMMON_CATEGORY_PET         = 2,
     SUMMON_CATEGORY_PUPPET      = 3,
     SUMMON_CATEGORY_VEHICLE     = 4,
+    SUMMON_CATEGORY_UNK         = 5, // as of patch 3.3.5a only Bone Spike in Icecrown Citadel
+                                     // uses this category
 };
 
 enum SummonType

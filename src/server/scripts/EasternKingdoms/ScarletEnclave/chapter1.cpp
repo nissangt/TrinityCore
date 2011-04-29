@@ -106,9 +106,9 @@ public:
         {
             me->SetReactState(REACT_PASSIVE);
             if (!me->GetEquipmentId())
-                if (const CreatureInfo *info = ObjectMgr::GetCreatureTemplate(28406))
+                if (const CreatureTemplate *info = sObjectMgr->GetCreatureTemplate(28406))
                     if (info->equipmentId)
-                        const_cast<CreatureInfo*>(me->GetCreatureInfo())->equipmentId = info->equipmentId;
+                        const_cast<CreatureTemplate*>(me->GetCreatureInfo())->equipmentId = info->equipmentId;
         }
 
         uint64 playerGUID;
@@ -995,7 +995,7 @@ public:
                         me->SetInFront(car);
                         me->SendMovementFlagUpdate();
                     }
-                    me->MonsterSay(SAY_SCARLET_MINER1,LANG_UNIVERSAL,NULL);
+                    me->MonsterSay(SAY_SCARLET_MINER1,LANG_UNIVERSAL,0);
                     SetRun(true);
                     IntroTimer = 4000;
                     IntroPhase = 1;
@@ -1009,7 +1009,7 @@ public:
                         car->SendMonsterStop();
                         car->RemoveAura(SPELL_CART_DRAG);
                     }
-                    me->MonsterSay(SAY_SCARLET_MINER2,LANG_UNIVERSAL,NULL);
+                    me->MonsterSay(SAY_SCARLET_MINER2,LANG_UNIVERSAL,0);
                     break;
                 default:
                     break;

@@ -1416,9 +1416,9 @@ DROP TABLE IF EXISTS `creature_equip_template`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `creature_equip_template` (
   `entry` mediumint(8) unsigned NOT NULL DEFAULT '0' COMMENT 'Unique entry',
-  `equipentry1` mediumint(8) unsigned NOT NULL DEFAULT '0',
-  `equipentry2` mediumint(8) unsigned NOT NULL DEFAULT '0',
-  `equipentry3` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  `itemEntry1` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  `itemEntry2` mediumint(8) unsigned NOT NULL DEFAULT '0',
+  `itemEntry3` mediumint(8) unsigned NOT NULL DEFAULT '0',
   PRIMARY KEY (`entry`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='Creature System (Equipment)';
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -2847,10 +2847,6 @@ DROP TABLE IF EXISTS `instance_template`;
 CREATE TABLE `instance_template` (
   `map` smallint(5) unsigned NOT NULL,
   `parent` int(10) unsigned NOT NULL,
-  `startLocX` float DEFAULT NULL,
-  `startLocY` float DEFAULT NULL,
-  `startLocZ` float DEFAULT NULL,
-  `startLocO` float DEFAULT NULL,
   `script` varchar(128) NOT NULL DEFAULT '',
   `allowMount` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`map`)
@@ -17330,7 +17326,8 @@ INSERT INTO `spell_dbc` (`Id`,`Dispel`,`Mechanic`,`Attributes`,`AttributesEx`,`A
 (65195,  0, 0, 536870912, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 101, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 16, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'The Iron Council credit marker'),
 (64899,  0, 0, 536870912, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 101, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 16, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'Hodir credit marker'),
 (64985,  0, 0, 536870912, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 101, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 16, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'Thorim credit marker'),
-(65074,  0, 0, 536870912, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 101, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 16, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'Freya credit marker');
+(65074,  0, 0, 536870912, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 101, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 0, 0, 16, 0, 0, 28, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'Freya credit marker'),
+(60937,  0, 0, 562036736, 32, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 101, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 'Seaforium charges damaging wall achievement credit');
 /*!40000 ALTER TABLE `spell_dbc` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -17689,7 +17686,6 @@ INSERT INTO `spell_group` (`id`, `spell_id`) VALUES
 (1046,57660), -- Totem of Wrath
 (1046,57662), -- Totem of Wrath
 (1046,57663), -- Totem of Wrath
-(1046,30708), -- Totem of Wrath
 (1047,53646), -- Demonic Pact
 -- Increased Spell Hit Chance Taken Debuff
 (1049,33600), --  Improved Faerie Fire
@@ -18106,6 +18102,8 @@ INSERT INTO `spell_linked_spell` (`spell_trigger`,`spell_effect`,`type`,`comment
 ( 55501, 55475, 0, 'Lifeblood (Rank 4)'),
 ( 55502, 55475, 0, 'Lifeblood (Rank 5)'),
 ( 55503, 55475, 0, 'Lifeblood (Rank 6)'),
+( 61716, 61719, 2, 'Rabbit Costume: Lay Egg periodic'),
+( 61734, 61719, 2, 'Noblegarden Bunny: Lay Egg periodic'),
 -- Quest
 ( 26286, 44430, 0, 'Small Red Rocket - questcredit'),
 ( 26292, 44430, 0, 'Small Green Rocket - questcredit'),

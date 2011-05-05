@@ -2846,7 +2846,7 @@ DROP TABLE IF EXISTS `instance_template`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `instance_template` (
   `map` smallint(5) unsigned NOT NULL,
-  `parent` int(10) unsigned NOT NULL,
+  `parent` smallint(5) unsigned NOT NULL,
   `script` varchar(128) NOT NULL DEFAULT '',
   `allowMount` tinyint(1) NOT NULL DEFAULT '0',
   PRIMARY KEY (`map`)
@@ -18095,6 +18095,8 @@ INSERT INTO `spell_linked_spell` (`spell_trigger`,`spell_effect`,`type`,`comment
 ( 20066,-61840, 0, 'Repentance'),
 ( 66235, 66233, 0, 'Ardent Defender Visuals'),
 ( 58875, 58876, 1, 'Spirit Walk'),
+(-47960,-63311, 0, 'Glyph of Shadowflame Rank 1'),
+(-61291,-63311, 0, 'Glyph of Shadowflame Rank 2'),
 -- Misc
 ( 55428, 55475, 0, 'Lifeblood (Rank 1)'),
 ( 55480, 55475, 0, 'Lifeblood (Rank 2)'),
@@ -18739,7 +18741,7 @@ INSERT INTO `spell_proc_event` (`entry`,`SchoolMask`,`SpellFamilyName`,`SpellFam
 ( 33297, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   0,   0,  45), -- Spell Haste Trinket
 ( 33299, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00010000,   0,   0,   0), -- Coilfang Slave Pens Lvl 70 Boss3a Caster Trinket
 ( 33510, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   5,   0,   0), -- Health Restore
-( 33648, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000002,   0,   0,   0), -- Reflection of Torment
+( 33648, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000002,   0,   0,  45), -- Reflection of Torment
 ( 33719, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000800,   0,   0,   0), -- Perfect Spell Reflection
 ( 33736, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   0,   0,   3), -- Water Shield (Rank 8)
 ( 33746, 0x00,   0, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   0,   0,  10), -- Essence Infused Mushroom

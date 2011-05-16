@@ -590,7 +590,7 @@ void AddSC_outdoorpvp_zm();
 void AddSC_outdoorpvp_wg();
 
 // player
-void AddSC_chat_log();
+void AddSC_lexics_chat_log();
 
 #endif
 
@@ -678,7 +678,7 @@ void AddWorldScripts()
     AddSC_npcs_special();
     AddSC_npc_taxi();
     AddSC_achievement_scripts();
-    AddSC_chat_log();
+    AddSC_lexics_chat_log();
 #endif
 }
 

@@ -6274,13 +6274,13 @@ void ObjectMgr::SetHighestGuids()
     result = CharacterDatabase.Query("SELECT MAX(guid) FROM item_instance");
     if (result)
         m_hiItemGuid = (*result)[0].GetUInt32()+1;
-
+/*
     // Cleanup other tables from not existed guids ( >= m_hiItemGuid)
     CharacterDatabase.PExecute("DELETE FROM character_inventory WHERE item >= '%u'", m_hiItemGuid);
     CharacterDatabase.PExecute("DELETE FROM mail_items WHERE item_guid >= '%u'", m_hiItemGuid);
     CharacterDatabase.PExecute("DELETE FROM auctionhouse WHERE itemguid >= '%u'", m_hiItemGuid);
     CharacterDatabase.PExecute("DELETE FROM guild_bank_item WHERE item_guid >= '%u'", m_hiItemGuid);
-
+//*/
     result = WorldDatabase.Query("SELECT MAX(guid) FROM gameobject");
     if (result)
         m_hiGoGuid = (*result)[0].GetUInt32()+1;

@@ -43,6 +43,9 @@
 #include "ScriptMgr.h"
 #include "Battleground.h"
 
+#include "OutdoorPvPWG.h"
+#include "OutdoorPvPMgr.h"
+
 class LoginQueryHolder : public SQLQueryHolder
 {
     private:
@@ -191,6 +194,10 @@ bool LoginQueryHolder::Initialize()
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_LOAD_ACCOUNT_INSTANCELOCKTIMES);
     stmt->setUInt32(0, m_accountId);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADINSTANCELOCKTIMES, stmt);
+
+    stmt = CharacterDatabase.GetPreparedStatement(CHAR_LOAD_PLAYER_XPRATES);
+    stmt->setUInt32(0, lowGuid);
+    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADXPRATE, stmt);
 
     return res;
 }
@@ -820,6 +827,20 @@ void WorldSession::HandlePlayerLogin(LoginQueryHolder * holder)
 
     sObjectAccessor->AddObject(pCurrChar);
     //sLog->outDebug("Player %s added to Map.", pCurrChar->GetName());
+
+    if (sWorld->getBoolConfig(CONFIG_OUTDOORPVP_WINTERGRASP_ENABLED))
+    {
+        if (OutdoorPvPWG *pvpWG = (OutdoorPvPWG*)sOutdoorPvPMgr->GetOutdoorPvPToZoneId(4197))
+        {
+            if (pvpWG->isWarTime()) // "Battle in progress"
+                pCurrChar->SendUpdateWorldState(ClockWorldState[1], uint32(time(NULL)));
+            else // Time to next battle
+            {
+                pvpWG->SendInitWorldStatesTo(pCurrChar);
+                pCurrChar->SendUpdateWorldState(ClockWorldState[1], uint32(time(NULL) + pvpWG->GetTimer()));
+            }
+        }
+    }
 
     pCurrChar->SendInitialPacketsAfterAddToMap();
 

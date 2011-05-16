@@ -16,6 +16,7 @@
  */
 
 #include "ScriptLoader.h"
+#include "AnticheatMgr.h"
 
 //examples
 void AddSC_example_creature();
@@ -43,6 +44,7 @@ void AddSC_example_spell_scripts();
 void AddSC_SmartSCripts();
 
 //Commands
+void AddSC_anticheat_commandscript();
 void AddSC_account_commandscript();
 void AddSC_achievement_commandscript();
 void AddSC_debug_commandscript();
@@ -58,6 +60,7 @@ void AddSC_quest_commandscript();
 void AddSC_reload_commandscript();
 void AddSC_tele_commandscript();
 void AddSC_titles_commandscript();
+void AddSC_wg_commandscript();
 void AddSC_wp_commandscript();
 
 #ifdef SCRIPTS
@@ -491,6 +494,7 @@ void AddSC_storm_peaks();
 void AddSC_zuldrak();
 void AddSC_crystalsong_forest();
 void AddSC_isle_of_conquest();
+void AddSC_wintergrasp();
 
 //outland
 void AddSC_boss_exarch_maladaar();           //Auchindoun Auchenai Crypts
@@ -583,6 +587,7 @@ void AddSC_outdoorpvp_na();
 void AddSC_outdoorpvp_si();
 void AddSC_outdoorpvp_tf();
 void AddSC_outdoorpvp_zm();
+void AddSC_outdoorpvp_wg();
 
 // player
 void AddSC_chat_log();
@@ -595,6 +600,7 @@ void AddScripts()
     AddSpellScripts();
     AddSC_SmartSCripts();
     AddCommandScripts();
+    sAnticheatMgr->StartScripts();
 #ifdef SCRIPTS
     AddWorldScripts();
     AddEasternKingdomsScripts();
@@ -636,6 +642,7 @@ void AddSpellScripts()
 
 void AddCommandScripts()
 {
+    AddSC_anticheat_commandscript();
     AddSC_account_commandscript();
     AddSC_achievement_commandscript();
     AddSC_debug_commandscript();
@@ -651,6 +658,7 @@ void AddCommandScripts()
     AddSC_reload_commandscript();
     AddSC_tele_commandscript();
     AddSC_titles_commandscript();
+    AddSC_wg_commandscript();
     AddSC_wp_commandscript();
 }
 
@@ -1185,6 +1193,7 @@ void AddNorthrendScripts()
     AddSC_zuldrak();
     AddSC_crystalsong_forest();
     AddSC_isle_of_conquest();
+    AddSC_wintergrasp();
 #endif
 }
 
@@ -1197,6 +1206,7 @@ void AddOutdoorPvPScripts()
     AddSC_outdoorpvp_si();
     AddSC_outdoorpvp_tf();
     AddSC_outdoorpvp_zm();
+    AddSC_outdoorpvp_wg();
 #endif
 }
 

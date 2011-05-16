@@ -52,6 +52,8 @@
 #include "DisableMgr.h"
 #include "SpellScript.h"
 #include "InstanceScript.h"
+#include "OutdoorPvPWG.h"
+#include "OutdoorPvPMgr.h"
 
 #define SPELL_CHANNEL_UPDATE_INTERVAL (1 * IN_MILLISECONDS)
 
@@ -1311,6 +1313,11 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
             AuraEffect * aurEff = m_spellAura->GetEffect(1);
             aurEff->SetAmount(CalculatePctU(aurEff->GetAmount(), damageInfo.damage));
         }
+        // Cobra Strikes (can't find any other way that may work)
+        if (m_spellInfo->SpellFamilyName == SPELLFAMILY_HUNTER && m_spellInfo->SpellFamilyFlags[1] & 0x10000000)
+            if (Unit * owner = caster->GetOwner())
+                if (Aura* pAura = owner->GetAura(53257))
+                    pAura->DropCharge();
     }
     // Passive spell hits/misses or active spells only misses (only triggers)
     else
@@ -1335,7 +1342,8 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
 
     if (missInfo != SPELL_MISS_EVADE && m_caster && !m_caster->IsFriendlyTo(unit) && !IsPositiveSpell(m_spellInfo->Id))
     {
-        m_caster->CombatStart(unit, !(m_spellInfo->AttributesEx3 & SPELL_ATTR3_NO_INITIAL_AGGRO));
+        if (!m_caster->HasUnitTypeMask(TYPEMASK_OBJECT))
+            m_caster->CombatStart(unit, !(m_spellInfo->AttributesEx3 & SPELL_ATTR3_NO_INITIAL_AGGRO));
 
         if (m_customAttr & SPELL_ATTR0_CU_AURA_CC)
             if (!unit->IsStandState())
@@ -1477,7 +1485,41 @@ SpellMissInfo Spell::DoSpellHitOnUnit(Unit *unit, const uint32 effectMask, bool 
             }
         }
 
-        if (m_originalCaster)
+        // Chance resist debuff
+        bool auraResist = false;
+        if (!IsPositiveSpell(m_spellInfo->Id))
+        {
+            bool bNegativeAura = false;
+            for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            {
+                if (m_spellInfo->EffectApplyAuraName[i] != 0)
+                {
+                    bNegativeAura = true;
+                    break;
+                }
+            }
+
+            bool bDirectDamage = false;
+            for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            {
+                if (m_spellInfo->Effect[i] == SPELL_EFFECT_SCHOOL_DAMAGE || m_spellInfo->Effect[i] == SPELL_EFFECT_HEALTH_LEECH)
+                {
+                    bDirectDamage = true;
+                    break;
+                }
+            }
+
+            if (bNegativeAura && bDirectDamage)
+            {
+                uint32 tmp = 0;
+                tmp += unit->GetMaxPositiveAuraModifierByMiscValue(SPELL_AURA_MOD_DEBUFF_RESISTANCE, int32(m_spellInfo->Dispel)) * 100;
+                tmp += unit->GetMaxNegativeAuraModifierByMiscValue(SPELL_AURA_MOD_DEBUFF_RESISTANCE, int32(m_spellInfo->Dispel)) * 100;
+                if (urand(0,10000) < tmp)
+                    auraResist = true;
+            }
+        }
+
+        if (m_originalCaster && !auraResist)
         {
             m_spellAura = Aura::TryCreate(aurSpellInfo, effectMask, unit,
                 m_originalCaster, (aurSpellInfo == m_spellInfo)? &m_spellValue->EffectBasePoints[0] : &basePoints[0], m_CastItem);
@@ -2191,10 +2233,19 @@ void Spell::SelectEffectTargets(uint32 i, uint32 cur)
             }
 
             Position pos;
-            if (cur == TARGET_DEST_CASTER_FRONT_LEAP)
-                m_caster->GetFirstCollisionPosition(pos, dist, angle);
-            else
-                m_caster->GetNearPosition(pos, dist, angle);
+            switch (cur)
+            {
+                case TARGET_DEST_CASTER_FRONT_LEAP:
+                case TARGET_DEST_CASTER_FRONT_LEFT:
+                case TARGET_DEST_CASTER_BACK_LEFT:
+                case TARGET_DEST_CASTER_BACK_RIGHT:
+                case TARGET_DEST_CASTER_FRONT_RIGHT:
+                    m_caster->GetFirstCollisionPosition(pos, dist, angle);
+                    break;
+                default:
+                    m_caster->GetNearPosition(pos, dist, angle);
+                    break;
+            }
             m_targets.setDst(*m_caster);
             m_targets.modDst(pos);
             break;
@@ -4374,15 +4425,15 @@ void Spell::TakePower()
     bool hit = true;
     if (m_caster->GetTypeId() == TYPEID_PLAYER)
     {
-        if (m_spellInfo->powerType == POWER_RAGE || m_spellInfo->powerType == POWER_ENERGY || m_spellInfo->powerType == POWER_RUNE)
+        if (m_spellInfo->powerType == POWER_RAGE || m_spellInfo->powerType == POWER_ENERGY ||
+            m_spellInfo->powerType == POWER_RUNE || m_spellInfo->powerType == POWER_RUNIC_POWER)
             if (uint64 targetGUID = m_targets.getUnitTargetGUID())
                 for (std::list<TargetInfo>::iterator ihit= m_UniqueTargetInfo.begin(); ihit != m_UniqueTargetInfo.end(); ++ihit)
                     if (ihit->targetGUID == targetGUID)
                     {
-                        if (ihit->missCondition != SPELL_MISS_NONE && ihit->missCondition != SPELL_MISS_MISS/* && ihit->targetGUID != m_caster->GetGUID()*/)
-                            hit = false;
-                        if (ihit->missCondition != SPELL_MISS_NONE)
+                        if (ihit->missCondition != SPELL_MISS_NONE && ihit->missCondition != SPELL_MISS_IMMUNE)
                         {
+                            hit = false;
                             //lower spell cost on fail (by talent aura)
                             if (Player *modOwner = m_caster->ToPlayer()->GetSpellModOwner())
                                 modOwner->ApplySpellMod(m_spellInfo->Id, SPELLMOD_SPELL_COST_REFUND_ON_FAIL, m_powerCost);
@@ -4415,10 +4466,10 @@ void Spell::TakePower()
         return;
     }
 
-    if (hit)
+    if (hit || m_spellInfo->AttributesEx & SPELL_ATTR1_REQ_COMBO_POINTS1)
         m_caster->ModifyPower(powerType, -m_powerCost);
     else
-        m_caster->ModifyPower(powerType, -irand(0, m_powerCost/4));
+        m_caster->ModifyPower(powerType, -m_powerCost/5);
 
     // Set the five second timer
     if (powerType == POWER_MANA && m_powerCost > 0)
@@ -5065,6 +5116,22 @@ SpellCastResult Spell::CheckCast(bool strict)
                     if (!unit || !unit->HasAura(17743))
                         return SPELL_FAILED_BAD_TARGETS;
                 }
+                else if (m_spellInfo->Id == 51690)          // Killing Spree
+                {
+                    float range = 10.0f;
+                    Unit *target = NULL;
+                    Trinity::AnyUnfriendlyVisibleUnitInObjectRangeCheck u_check(m_caster, m_caster, range);
+                    Trinity::UnitLastSearcher<Trinity::AnyUnfriendlyVisibleUnitInObjectRangeCheck> checker(m_caster, target, u_check);
+                    m_caster->VisitNearbyObject(range, checker);
+
+                    if (target)
+                    {
+                        if (m_caster->GetUnitMovementFlags() & MOVEMENTFLAG_ONTRANSPORT)
+                            return SPELL_FAILED_NOT_HERE;
+                    }
+                    else
+                        return SPELL_FAILED_OUT_OF_RANGE;
+                }
                 else if (m_spellInfo->Id == 52264)          // Deliver Stolen Horse
                 {
                     if (!m_caster->FindNearestCreature(28653, 5))
@@ -5177,6 +5244,10 @@ SpellCastResult Spell::CheckCast(bool strict)
                 }
                 if (m_caster->HasUnitState(UNIT_STAT_ROOT))
                     return SPELL_FAILED_ROOTED;
+                if (m_caster->GetTypeId() == TYPEID_PLAYER)
+                    if (Unit* target = m_targets.getUnitTarget())
+                        if (!target->isAlive())
+                            return SPELL_FAILED_BAD_TARGETS;
                 break;
             }
             case SPELL_EFFECT_SKINNING:
@@ -5330,6 +5401,13 @@ SpellCastResult Spell::CheckCast(bool strict)
 
                 break;
             }
+            case SPELL_EFFECT_TRANS_DOOR:
+            {
+                // Ritual of Summoning shouldn't be used in Battlegrounds or Arenas
+                if (m_spellInfo->Id == 698 && m_caster->GetTypeId() == TYPEID_PLAYER && m_caster->ToPlayer()->InBattleground())
+                    return SPELL_FAILED_NOT_HERE;
+                break;
+            }
             case SPELL_EFFECT_SUMMON_PLAYER:
             {
                 if (m_caster->GetTypeId() != TYPEID_PLAYER)
@@ -5373,6 +5451,13 @@ SpellCastResult Spell::CheckCast(bool strict)
             case SPELL_EFFECT_STEAL_BENEFICIAL_BUFF:
             {
                 if (m_targets.getUnitTarget() == m_caster)
+                    return SPELL_FAILED_BAD_TARGETS;
+                break;
+            }
+            case SPELL_EFFECT_REDIRECT_THREAT:
+            {
+                if (m_spellInfo->Id == 57934 && m_targets.getUnitTarget() &&
+                    m_targets.getUnitTarget()->GetTypeId() != TYPEID_PLAYER)
                     return SPELL_FAILED_BAD_TARGETS;
                 break;
             }
@@ -5549,8 +5634,16 @@ SpellCastResult Spell::CheckCast(bool strict)
                 if (m_originalCaster && m_originalCaster->GetTypeId() == TYPEID_PLAYER && m_originalCaster->isAlive())
                 {
                     if (AreaTableEntry const* pArea = GetAreaEntryByAreaID(m_originalCaster->GetAreaId()))
+                    {
                         if (pArea->flags & AREA_FLAG_NO_FLY_ZONE)
                             return m_IsTriggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_NOT_HERE;
+                        if (sWorld->getBoolConfig(CONFIG_OUTDOORPVP_WINTERGRASP_ENABLED))
+                        {
+                            OutdoorPvPWG *pvpWG = (OutdoorPvPWG*)sOutdoorPvPMgr->GetOutdoorPvPToZoneId(4197);
+                            if (m_originalCaster->GetZoneId() == 4197 && pvpWG && pvpWG != 0 && pvpWG->isWarTime())
+                                return m_IsTriggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_NOT_HERE;
+                        }
+                    }
                 }
                 break;
             }

@@ -800,6 +800,7 @@ enum PlayerLoginQueryIndex
     PLAYER_LOGIN_QUERY_LOADBANNED               = 28,
     PLAYER_LOGIN_QUERY_LOADQUESTSTATUSREW       = 29,
     PLAYER_LOGIN_QUERY_LOADINSTANCELOCKTIMES    = 30,
+    PLAYER_LOGIN_QUERY_LOADXPRATE               = 31,
     MAX_PLAYER_LOGIN_QUERY,
 };
 
@@ -1035,6 +1036,8 @@ class Player : public Unit, public GridObject<Player>
     public:
         explicit Player (WorldSession *session);
         ~Player ();
+
+        //AnticheatData anticheatData;
 
         void CleanupsBeforeDelete(bool finalCleanup = true);
 
@@ -1295,6 +1298,12 @@ class Player : public Unit, public GridObject<Player>
         {
             Item* mainItem = GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
             return mainItem && mainItem->GetTemplate()->InventoryType == INVTYPE_2HWEAPON && !CanTitanGrip();
+        }
+        bool HasTwoHandWeaponInOneHand() const
+        {
+            Item* offItem = GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_OFFHAND);
+            Item* mainItem = GetItemByPos(INVENTORY_SLOT_BAG_0, EQUIPMENT_SLOT_MAINHAND);
+            return offItem && ((mainItem && mainItem->GetTemplate()->InventoryType == INVTYPE_2HWEAPON) || offItem->GetTemplate()->InventoryType == INVTYPE_2HWEAPON);
         }
         void SendNewItem(Item *item, uint32 count, bool received, bool created, bool broadcast = false);
         bool BuyItemFromVendorSlot(uint64 vendorguid, uint32 vendorslot, uint32 item, uint8 count, uint8 bag, uint8 slot);
@@ -2315,6 +2324,10 @@ class Player : public Unit, public GridObject<Player>
         void SendCinematicStart(uint32 CinematicSequenceId);
         void SendMovieStart(uint32 MovieId);
 
+        uint32 kill_xp_rate;
+        uint32 quest_xp_rate;
+        uint32 explore_xp_rate;
+
         /*********************************************************/
         /***                 INSTANCE SYSTEM                   ***/
         /*********************************************************/
@@ -2492,6 +2505,7 @@ class Player : public Unit, public GridObject<Player>
         void _LoadFriendList(PreparedQueryResult result);
         bool _LoadHomeBind(PreparedQueryResult result);
         void _LoadDeclinedNames(PreparedQueryResult result);
+        void _LoadExpRates(PreparedQueryResult result);
         void _LoadArenaTeamInfo(PreparedQueryResult result);
         void _LoadEquipmentSets(PreparedQueryResult result);
         void _LoadBGData(PreparedQueryResult result);

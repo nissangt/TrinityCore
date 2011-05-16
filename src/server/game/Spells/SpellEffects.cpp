@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "AnticheatMgr.h"
 #include "Common.h"
 #include "DatabaseEnv.h"
 #include "WorldPacket.h"
@@ -48,6 +49,7 @@
 #include "BattlegroundEY.h"
 #include "BattlegroundWS.h"
 #include "OutdoorPvPMgr.h"
+#include "OutdoorPvPWG.h"
 #include "Language.h"
 #include "SocialMgr.h"
 #include "Util.h"
@@ -71,7 +73,7 @@ pEffect SpellEffects[TOTAL_SPELL_EFFECTS]=
     &Spell::EffectUnused,                                   //  4 SPELL_EFFECT_PORTAL_TELEPORT          unused
     &Spell::EffectTeleportUnits,                            //  5 SPELL_EFFECT_TELEPORT_UNITS
     &Spell::EffectApplyAura,                                //  6 SPELL_EFFECT_APPLY_AURA
-    &Spell::EffectEnvirinmentalDMG,                         //  7 SPELL_EFFECT_ENVIRONMENTAL_DAMAGE
+    &Spell::EffectEnvironmentalDMG,                         //  7 SPELL_EFFECT_ENVIRONMENTAL_DAMAGE
     &Spell::EffectPowerDrain,                               //  8 SPELL_EFFECT_POWER_DRAIN
     &Spell::EffectHealthLeech,                              //  9 SPELL_EFFECT_HEALTH_LEECH
     &Spell::EffectHeal,                                     // 10 SPELL_EFFECT_HEAL
@@ -301,21 +303,12 @@ void Spell::EffectInstaKill(SpellEffIndex /*effIndex*/)
     m_caster->DealDamage(unitTarget, unitTarget->GetHealth(), NULL, NODAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
 }
 
-void Spell::EffectEnvirinmentalDMG(SpellEffIndex effIndex)
+void Spell::EffectEnvironmentalDMG(SpellEffIndex /*effIndex*/)
 {
-    uint32 absorb = 0;
-    uint32 resist = 0;
+    if (!unitTarget || unitTarget->GetTypeId() != TYPEID_PLAYER || !unitTarget->isAlive())
+        return;
 
-    // Note: this hack with damage replace required until GO casting not implemented
-    // environment damage spells already have around enemies targeting but this not help in case not existed GO casting support
-    // currently each enemy selected explicitly and self cast damage, we prevent apply self casted spell bonuses/etc
-    damage = SpellMgr::CalculateSpellEffectAmount(m_spellInfo, effIndex, m_caster);
-
-    m_caster->CalcAbsorbResist(m_caster, GetSpellSchoolMask(m_spellInfo), SPELL_DIRECT_DAMAGE, damage, &absorb, &resist, m_spellInfo);
-
-    m_caster->SendSpellNonMeleeDamageLog(m_caster, m_spellInfo->Id, damage, GetSpellSchoolMask(m_spellInfo), absorb, resist, false, 0, false);
-    if (m_caster->GetTypeId() == TYPEID_PLAYER)
-        m_caster->ToPlayer()->EnvironmentalDamage(DAMAGE_FIRE, damage);
+    unitTarget->ToPlayer()->EnvironmentalDamage(DAMAGE_FIRE, damage);
 }
 
 void Spell::EffectSchoolDMG(SpellEffIndex /*effIndex*/)
@@ -1145,7 +1138,14 @@ void Spell::EffectDummy(SpellEffIndex effIndex)
                     return;
                 case 54171:                                   //Divine Storm
                 {
-                    m_caster->CastCustomSpell(unitTarget, 54172, &damage, 0, 0, true);
+                    if (!damage)
+                       return;
+                    if (m_UniqueTargetInfo.size())
+                    {
+                        SpellEntry const * spellInfo = sSpellStore.LookupEntry(53385);
+                        int32 heal = SpellMgr::CalculateSpellEffectAmount(spellInfo, EFFECT_1) * damage / m_UniqueTargetInfo.size() / 100;
+                        m_caster->CastCustomSpell(unitTarget, 54172, &heal, NULL, NULL, true);
+                    }
                     return;
                 }
                 case 58418:                                 // Portal to Orgrimmar
@@ -1369,12 +1369,21 @@ void Spell::EffectDummy(SpellEffIndex effIndex)
             break;
         case SPELLFAMILY_PALADIN:
             // Divine Storm
-            if (m_spellInfo->SpellFamilyFlags[1] & SPELLFAMILYFLAG1_PALADIN_DIVINESTORM && effIndex == 1)
+            if (m_spellInfo->SpellFamilyFlags[1] & SPELLFAMILYFLAG1_PALADIN_DIVINESTORM)
             {
-                int32 dmg = CalculatePctN(m_damage, damage);
-                if (!unitTarget)
-                    unitTarget = m_caster;
-                m_caster->CastCustomSpell(unitTarget, 54171, &dmg, 0, 0, true);
+                if (effIndex != 0)
+                   return;
+
+                uint32 target_count = 0;
+                for (std::list<TargetInfo>::const_iterator itr = m_UniqueTargetInfo.begin(); itr != m_UniqueTargetInfo.end(); ++itr)
+                    if (itr->effectMask & (1 << EFFECT_2))
+                        ++target_count;
+
+                if (!target_count)
+                    return;
+
+                if (Aura * aura = m_caster->AddAura(99999, unitTarget))
+                    aura->SetCharges(target_count);
                 return;
             }
 
@@ -1421,10 +1430,13 @@ void Spell::EffectDummy(SpellEffIndex effIndex)
                     return;
                 // Restorative Totems
                 if (Unit *owner = m_caster->GetOwner())
-                    if (AuraEffect *dummy = owner->GetAuraEffect(SPELL_AURA_DUMMY, SPELLFAMILY_SHAMAN, 338, 1))
+                {
+                    damage += int32(owner->SpellDamageBonus(unitTarget, m_spellInfo, 0, HEAL) * 0.44f);
+                    if (AuraEffect *dummy = owner->GetDummyAuraEffect(SPELLFAMILY_SHAMAN, 338, 1))
                         AddPctN(damage, dummy->GetAmount());
+                }
 
-                    m_caster->CastCustomSpell(unitTarget, 52042, &damage, 0, 0, true, 0, 0, m_originalCasterGUID);
+                m_caster->CastCustomSpell(unitTarget, 52042, &damage, 0, 0, true, 0, 0, m_originalCasterGUID);
                 return;
             }
             // Mana Spring Totem
@@ -1913,6 +1925,17 @@ void Spell::EffectTeleportUnits(SpellEffIndex /*effIndex*/)
     uint8 uiMaxSafeLevel = 0;
     switch (m_spellInfo->Id)
     {
+        case 36563:
+            if (Player * plr = unitTarget->ToPlayer())
+            {
+                if (Unit * target = plr->GetSelectedUnit())
+                {
+                    Position pos;
+                    target->GetFirstCollisionPosition(pos, 2, M_PI);
+                    m_targets.setDst(pos.GetPositionX(),pos.GetPositionY(),pos.GetPositionZ(),target->GetOrientation());
+                }
+            }
+            break;
         case 48129:  // Scroll of Recall
             uiMaxSafeLevel = 40;
         case 60320:  // Scroll of Recall II
@@ -3075,6 +3098,9 @@ void Spell::EffectSummonType(SpellEffIndex effIndex)
                         properties->Id == 2081)     // Mechanical Dragonling, Arcanite Dragonling, Mithril Dragonling TODO: Research on meaning of basepoints
                         amount = 1;
 
+                    if ((properties->Id == 2081 || m_spellInfo->Id == 13258 || m_spellInfo->Id == 13166) && !m_CastItem)
+                        return;
+
                     TempSummonType summonType = (duration == 0) ? TEMPSUMMON_DEAD_DESPAWN : TEMPSUMMON_TIMED_DESPAWN;
 
                     for (uint32 count = 0; count < amount; ++count)
@@ -3189,7 +3215,7 @@ void Spell::EffectDispel(SpellEffIndex effIndex)
 
         if ((1<<aura->GetSpellProto()->Dispel) & dispelMask)
         {
-            if (aura->GetSpellProto()->Dispel == DISPEL_MAGIC)
+            if (aura->GetSpellProto()->Dispel == DISPEL_MAGIC || aura->GetSpellProto()->Dispel == DISPEL_POISON)
             {
                 bool positive = aurApp->IsPositive() ? (!(aura->GetSpellProto()->AttributesEx & SPELL_ATTR1_NEGATIVE)) : false;
 
@@ -4196,6 +4222,10 @@ void Spell::EffectThreat(SpellEffIndex /*effIndex*/)
     if (!unitTarget->CanHaveThreatList())
         return;
 
+    // hack for Wind Shear, these values are approximate
+    if (m_spellInfo->Id == 57994)
+        damage = -(30 * (m_caster->getLevel() - 10));
+
     unitTarget->AddThreat(m_caster, float(damage));
 }
 
@@ -4353,6 +4383,29 @@ void Spell::EffectScriptEffect(SpellEffIndex effIndex)
         {
             switch(m_spellInfo->Id)
             {
+                //Teleport to Lake Wintergrasp
+                case 58622:
+                {
+                    if (OutdoorPvPWG *pvpWG = (OutdoorPvPWG*)sOutdoorPvPMgr->GetOutdoorPvPToZoneId(4197))
+                        if (unitTarget->getLevel() > 74)
+                        {
+                            if (pvpWG->getDefenderTeam() == TEAM_ALLIANCE)
+                            {
+                                if (unitTarget->ToPlayer()->GetTeam() == ALLIANCE)
+                                    unitTarget->CastSpell(unitTarget, SPELL_TELEPORT_FORTRESS, true);
+                                else
+                                    unitTarget->CastSpell(unitTarget, SPELL_TELEPORT_HORDE_CAMP, true);
+                            }
+                            else
+                            {
+                                if (unitTarget->ToPlayer()->GetTeam() == HORDE)
+                                    unitTarget->CastSpell(unitTarget, SPELL_TELEPORT_FORTRESS, true);
+                                else
+                                    unitTarget->CastSpell(unitTarget, SPELL_TELEPORT_ALLIANCE_CAMP, true);
+                            }
+                        }
+                    return;
+                }
                 // Glyph of Backstab
                 case 63975:
                 {
@@ -5133,7 +5186,7 @@ void Spell::EffectScriptEffect(SpellEffIndex effIndex)
                     if (chargesaura && chargesaura->GetCharges() > 1)
                     {
                         chargesaura->SetCharges(chargesaura->GetCharges() - 1);
-                        m_caster->CastSpell(unitTarget, spell_heal, true, NULL, NULL, m_caster->ToTempSummon()->GetSummonerGUID());
+                        unitTarget->CastSpell(unitTarget, spell_heal, true, NULL, NULL, m_caster->ToTempSummon()->GetSummonerGUID());
                     }
                     else
                         m_caster->ToTempSummon()->UnSummon();
@@ -6011,9 +6064,13 @@ void Spell::EffectCharge(SpellEffIndex /*effIndex*/)
     if (!target)
         return;
 
-    float x, y, z;
-    target->GetContactPoint(m_caster, x, y, z);
-    m_caster->GetMotionMaster()->MoveCharge(x, y, z);
+    float angle = target->GetRelativeAngle(m_caster);
+    Position pos;
+
+    target->GetContactPoint(m_caster, pos.m_positionX, pos.m_positionY, pos.m_positionZ);
+    target->GetFirstCollisionPosition(pos, target->GetObjectSize(), angle);
+
+    m_caster->GetMotionMaster()->MoveCharge(pos.m_positionX, pos.m_positionY, pos.m_positionZ + target->GetObjectSize());
 
     // not all charge effects used in negative spells
     if (!IsPositiveSpell(m_spellInfo->Id) && m_caster->GetTypeId() == TYPEID_PLAYER)
@@ -6087,6 +6144,9 @@ void Spell::EffectKnockBack(SpellEffIndex effIndex)
 
 void Spell::EffectLeapBack(SpellEffIndex effIndex)
 {
+    //if (m_caster->ToPlayer())
+    //    sAnticheatMgr->DisableAnticheatDetection(m_caster->ToPlayer());
+
     float speedxy = float(m_spellInfo->EffectMiscValue[effIndex])/10;
     float speedz = float(damage/10);
     if (!speedxy)
@@ -6210,6 +6270,9 @@ void Spell::EffectSummonDeadPet(SpellEffIndex /*effIndex*/)
         return;
     if (damage < 0)
         return;
+
+    //if (m_caster->ToPlayer())
+    //   sAnticheatMgr->DisableAnticheatDetection(m_caster->ToPlayer());
 
     float x, y, z;
     _player->GetPosition(x, y, z);
@@ -6705,6 +6768,18 @@ void Spell::EffectActivateRune(SpellEffIndex effIndex)
             --count;
         }
     }
+    // Blood Tap
+    if (m_spellInfo->Id == 45529 && count > 0)
+    {
+        for (uint32 j = 0; j < MAX_RUNES && count > 0; ++j)
+        {
+            if (plr->GetRuneCooldown(j) && plr->GetCurrentRune(j) == RUNE_BLOOD)
+            {
+                plr->SetRuneCooldown(j, 0);
+                --count;
+            }
+        }
+    }
     // Empower rune weapon
     if (m_spellInfo->Id == 47568)
     {
@@ -6718,6 +6793,7 @@ void Spell::EffectActivateRune(SpellEffIndex effIndex)
                 plr->SetRuneCooldown(i, 0);
         }
     }
+    plr->ResyncRunes(MAX_RUNES);
 }
 
 void Spell::EffectCreateTamedPet(SpellEffIndex effIndex)
@@ -6757,7 +6833,12 @@ void Spell::EffectDiscoverTaxi(SpellEffIndex effIndex)
 void Spell::EffectTitanGrip(SpellEffIndex /*effIndex*/)
 {
     if (unitTarget && unitTarget->GetTypeId() == TYPEID_PLAYER)
-        unitTarget->ToPlayer()->SetCanTitanGrip(true);
+    {
+        Player *plr = unitTarget->ToPlayer();
+        plr->SetCanTitanGrip(true);
+        if (plr->HasTwoHandWeaponInOneHand() && !plr->HasAura(49152))
+            plr->CastSpell(plr, 49152, true);
+    }
 }
 
 void Spell::EffectRedirectThreat(SpellEffIndex /*effIndex*/)
@@ -6902,6 +6983,12 @@ void Spell::SummonGuardian(uint32 i, uint32 entry, SummonPropertiesEntry const *
             else
                 summon->SetDisplayId(1126);
         }
+        else if (summon->GetEntry() == 1964) // Force of Nature
+            if (AuraEffect * aurEff = m_caster->GetAuraEffectOfRankedSpell(16836, 2))
+            {
+                int32 value = aurEff->GetAmount();
+                summon->CastCustomSpell(summon, 50419, &value, &value, 0, true);
+            }
 
         summon->AI()->EnterEvadeMode();
 
@@ -6941,6 +7028,9 @@ void Spell::GetSummonPosition(uint32 i, Position &pos, float radius, uint32 coun
     // Summon if dest location not present near caster
     else
     {
+        //if (m_caster->ToPlayer())
+        //    sAnticheatMgr->DisableAnticheatDetection(m_caster->ToPlayer());
+
         float x, y, z;
         m_caster->GetClosePoint(x, y, z, 3.0f);
         pos.Relocate(x, y, z);
@@ -6998,6 +7088,21 @@ void Spell::EffectPlayerNotification(SpellEffIndex effIndex)
     switch(m_spellInfo->Id)
     {
         case 58730: // Restricted Flight Area
+        {
+            if (sWorld->getBoolConfig(CONFIG_OUTDOORPVP_WINTERGRASP_ENABLED))
+            {
+                OutdoorPvPWG *pvpWG = (OutdoorPvPWG*)sOutdoorPvPMgr->GetOutdoorPvPToZoneId(4197);
+                if (pvpWG->isWarTime() == true)
+                {
+                    unitTarget->ToPlayer()->GetSession()->SendNotification(LANG_ZONE_NOFLYZONE);
+                    unitTarget->PlayDirectSound(9417); // Fel Reaver sound
+                    unitTarget->MonsterTextEmote("The air is too thin in Wintergrasp for normal flight. You will be ejected in 9 sec.", unitTarget->GetGUID(), true);
+                }
+                else
+                    unitTarget->RemoveAura(58730);
+            }
+            break;
+        }
         case 58600: // Restricted Flight Area
             unitTarget->ToPlayer()->GetSession()->SendNotification(LANG_ZONE_NOFLYZONE);
             break;

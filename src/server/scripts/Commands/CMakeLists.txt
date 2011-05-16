@@ -10,6 +10,7 @@
 
 set(scripts_STAT_SRCS
   ${scripts_STAT_SRCS}
+  Commands/cs_anticheat.cpp
   Commands/cs_account.cpp
   Commands/cs_achievement.cpp
   Commands/cs_gm.cpp
@@ -23,6 +24,7 @@ set(scripts_STAT_SRCS
   Commands/cs_event.cpp
   Commands/cs_gobject.cpp
   Commands/cs_honor.cpp
+  Commands/cs_wg.cpp
   Commands/cs_wp.cpp
   Commands/cs_titles.cpp
   Commands/cs_quest.cpp

@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "AnticheatMgr.h"
 #include "Common.h"
 #include "Language.h"
 #include "DatabaseEnv.h"
@@ -507,10 +508,13 @@ inline void KillRewarder::_RewardXP(Player* player, float rate)
     }
     if (xp)
     {
-        // 4.2.2. Apply auras modifying rewarded XP (SPELL_AURA_MOD_XP_PCT).
+        // 4.2.2.1. Apply auras modifying rewarded XP (SPELL_AURA_MOD_XP_PCT).
         Unit::AuraEffectList const& auras = player->GetAuraEffectsByType(SPELL_AURA_MOD_XP_PCT);
         for (Unit::AuraEffectList::const_iterator i = auras.begin(); i != auras.end(); ++i)
             AddPctN(xp, (*i)->GetAmount());
+
+        // 4.2.2.2. Apply rates from character_xp_rates
+        xp *= player->kill_xp_rate;
 
         // 4.2.3. Give XP to player.
         player->GiveXP(xp, _victim, _groupRate);
@@ -1177,6 +1181,9 @@ bool Player::Create(uint32 guidlow, const std::string& name, uint8 race, uint8 c
     }
     // all item positions resolved
 
+    // insert player into character_xp_rates with default values
+    CharacterDatabase.PExecute("INSERT INTO character_xp_rates (guid) VALUES ('%u')", guidlow);
+
     return true;
 }
 
@@ -1249,7 +1256,7 @@ uint32 Player::EnvironmentalDamage(EnviromentalDamage type, uint32 damage)
     // Absorb, resist some environmental damage type
     uint32 absorb = 0;
     uint32 resist = 0;
-    if (type == DAMAGE_LAVA)
+    if (type == DAMAGE_LAVA || DAMAGE_FIRE)
         CalcAbsorbResist(this, SPELL_SCHOOL_MASK_FIRE, DIRECT_DAMAGE, damage, &absorb, &resist);
     else if (type == DAMAGE_SLIME)
         CalcAbsorbResist(this, SPELL_SCHOOL_MASK_NATURE, DIRECT_DAMAGE, damage, &absorb, &resist);
@@ -1416,7 +1423,7 @@ void Player::HandleDrowning(uint32 time_diff)
                     EnvironmentalDamage(DAMAGE_LAVA, damage);
                 // need to skip Slime damage in Undercity,
                 // maybe someone can find better way to handle environmental damage
-                else if (m_zoneUpdateId != 1497)
+                else if (m_zoneUpdateId != 1497 && m_zoneUpdateId != 3968)
                     EnvironmentalDamage(DAMAGE_SLIME, damage);
             }
         }
@@ -1488,6 +1495,8 @@ void Player::Update(uint32 p_time)
 {
     if (!IsInWorld())
         return;
+
+    //sAnticheatMgr->HandleHackDetectionTimer(this, p_time);
 
     // undelivered mail
     if (m_nextMailDelivereTime && m_nextMailDelivereTime <= time(NULL))
@@ -2079,6 +2088,8 @@ void Player::TeleportOutOfMap(Map *oldMap)
 
 bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientation, uint32 options)
 {
+    //sAnticheatMgr->DisableAnticheatDetection(this,true);
+
     if (!MapManager::IsValidMapCoord(mapid, x, y, z, orientation))
     {
         sLog->outError("TeleportTo: invalid map (%d) or invalid coordinates (X: %f, Y: %f, Z: %f, O: %f) given when teleporting player (GUID: %u, name: %s, map: %d, X: %f, Y: %f, Z: %f, O: %f).",
@@ -4096,8 +4107,11 @@ void Player::removeSpell(uint32 spell_id, bool disabled, bool learn_low_rank)
         }
     }
 
-    if (spell_id == 46917 && m_canTitanGrip)
+    if (spell_id == 46917 && CanTitanGrip())
+    {
         SetCanTitanGrip(false);
+        RemoveAurasDueToSpell(49152);
+    }
     if (spell_id == 674 && m_canDualWield)
         SetCanDualWield(false);
 
@@ -4902,6 +4916,7 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
             trans->PAppend("DELETE FROM character_queststatus_daily WHERE guid = '%u'", guid);
             trans->PAppend("DELETE FROM character_talent WHERE guid = '%u'", guid);
             trans->PAppend("DELETE FROM character_skills WHERE guid = '%u'", guid);
+            trans->PAppend("DELETE FROM character_xp_rates WHERE guid = '%u'",guid);
 
             CharacterDatabase.CommitTransaction(trans);
             break;
@@ -6823,7 +6838,7 @@ void Player::CheckAreaExploreAndOutdoor()
                 uint32 XP = 0;
                 if (diff < -5)
                 {
-                    XP = uint32(sObjectMgr->GetBaseXP(getLevel()+5)*sWorld->getRate(RATE_XP_EXPLORE));
+                    XP = uint32(sObjectMgr->GetBaseXP(getLevel()+5)*sWorld->getRate(RATE_XP_EXPLORE)*explore_xp_rate);
                 }
                 else if (diff > 5)
                 {
@@ -6833,11 +6848,11 @@ void Player::CheckAreaExploreAndOutdoor()
                     else if (exploration_percent < 0)
                         exploration_percent = 0;
 
-                    XP = uint32(sObjectMgr->GetBaseXP(p->area_level)*exploration_percent/100*sWorld->getRate(RATE_XP_EXPLORE));
+                    XP = uint32(sObjectMgr->GetBaseXP(p->area_level)*exploration_percent/100*sWorld->getRate(RATE_XP_EXPLORE)*explore_xp_rate);
                 }
                 else
                 {
-                    XP = uint32(sObjectMgr->GetBaseXP(p->area_level)*sWorld->getRate(RATE_XP_EXPLORE));
+                    XP = uint32(sObjectMgr->GetBaseXP(p->area_level)*sWorld->getRate(RATE_XP_EXPLORE)*explore_xp_rate);
                 }
 
                 GiveXP(XP, NULL);
@@ -8004,9 +8019,13 @@ void Player::_ApplyWeaponDependentAuraMods(Item *item, WeaponAttackType attackTy
     AuraEffectList const& auraDamagePctList = GetAuraEffectsByType(SPELL_AURA_MOD_DAMAGE_PERCENT_DONE);
     for (AuraEffectList::const_iterator itr = auraDamagePctList.begin(); itr != auraDamagePctList.end(); ++itr)
         if ((apply && item->IsFitToSpellRequirements((*itr)->GetSpellProto())) || HasItemFitToSpellRequirements((*itr)->GetSpellProto(), item))
-            mod += (*itr)->GetAmount();
+            if ((*itr)->GetMiscValue() & SPELL_SCHOOL_MASK_NORMAL)
+                mod += (*itr)->GetAmount();
 
     SetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT, mod/100.0f);
+    UpdateDamagePhysical(BASE_ATTACK);
+    UpdateDamagePhysical(OFF_ATTACK);
+    UpdateDamagePhysical(RANGED_ATTACK);
 }
 
 void Player::_ApplyWeaponDependentAuraCritMod(Item *item, WeaponAttackType attackType, AuraEffect const* aura, bool apply)
@@ -12144,6 +12163,10 @@ Item* Player::EquipItem(uint16 pos, Item *pItem, bool update)
         return pItem2;
     }
 
+    // Apply Titan's Grip damage penalty if necessary
+    if ((slot == EQUIPMENT_SLOT_MAINHAND || slot == EQUIPMENT_SLOT_OFFHAND) && CanTitanGrip() && HasTwoHandWeaponInOneHand() && !HasAura(49152))
+        CastSpell(this, 49152, true);
+
     // only for full equip instead adding to stack
     GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_EQUIP_ITEM, pItem->GetEntry());
     GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_EQUIP_EPIC_ITEM, pItem->GetEntry(), slot);
@@ -12166,6 +12189,10 @@ void Player::QuickEquipItem(uint16 pos, Item *pItem)
             pItem->AddToWorld();
             pItem->SendUpdateToPlayer(this);
         }
+
+        // Apply Titan's Grip damage penalty if necessary
+        if ((slot == EQUIPMENT_SLOT_MAINHAND || slot == EQUIPMENT_SLOT_OFFHAND) && CanTitanGrip() && HasTwoHandWeaponInOneHand() && !HasAura(49152))
+            CastSpell(this, 49152, true);
 
         GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_EQUIP_ITEM, pItem->GetEntry());
         GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_EQUIP_EPIC_ITEM, pItem->GetEntry(), slot);
@@ -12279,7 +12306,12 @@ void Player::RemoveItem(uint8 bag, uint8 slot, bool update)
             SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (slot * 2), 0);
 
             if (slot < EQUIPMENT_SLOT_END)
+            {
                 SetVisibleItemSlot(slot, NULL);
+                // Remove Titan's Grip damage penalty if necessary
+                if ((slot == EQUIPMENT_SLOT_MAINHAND || slot == EQUIPMENT_SLOT_OFFHAND) && CanTitanGrip() && !HasTwoHandWeaponInOneHand())
+                    RemoveAurasDueToSpell(49152);
+            }
         }
         else if (Bag *pBag = GetBagByPos(bag))
             pBag->RemoveItem(slot, update);
@@ -14831,8 +14863,14 @@ void Player::RewardQuest(Quest const *pQuest, uint32 reward, Object* questGiver,
     uint32 quest_id = pQuest->GetQuestId();
 
     for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
-        if (pQuest->ReqItemId[i])
-            DestroyItemCount(pQuest->ReqItemId[i], pQuest->ReqItemCount[i], true);
+        if (uint32 qItem = pQuest->ReqItemId[i])
+        {
+            bool questItem = false;
+            if (Item * pItem = GetItemByEntry(qItem))
+                if (pItem->GetTemplate()->Bonding == BIND_QUEST_ITEM)
+                    questItem = true;
+            DestroyItemCount(qItem, questItem ? 9999 : pQuest->ReqItemCount[i], true);
+        }
 
     for (uint8 i = 0; i < QUEST_SOURCE_ITEM_IDS_COUNT; ++i)
     {
@@ -14884,7 +14922,7 @@ void Player::RewardQuest(Quest const *pQuest, uint32 reward, Object* questGiver,
     bool rewarded = (rewItr != m_RewardedQuests.end());
 
     // Not give XP in case already completed once repeatable quest
-    uint32 XP = rewarded ? 0 : uint32(pQuest->XPValue(this)*sWorld->getRate(RATE_XP_QUEST));
+    uint32 XP = rewarded ? 0 : uint32(pQuest->XPValue(this)*sWorld->getRate(RATE_XP_QUEST)*quest_xp_rate);
 
     // handle SPELL_AURA_MOD_XP_QUEST_PCT auras
     Unit::AuraEffectList const& ModXPPctAuras = GetAuraEffectsByType(SPELL_AURA_MOD_XP_QUEST_PCT);
@@ -15438,6 +15476,11 @@ bool Player::TakeQuestSourceItem(uint32 quest_id, bool msg)
     Quest const* qInfo = sObjectMgr->GetQuestTemplate(quest_id);
     if (qInfo)
     {
+        for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
+            if (uint32 qItem = qInfo->ReqItemId[i])
+                if (Item * pItem = GetItemByEntry(qItem))
+                    if (pItem->GetTemplate()->Bonding == BIND_QUEST_ITEM)
+                        DestroyItemCount(qItem, 9999, true);
         uint32 srcitem = qInfo->GetSrcItemId();
         if (srcitem > 0)
         {
@@ -16205,6 +16248,45 @@ void Player::_LoadDeclinedNames(PreparedQueryResult result)
     m_declinedname = new DeclinedName;
     for (uint8 i = 0; i < MAX_DECLINED_NAME_CASES; ++i)
         m_declinedname->name[i] = (*result)[i].GetString();
+}
+
+void Player::_LoadExpRates(PreparedQueryResult result)
+{     
+    if (result)
+    {
+        Field* fields = result->Fetch();
+
+        time_t start_time   = (time_t)fields[0].GetUInt64();
+        time_t end_time     = (time_t)fields[1].GetUInt64();
+        kill_xp_rate        = fields[2].GetUInt32();
+        quest_xp_rate       = fields[3].GetUInt32();
+        explore_xp_rate     = fields[4].GetUInt32();
+
+        time_t currenttime = time(NULL);
+        if( start_time < currenttime && currenttime < end_time ) 
+        {
+            // bonus is legal, player gets db values even if they are 1 1 1 !
+            kill_xp_rate            = fields[2].GetUInt32();
+            quest_xp_rate           = fields[3].GetUInt32();
+            explore_xp_rate         = fields[4].GetUInt32();
+        }
+        else
+        {
+            // bonus is illegal, player gets default values
+            CharacterDatabase.PExecute("UPDATE character_xp_rates SET kill_xp_rate = '1', quest_xp_rate = '1', explore_xp_rate = '1', start_time = '0000-00-00 00:00:00', end_time = '0000-00-00 00:00:00' where guid = '%u'",GetGUIDLow());
+            kill_xp_rate = 1;
+            quest_xp_rate = 1;
+            explore_xp_rate = 1;
+        } 
+    }
+    else
+    {
+        sLog->outError("Player (GUID %u) not found in table `character_xp_rates`, will use default values",GetGUIDLow());
+        CharacterDatabase.PExecute("INSERT INTO character_xp_rates (guid) VALUES ('%u')",GetGUIDLow());
+        kill_xp_rate = 1;
+        quest_xp_rate = 1;
+        explore_xp_rate = 1;
+    }
 }
 
 void Player::_LoadArenaTeamInfo(PreparedQueryResult result)
@@ -16997,6 +17079,9 @@ bool Player::LoadFromDB(uint32 guid, SQLQueryHolder *holder)
     m_achievementMgr.CheckAllAchievementCriteria();
 
     _LoadEquipmentSets(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADEQUIPMENTSETS));
+
+    // load data from table character_xp_rates
+    _LoadExpRates(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADXPRATE));
 
     return true;
 }
@@ -18339,6 +18424,12 @@ void Player::SaveToDB()
         _SaveStats(trans);
 
     CharacterDatabase.CommitTransaction(trans);
+
+    // we save the data here to prevent spamming
+    sAnticheatMgr->SavePlayerData(this);
+
+    // in this way we prevent to spam the db by each report made!
+    // sAnticheatMgr->SavePlayerData(this);
 
     // save pet (hunter pet level and experience and all type pets health/mana).
     if (Pet* pet = GetPet())
@@ -22969,7 +23060,7 @@ void Player::ResyncRunes(uint8 count)
     for (uint32 i = 0; i < count; ++i)
     {
         data << uint8(GetCurrentRune(i));                   // rune type
-        data << uint8(255 - (GetRuneCooldown(i) * 51));     // passed cooldown time (0-255)
+        data << uint8(255 - ((GetRuneCooldown(i) / 2000) * 51));     // passed cooldown time (0-255)
     }
     GetSession()->SendPacket(&data);
 }

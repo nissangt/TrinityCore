@@ -28,6 +28,8 @@
 #include "CreatureAI.h"
 #include "MapManager.h"
 #include "BattlegroundIC.h"
+#include "OutdoorPvPMgr.h"
+#include "OutdoorPvPWG.h"
 
 bool IsAreaEffectTarget[TOTAL_SPELL_TARGETS];
 SpellEffectTargetTypes EffectTargetType[TOTAL_SPELL_EFFECTS];
@@ -759,6 +761,7 @@ bool SpellMgr::_isPositiveEffect(uint32 spellId, uint32 effIndex, bool deep) con
             switch (spellId)
             {
                 case 34700: // Allergic Reaction
+                case 34709: // Shadow Sight
                 case 61987: // Avenging Wrath Marker
                 case 61988: // Divine Shield exclude aura
                     return false;
@@ -768,6 +771,14 @@ bool SpellMgr::_isPositiveEffect(uint32 spellId, uint32 effIndex, bool deep) con
                     break;
             }
             break;
+        case SPELLFAMILY_ROGUE:
+            // Envenom
+            if (spellproto->SpellFamilyFlags[1] & 0x8)
+                return true;
+            // Slice and Dice
+            else if (spellproto->SpellFamilyFlags[0] & 0x40000)
+                return true;
+            break;
         case SPELLFAMILY_MAGE:
             // Amplify Magic, Dampen Magic
             if (spellproto->SpellFamilyFlags[0] == 0x00002000)
@@ -775,6 +786,11 @@ bool SpellMgr::_isPositiveEffect(uint32 spellId, uint32 effIndex, bool deep) con
             // Ignite
             if (spellproto->SpellIconID == 45)
                 return true;
+            break;
+        case SPELLFAMILY_WARRIOR:
+            // Shockwave
+            if (spellId == 46968)
+                return false;
             break;
         case SPELLFAMILY_PRIEST:
             switch (spellId)
@@ -3098,6 +3114,26 @@ bool SpellArea::IsFitToRequirements(Player const* player, uint32 newZone, uint32
                     return false;
                 break;
             }
+        case 58730: // No fly Zone - Wintergrasp
+            {
+                if (!player)
+                    return false;
+
+                if (sWorld->getBoolConfig(CONFIG_OUTDOORPVP_WINTERGRASP_ENABLED))
+                {
+                    OutdoorPvPWG *pvpWG = (OutdoorPvPWG*)sOutdoorPvPMgr->GetOutdoorPvPToZoneId(4197);
+                    if (!pvpWG->isWarTime() || (!player->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED) && !player->HasAuraType(SPELL_AURA_FLY)) || player->HasAura(45472) || player->HasAura(44795) || player->GetPositionZ() > 619.2f || player->isInFlight())
+                        return false;
+                }
+                break;
+            }
+        case 58045: // Essence of Wintergrasp - Wintergrasp
+        case 57940: // Essence of Wintergrasp - Northrend
+            {
+                if (!player || player->GetTeamId() != sWorld->getWorldState(WORLDSTATE_WINTERGRASP_CONTROLING_FACTION))
+                    return false;
+                break;
+            }
         case SPELL_OIL_REFINERY: // Oil Refinery - Isle of Conquest.
         case SPELL_QUARRY: // Quarry - Isle of Conquest.
             {
@@ -3617,6 +3653,7 @@ void SpellMgr::LoadSpellCustomAttr()
             ++count;
             break;
         case 49838: // Stop Time
+        case 52916: // Honor Among Thieves
             spellInfo->AttributesEx3 |= SPELL_ATTR3_NO_INITIAL_AGGRO;
             ++count;
             break;
@@ -3632,17 +3669,36 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->EffectImplicitTargetA[0] = TARGET_UNIT_AREA_ENEMY_SRC;
             ++count;
             break;
+        case 18754: case 18755: case 18756: // Improved Succubus
+            // now aura will be applied correctly
+            spellInfo->EffectImplicitTargetA[0] = TARGET_UNIT_CASTER;
+            ++count;
+            break;
         case 3286:  // Bind
             spellInfo->EffectImplicitTargetA[0] = TARGET_UNIT_TARGET_ENEMY;
             spellInfo->EffectImplicitTargetA[1] = TARGET_UNIT_TARGET_ENEMY;
+            ++count;
+            break;
+        case 45524: // Chains of Ice
+            // this will fix self-damage caused by Glyph of Chains of Ice
+            spellInfo->EffectImplicitTargetA[2] = TARGET_UNIT_TARGET_ENEMY;
             ++count;
             break;
         case 32182: // Heroism
             spellInfo->excludeCasterAuraSpell = 57723; // Exhaustion
             ++count;
             break;
+        case 57994: // Wind Shear
+            // this required because with 0 bp it isn't handled in SpellEffects
+            spellInfo->EffectBasePoints[1] = 1;
+            ++count;
+            break;
         case 2825:  // Bloodlust
             spellInfo->excludeCasterAuraSpell = 57724; // Sated
+            ++count;
+            break;
+        case 44440: case 44441: // Fiery Payback hack
+            spellInfo->CasterAuraStateNot = AURA_STATE_NONE;
             ++count;
             break;
         case 20335: // Heart of the Crusader
@@ -3653,10 +3709,21 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_TRIGGERED;
             ++count;
             break;
+        case 31117: // Unstable Affliction
+            // we need this because spell implemented wrong
+            // it should be done through aura proc with new procEx for dispel
+            spellInfo->AttributesEx4 &= ~SPELL_ATTR4_FIXED_DAMAGE;
+            ++count;
+            break;
         case 16007: // Draco-Incarcinatrix 900
             // was 46, but effect is aura effect
             spellInfo->EffectImplicitTargetA[0] = TARGET_UNIT_NEARBY_ENTRY;
             spellInfo->EffectImplicitTargetB[0] = TARGET_DST_NEARBY_ENTRY;
+            ++count;
+            break;
+        case 24131: case 24134: case 24135: // Wyvern Sting (rank 1-3)
+            // something wrong and it applied as positive buff
+            mSpellCustomAttr[i] |= SPELL_ATTR0_CU_NEGATIVE_EFF0;
             ++count;
             break;
         case 26029: // Dark Glare
@@ -3690,6 +3757,11 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->EffectRadiusIndex[0] = 45;
             ++count;
             break;
+        case 63944:                         // Renewed Hope hack
+            spellInfo->EffectApplyAuraName[0] = 87;
+            spellInfo->EffectMiscValue[0] = 127;
+            ++count;
+            break;
         case 27820:                         // Mana Detonation
         //case 28062: case 39090:             // Positive/Negative Charge
         //case 28085: case 39093:
@@ -3700,6 +3772,11 @@ void SpellMgr::LoadSpellCustomAttr()
         case 71482: case 71483:             // Bloodbolt Splash
         case 71390:                         // Pact of the Darkfallen
             mSpellCustomAttr[i] |= SPELL_ATTR0_CU_EXCLUDE_SELF;
+            ++count;
+            break;
+        case 64844: // Divine Hymn 
+        case 64904: // Hymn of Hope
+            spellInfo->AttributesEx &= ~SPELL_ATTR1_NEGATIVE;
             ++count;
             break;
         case 44978: case 45001: case 45002: // Wild Magic
@@ -3720,6 +3797,11 @@ void SpellMgr::LoadSpellCustomAttr()
         case 62374: // Pursued
         case 61588: // Blazing Harpoon
             spellInfo->MaxAffectedTargets = 1;
+            ++count;
+            break;
+        case 59921: // Frost Fever
+            // Icy Clutch shouldn't be applied at caster when login
+            spellInfo->AttributesEx4 |= SPELL_ATTR4_CANT_PROC_FROM_SELFCAST;
             ++count;
             break;
         case 52479: // Gift of the Harvester
@@ -3798,6 +3880,11 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->procCharges = 2;
             ++count;
             break;
+        case 53257: // Cobra Strikes
+            spellInfo->procCharges = 2;
+            spellInfo->StackAmount = 0;
+            ++count;
+            break;
         case 44544: // Fingers of Frost
             spellInfo->EffectSpellClassMask[0] = flag96(685904631, 1151048, 0);
             ++count;
@@ -3855,8 +3942,16 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->Stances = 1 << (FORM_TREE - 1);
             ++count;
             break;
+        case 55689: // Glyph of Shadow (to prevent glyph aura loss)
+            spellInfo->AttributesEx2 |= SPELL_ATTR2_NOT_NEED_SHAPESHIFT;
+            ++count;
+            break;
         case 30421: // Nether Portal - Perseverence
             spellInfo->EffectBasePoints[2] += 30000;
+            ++count;
+            break;
+        case 61607: // Mark of Blood
+            spellInfo->AttributesEx |= SPELL_ATTR1_NO_THREAT;
             ++count;
             break;
         // some dummy spell only has dest, should push caster in this case
@@ -3906,8 +4001,20 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->EffectImplicitTargetA[0] = TARGET_UNIT_CASTER;
             ++count;
             break;
+        case 12051: // Evocation - now we can interrupt this
+            spellInfo->InterruptFlags |= SPELL_INTERRUPT_FLAG_INTERRUPT;
+            ++count;
+            break;
         case 25771: // Forbearance - wrong mechanic immunity in DBC since 3.0.x
             spellInfo->EffectMiscValue[0] = MECHANIC_IMMUNE_SHIELD;
+            ++count;
+            break;
+        case 42650: // Army of the Dead - now we can interrupt this
+            spellInfo->InterruptFlags = SPELL_INTERRUPT_FLAG_INTERRUPT;
+            ++count;
+            break;
+        case 61851: // Killing Spree - should remove snares from caster
+            spellInfo->AttributesEx |= SPELL_ATTR1_DISPEL_AURAS_ON_IMMUNITY;
             ++count;
             break;
         case 64321: // Potent Pheromones
@@ -3941,6 +4048,7 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->StackAmount = 4;
             ++count;
             break;
+        case 50526: // Wandering Plague
         case 63675: // Improved Devouring Plague
             spellInfo->AttributesEx3 |= SPELL_ATTR3_NO_DONE_BONUS;
             ++count;
@@ -4127,6 +4235,26 @@ void SpellMgr::LoadSpellCustomAttr()
                     break;
                 ++count;
                 break;
+            case SPELLFAMILY_PALADIN:
+                // Sanctified Retribution talent fix
+                if (spellInfo->SpellFamilyFlags[2] & 0x20 && spellInfo->SpellIconID == 555)
+                {
+                    spellInfo->Effect[1] = 0;
+                    spellInfo->Effect[2] = 0;
+                }
+                else
+                    break;
+                ++count;
+                break;
+            case SPELLFAMILY_HUNTER:
+                // Monstrous Bite target fix
+                // seems we incorrectly handle spell with "no target"
+                if (spellInfo->SpellIconID == 599)
+                    spellInfo->EffectImplicitTargetA[1] = TARGET_UNIT_CASTER;
+                else
+                    break;
+                ++count;
+                break;
             case SPELLFAMILY_DRUID:
                 // Starfall Target Selection
                 if (spellInfo->SpellFamilyFlags[2] & 0x100)
@@ -4137,6 +4265,9 @@ void SpellMgr::LoadSpellCustomAttr()
                 // Roar
                 else if (spellInfo->SpellFamilyFlags[0] & 0x8)
                     mSpellCustomAttr[i] |= SPELL_ATTR0_CU_AURA_CC;
+                // Rake
+                else if (spellInfo->SpellFamilyFlags[0] & 0x1000 && spellInfo->SpellIconID == 494)
+                    mSpellCustomAttr[i] |= SPELL_ATTR0_CU_IGNORE_ARMOR;
                 else
                     break;
                 ++count;
@@ -4153,6 +4284,20 @@ void SpellMgr::LoadSpellCustomAttr()
                 // Icy Touch - extend FamilyFlags (unused value) for Sigil of the Frozen Conscience to use
                 if (spellInfo->SpellIconID == 2721 && spellInfo->SpellFamilyFlags[0] & 0x2)
                     spellInfo->SpellFamilyFlags[0] |= 0x40;
+                ++count;
+                break;
+            case SPELLFAMILY_PRIEST:
+                // Twin Disciplines should affect at Prayer of Mending
+                if (spellInfo->SpellIconID == 2292)
+                    spellInfo->EffectSpellClassMask[0][1] |= 0x20;
+                // Spiritual Healing should affect at Prayer of Mending
+                else if (spellInfo->SpellIconID == 46)
+                    spellInfo->EffectSpellClassMask[0][1] |= 0x20;
+                // Divine Providence should affect at Prayer of Mending
+                else if (spellInfo->SpellIconID == 2845 && spellInfo->Id != 64844)
+                    spellInfo->EffectSpellClassMask[0][1] |= 0x20;
+                else
+                    break;
                 ++count;
                 break;
         }

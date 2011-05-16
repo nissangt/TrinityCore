@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "AnticheatMgr.h"
 #include "Common.h"
 #include "CreatureAIImpl.h"
 #include "Log.h"
@@ -1655,6 +1656,10 @@ void Unit::CalcAbsorbResist(Unit *pVictim, SpellSchoolMask schoolMask, DamageEff
             if ((*j)->GetMiscValue() & schoolMask)
                 AddPctN(damageResisted, -(*j)->GetAmount());
 
+        // Chaos Bolt should ignore any resistances
+        if (spellInfo && spellInfo->SpellFamilyName == SPELLFAMILY_WARLOCK && spellInfo->SpellIconID == 3178)
+            damageResisted = 0;
+
         dmgInfo.ResistDamage(uint32(damageResisted));
     }
 
@@ -2205,11 +2210,21 @@ uint32 Unit::CalculateDamage(WeaponAttackType attType, bool normalized, bool add
         }
     }
 
+    if (GetTypeId() == TYPEID_PLAYER)
+    {
+        min_damage /= GetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT);
+        max_damage /= GetFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT);
+    }
+
     if (min_damage > max_damage)
         std::swap(min_damage, max_damage);
 
     if (max_damage == 0.0f)
         max_damage = 5.0f;
+
+    // Rounding
+    min_damage += 0.5f;
+    max_damage += 0.5f;
 
     return urand((uint32)min_damage, (uint32)max_damage);
 }
@@ -2488,7 +2503,9 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     // Increase from attacker SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT auras
     modHitChance += GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_INCREASES_SPELL_PCT_TO_HIT, schoolMask);
     // Chance hit from victim SPELL_AURA_MOD_ATTACKER_SPELL_HIT_CHANCE auras
-    modHitChance += pVictim->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_ATTACKER_SPELL_HIT_CHANCE, schoolMask);
+    if (!(spell->SpellFamilyName == SPELLFAMILY_WARLOCK && spell->SpellIconID == 3178)) // Chaos Bolt should ignore it
+        modHitChance += pVictim->GetTotalAuraModifierByMiscMask(SPELL_AURA_MOD_ATTACKER_SPELL_HIT_CHANCE, schoolMask);
+
     // Reduce spell hit chance for Area of effect spells from victim SPELL_AURA_MOD_AOE_AVOIDANCE aura
     if (IsAreaOfEffectSpell(spell))
         modHitChance -= pVictim->GetTotalAuraModifier(SPELL_AURA_MOD_AOE_AVOIDANCE);
@@ -2530,7 +2547,18 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
             }
         }
 
-        if (bNegativeAura)
+        // Direct Damage spells should not be fully resisted
+        bool bDirectDamage = false;
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+        {
+            if (spell->Effect[i] == SPELL_EFFECT_SCHOOL_DAMAGE || spell->Effect[i] == SPELL_EFFECT_HEALTH_LEECH)
+            {
+                bDirectDamage = true;
+                break;
+            }
+        }
+
+        if (bNegativeAura && !bDirectDamage)
         {
             tmp += pVictim->GetMaxPositiveAuraModifierByMiscValue(SPELL_AURA_MOD_DEBUFF_RESISTANCE, int32(spell->Dispel)) * 100;
             tmp += pVictim->GetMaxNegativeAuraModifierByMiscValue(SPELL_AURA_MOD_DEBUFF_RESISTANCE, int32(spell->Dispel)) * 100;
@@ -2540,6 +2568,10 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
    // Roll chance
     if (rand < tmp)
         return SPELL_MISS_RESIST;
+
+    // Chaos Bolt cannot be deflected
+    if (spell->SpellFamilyName == SPELLFAMILY_WARLOCK && spell->SpellIconID == 3178)
+        return SPELL_MISS_NONE;
 
     // cast by caster in front of victim
     if (pVictim->HasInArc(M_PI, this) || pVictim->HasAuraType(SPELL_AURA_IGNORE_HIT_DIRECTION))
@@ -3723,6 +3755,16 @@ void Unit::RemoveAurasDueToSpellByDispel(uint32 spellId, uint64 casterGUID, Unit
                 }
                 default:
                     break;
+            }
+            // Wyvern Sting
+            if (aura->GetSpellProto()->SpellFamilyName == SPELLFAMILY_HUNTER && (aura->GetSpellProto()->SpellFamilyFlags[1] & 0x1000))
+            {
+                Unit * caster = aura->GetCaster();
+                if (caster && !(dispeller->GetTypeId() == TYPEID_UNIT && dispeller->ToCreature()->isTotem()))
+                    // Noxious Stings
+                    if (AuraEffect * auraEff = caster->GetAuraEffect(SPELL_AURA_OVERRIDE_CLASS_SCRIPTS, SPELLFAMILY_HUNTER, 3521, 1))
+                        if (Aura * newAura = caster->AddAura(aura->GetId(), dispeller))
+                            newAura->SetDuration(aura->GetDuration() / 100 * auraEff->GetAmount());
             }
             return;
         }
@@ -5621,8 +5663,20 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, AuraEffect* trigger
                 if (!procSpell)
                     return false;
 
+                // Very ugly hacks here. This required for triggered and AOE spells
+                uint32 costPercent = procSpell->ManaCostPercentage;
+                if (procSpell->SpellFamilyFlags[0] & 0x200000)     // Arcane Missiles
+                    costPercent = 6;
+                else if (procSpell->SpellFamilyFlags[0] & 0x80)    // Blizzard
+                    costPercent = urand(1,9);
+                else if (procSpell->SpellFamilyFlags[1] & 0x10000) // Living Bomb
+                    costPercent = urand(1,22);
+                // Dragon's Breath, Arcane Explosion, Cone of Cold, Frost Nova, Flamestrike, Blast Wave
+                else if (procSpell->SpellFamilyFlags[0] & 0x801244 || procSpell->SpellFamilyFlags[1] & 0x40)
+                    costPercent = urand(1,costPercent);
+
                 // mana cost save
-                int32 cost = int32(procSpell->manaCost + CalculatePctU(GetCreateMana(), procSpell->ManaCostPercentage));
+                int32 cost = int32(procSpell->manaCost + CalculatePctU(GetCreateMana(), costPercent));
                 basepoints0 = CalculatePctN(cost, triggerAmount);
                 if (basepoints0 <= 0)
                     return false;
@@ -5831,6 +5885,9 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, AuraEffect* trigger
             // Damage Shield
             if (dummySpell->SpellIconID == 3214)
             {
+                // to prevent proc from Sap
+                if (procSpell && procSpell->AttributesEx & SPELL_ATTR1_NOT_BREAK_STEALTH)
+                    return false;
                 triggered_spell_id = 59653;
                 // % of amount blocked
                 basepoints0 = CalculatePctN(int32(GetShieldBlockValue()), triggerAmount);
@@ -6433,6 +6490,18 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, AuraEffect* trigger
                     triggered_spell_id = 32747;
                     break;
                 }
+                // Tricks of the Trade
+                case 57934:
+                {
+                    if (Unit* unitTarget = GetMisdirectionTarget())
+                    {
+                         RemoveAura(dummySpell->Id, GetGUID(), 0, AURA_REMOVE_BY_DEFAULT);
+                         CastSpell(this, 59628, true);
+                         CastSpell(unitTarget, 57933, true);
+                         return true;
+                     }
+                     return false;
+                 }
             }
             // Cut to the Chase
             if (dummySpell->SpellIconID == 2909)
@@ -6533,7 +6602,6 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, AuraEffect* trigger
                 // This effect only from Rapid Killing (mana regen)
                 if (!(procSpell->SpellFamilyFlags[1] & 0x01000000))
                     return false;
-                triggered_spell_id = 56654;
 
                 target = this;
 
@@ -6549,9 +6617,16 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, AuraEffect* trigger
                 break;
             }
             // Glyph of Mend Pet
-            if(dummySpell->Id == 57870)
+            if (dummySpell->Id == 57870)
             {
                 pVictim->CastSpell(pVictim, 57894, true, NULL, NULL, GetGUID());
+                return true;
+            }
+            // Misdirection
+            if (dummySpell->Id == 34477)
+            {
+                RemoveAura(dummySpell->Id, GetGUID(), 0, AURA_REMOVE_BY_DEFAULT);
+                CastSpell(this, 35079, true);
                 return true;
             }
             break;
@@ -6912,6 +6987,14 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, AuraEffect* trigger
                             return false;
                     }
                     break;
+                }
+                case 99999: // Divine Storm Helper (SERVERSIDE)
+                {
+                   if (pVictim == this)
+                        return false;
+
+                    triggeredByAura->SetAmount(triggeredByAura->GetAmount() + damage);
+                    return true;
                 }
             }
             break;
@@ -7798,6 +7881,13 @@ bool Unit::HandleModDamagePctTakenAuraProc(Unit *pVictim, uint32 /*damage*/, Aur
             }
             break;
         }
+        case SPELLFAMILY_WARRIOR:
+        {
+            // Recklessness - prevent double proc
+            if (dummySpell->Id == 1719)
+                return false;
+            break;
+        }
     }
     // processed charge only counting case
     if (!triggered_spell_id)
@@ -7866,6 +7956,17 @@ bool Unit::HandleAuraProc(Unit * pVictim, uint32 damage, Aura * triggeredByAura,
                     CastCustomSpell(this, 59913, &bp0, NULL, NULL, true);
                     *handled = true;
                     break;
+                }
+                // Vigilance - original proc picking wrong target
+                case 50720:
+                {
+                    *handled = true;
+                    if (Unit * caster = triggeredByAura->GetCaster())
+                    {
+                        CastSpell(caster, 50725, true);
+                        return true;
+                    }
+                    return false;
                 }
             }
             break;
@@ -7957,6 +8058,13 @@ bool Unit::HandleAuraProc(Unit * pVictim, uint32 damage, Aura * triggeredByAura,
                     return true;
                 }
             }
+            break;
+        }
+        case SPELLFAMILY_ROGUE:
+        {
+            // prevent proc of Savage Combat
+            if (dummySpell->SpellIconID == 1959)
+                *handled = true;
             break;
         }
         case SPELLFAMILY_DEATHKNIGHT:
@@ -8557,7 +8665,13 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, AuraEffect* trig
                 return false;
             break;
         }
-
+        // Brambles
+        case 50419:
+        {
+            if (!roll_chance_i(triggerAmount))
+                return false;
+            break;
+        }
         // Cheat Death
         case 28845:
         {
@@ -8712,8 +8826,8 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, AuraEffect* trig
 
             target->CastSpell(target, trigger_spell_id, true, castItem, triggeredByAura);
 
-            if (cooldown && GetTypeId() == TYPEID_PLAYER)
-                this->ToPlayer()->AddSpellCooldown(trigger_spell_id, 0, time(NULL) + cooldown);
+            if (cooldown && target->GetTypeId() == TYPEID_PLAYER)
+                target->ToPlayer()->AddSpellCooldown(trigger_spell_id, 0, time(NULL) + cooldown);
             return true;
         }
         // Cast positive spell on enemy target
@@ -10605,7 +10719,10 @@ uint32 Unit::SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint3
     // Pets just add their bonus damage to their spell damage
     // note that their spell damage is just gain of their own auras
     if (HasUnitTypeMask(UNIT_MASK_GUARDIAN))
-        DoneAdvertisedBenefit += ((Guardian*)this)->GetBonusDamage();
+        if (!(GetSpellSchoolMask(spellProto) & SPELL_SCHOOL_MASK_NORMAL)) // Do not add Spellpower to melee abilities
+            DoneAdvertisedBenefit += ((Guardian*)this)->GetBonusDamage(); 
+        else if (((Guardian*)this)->GetBonusDamage())                     // Instead add a fixed amount of AP                    
+            DoneAdvertisedBenefit += GetTotalAttackPowerValue(BASE_ATTACK) * 0.2f;
 
     // Check for table values
     float coeff = 0;
@@ -10786,7 +10903,7 @@ int32 Unit::SpellBaseDamageBonusForVictim(SpellSchoolMask schoolMask, Unit *pVic
 bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolMask schoolMask, WeaponAttackType attackType) const
 {
     // Mobs can't crit with spells.
-    if (IS_CREATURE_GUID(GetGUID()))
+    if (IS_CREATURE_GUID(GetGUID()) && !(GetOwner() && GetOwner()->GetTypeId() == TYPEID_PLAYER))
         return false;
 
     // not critting spell
@@ -10796,9 +10913,17 @@ bool Unit::isSpellCrit(Unit *pVictim, SpellEntry const *spellProto, SpellSchoolM
     float crit_chance = 0.0f;
     switch(spellProto->DmgClass)
     {
-        case SPELL_DAMAGE_CLASS_NONE:  // Exception for Earth Shield and Lifebloom Final Bloom
-            if (spellProto->Id != 379 && spellProto->Id != 33778) // We need more spells to find a general way (if there is any)
-                return false;
+        case SPELL_DAMAGE_CLASS_NONE:
+            // We need more spells to find a general way (if there is any)
+            switch (spellProto->Id)
+            {
+                case 379:   // Earth Shield
+                case 33778: // Lifebloom Final Bloom
+                case 64844: // Divine Hymn
+                    break;
+                default:
+                    return false;
+            }
         case SPELL_DAMAGE_CLASS_MAGIC:
         {
             if (schoolMask & SPELL_SCHOOL_MASK_NORMAL)
@@ -11414,7 +11539,7 @@ bool Unit::IsImmunedToSpell(SpellEntry const* spellInfo)
     {
         // State/effect immunities applied by aura expect full spell immunity
         // Ignore effects with mechanic, they are supposed to be checked separately
-        if (!spellInfo->EffectMechanic[i])
+        if (!spellInfo->EffectMechanic[i] && spellInfo->Effect[i] != SPELL_EFFECT_KNOCK_BACK)
             if (IsImmunedToSpellEffect(spellInfo, i))
                 return true;
     }
@@ -11464,6 +11589,14 @@ bool Unit::IsImmunedToSpellEffect(SpellEntry const* spellInfo, uint32 index) con
                 ((*iter)->GetMiscValue() & GetSpellSchoolMask(spellInfo)) &&  // Check school
                 !IsPositiveEffect(spellInfo->Id, index))                                  // Harmful
                 return true;
+    }
+
+    if (GetTypeId() == TYPEID_PLAYER && spellInfo->Id != 49560)
+    {
+        if (spellInfo->Effect[index] == SPELL_EFFECT_ATTACK_ME)
+            return true;
+        if (spellInfo->EffectApplyAuraName[index] == SPELL_AURA_MOD_TAUNT)
+            return true;
     }
 
     return false;
@@ -11607,11 +11740,16 @@ void Unit::MeleeDamageBonus(Unit *pVictim, uint32 *pdamage, WeaponAttackType att
                 Item * item = ToPlayer()->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
 
                 if (item && !item->IsBroken() && item->IsFitToSpellRequirements((*i)->GetSpellProto()))
-                    AddPctN(DoneTotalMod, (*i)->GetAmount());
+                    if ((*i)->GetMiscValue() & SPELL_SCHOOL_MASK_NORMAL)
+                        AddPctN(DoneTotalMod, (*i)->GetAmount());
             }
             else if (ToPlayer()->HasItemFitToSpellRequirements((*i)->GetSpellProto()))
                 AddPctN(DoneTotalMod, (*i)->GetAmount());
         }
+        // Creatures' melee
+        else if ((*i)->GetMiscValue() & SPELL_SCHOOL_MASK_NORMAL)
+            if (!HasUnitTypeMask(UNIT_MASK_GUARDIAN))
+                AddPctN(DoneTotalMod, (*i)->GetAmount());
 
     AuraEffectList const &mDamageDoneVersus = GetAuraEffectsByType(SPELL_AURA_MOD_DAMAGE_DONE_VERSUS);
     for (AuraEffectList::const_iterator i = mDamageDoneVersus.begin(); i != mDamageDoneVersus.end(); ++i)
@@ -12136,7 +12274,7 @@ bool Unit::canAttack(Unit const* target, bool force) const
     if (!target->isAttackableByAOE())
         return false;
 
-    if (target->HasUnitState(UNIT_STAT_DIED))
+    if (target->HasUnitState(UNIT_STAT_DIED) && GetTypeId() != TYPEID_PLAYER)
     {
         if (!ToCreature() || !ToCreature()->isGuard())
             return false;
@@ -12302,6 +12440,9 @@ void Unit::SetVisible(bool x)
 
 void Unit::UpdateSpeed(UnitMoveType mtype, bool forced)
 {
+    //if (this->ToPlayer())
+    //    sAnticheatMgr->DisableAnticheatDetection(this->ToPlayer());
+
     int32 main_speed_mod  = 0;
     float stack_bonus     = 1.0f;
     float non_stack_bonus = 1.0f;
@@ -14124,10 +14265,18 @@ void Unit::ProcDamageAndSpellFor(bool isVictim, Unit * pTarget, uint32 procFlag,
             continue;
         ProcTriggeredData triggerData(itr->second->GetBase());
         // Defensive procs are active on absorbs (so absorption effects are not a hindrance)
-        bool active = (damage > 0) || (procExtra & (PROC_EX_ABSORB|PROC_EX_BLOCK) && isVictim);
+        bool active = damage || (procExtra & PROC_EX_BLOCK && isVictim);
         if (isVictim)
             procExtra &= ~PROC_EX_INTERNAL_REQ_FAMILY;
+
         SpellEntry const* spellProto = itr->second->GetBase()->GetSpellProto();
+
+        // only auras that has triggered spell should proc from fully absorbed damage
+        if (procExtra & PROC_EX_ABSORB && isVictim)
+            if (damage || spellProto->EffectTriggerSpell[0] || 
+                spellProto->EffectTriggerSpell[1] || spellProto->EffectTriggerSpell[2])
+                active = true;
+
         if(!IsTriggeredAtSpellProcEvent(pTarget, triggerData.aura, procSpell, procFlag, procExtra, attType, isVictim, active, triggerData.spellProcEvent))
             continue;
 
@@ -16294,6 +16443,9 @@ void Unit::UpdateObjectVisibility(bool forced)
 
 void Unit::KnockbackFrom(float x, float y, float speedXY, float speedZ)
 {
+    //if (this->ToPlayer())
+    //    sAnticheatMgr->DisableAnticheatDetection(this->ToPlayer());
+
     Player *player = NULL;
     if (GetTypeId() == TYPEID_PLAYER)
         player = (Player*)this;

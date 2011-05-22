@@ -459,8 +459,8 @@ void Creature::Update(uint32 diff)
                     Respawn();
                 else                                // the master is dead
                 {
-                    uint64 targetGuid = sObjectMgr->GetLinkedRespawnGuid(GetGUID());
-                    if (targetGuid == GetGUID()) // if linking self, never respawn (check delayed to next day)
+                    uint64 targetGuid = sObjectMgr->GetLinkedRespawnGuid(dbtableHighGuid);
+                    if (targetGuid == dbtableHighGuid) // if linking self, never respawn (check delayed to next day)
                         SetRespawnTime(DAY);
                     else
                         m_respawnTime = (now > linkedRespawntime ? now : linkedRespawntime)+urand(5, MINUTE); // else copy time from master and add a little
@@ -1140,6 +1140,10 @@ void Creature::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
 void Creature::SelectLevel(const CreatureTemplate *cinfo)
 {
     uint32 rank = isPet()? 0 : cinfo->rank;
+
+    // fix for bugged stats of pets summoned by NPCs
+    if (HasUnitTypeMask(UNIT_MASK_GUARDIAN))
+        return;
 
     // level
     uint8 minlevel = std::min(cinfo->maxlevel, cinfo->minlevel);

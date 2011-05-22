@@ -2495,7 +2495,10 @@ SpellMissInfo Unit::MagicSpellHitResult(Unit *pVictim, SpellEntry const *spell)
     SpellSchoolMask schoolMask = GetSpellSchoolMask(spell);
     // PvP - PvE spell misschances per leveldif > 2
     int32 lchance = pVictim->GetTypeId() == TYPEID_PLAYER ? 7 : 11;
-    int32 leveldif = int32(pVictim->getLevelForTarget(this)) - int32(getLevelForTarget(pVictim));
+    int32 thisLevel = getLevelForTarget(pVictim);
+    if (GetTypeId() == TYPEID_UNIT && ToCreature()->isTrigger())
+        thisLevel = std::max<int32>(thisLevel, spell->spellLevel);
+    int32 leveldif = int32(pVictim->getLevelForTarget(this)) - thisLevel;
 
     // Base hit chance from attacker and victim levels
     int32 modHitChance;
@@ -3696,11 +3699,14 @@ void Unit::RemoveAurasDueToSpellByDispel(uint32 spellId, uint64 casterGUID, Unit
                     // Unstable Affliction (crash if before removeaura?)
                     if (aura->GetSpellProto()->SpellFamilyFlags[1] & 0x0100)
                     {
+                        Unit * caster = aura->GetCaster();
+                        if (!caster)
+                            break;
                         if (AuraEffect const* aurEff = aura->GetEffect(EFFECT_0))
                         {
                             int32 damage = aurEff->GetAmount() * 9;
                             // backfire damage and silence
-                            dispeller->CastCustomSpell(dispeller, 31117, &damage, NULL, NULL, true, NULL, NULL, aura->GetCasterGUID());
+                            caster->CastCustomSpell(dispeller, 31117, &damage, NULL, NULL, true);
                         }
                     }
                     break;
@@ -4363,6 +4369,23 @@ bool Unit::HasNegativeAuraWithAttribute(uint32 flag, uint64 guid)
         if (!iter->second->IsPositive() && aura->GetSpellProto()->Attributes & flag && (!guid || aura->GetCasterGUID() == guid))
             return true;
     }
+    return false;
+}
+
+bool Unit::HasAuraWithMechanic(uint32 mechanicMask)
+{
+    for (AuraApplicationMap::iterator iter = m_appliedAuras.begin(); iter != m_appliedAuras.end(); ++iter)
+    {
+        SpellEntry const* spellInfo  = iter->second->GetBase()->GetSpellProto();
+        if (spellInfo->Mechanic && (mechanicMask & (1 << spellInfo->Mechanic)))
+            return true;
+
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            if (iter->second->HasEffect(i) && spellInfo->Effect[i] && spellInfo->EffectMechanic[i])
+                if (mechanicMask & (1 << spellInfo->EffectMechanic[i]))
+                    return true;
+    }
+
     return false;
 }
 
@@ -5483,6 +5506,18 @@ bool Unit::HandleDummyAuraProc(Unit *pVictim, uint32 damage, AuraEffect* trigger
                 case 63320:
                 {
                     triggered_spell_id = 63321; // Life Tap
+                    break;
+                }
+                // Purified Shard of the Scale - Onyxia 10 Caster Trinket
+                case 69755:
+                {
+                    triggered_spell_id = (procFlag & PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_POS) ? 69733 : 69729;
+                    break;
+                }
+                // Shiny Shard of the Scale - Onyxia 25 Caster Trinket
+                case 69739:
+                {
+                    triggered_spell_id = (procFlag & PROC_FLAG_DONE_SPELL_MAGIC_DMG_CLASS_POS) ? 69734 : 69730;
                     break;
                 }
                 case 71519: // Deathbringer's Will Normal
@@ -10531,8 +10566,8 @@ uint32 Unit::SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint3
             }
 
             // Torment the weak
-            if (spellProto->SpellFamilyFlags[0]&0x20200021 || spellProto->SpellFamilyFlags[1]& 0x9000)
-                if (pVictim->HasAuraType(SPELL_AURA_MOD_DECREASE_SPEED))
+            if (spellProto->SpellFamilyFlags[0] & 0x20600021 || spellProto->SpellFamilyFlags[1] & 0x9000)
+                if (pVictim->HasAuraWithMechanic((1<<MECHANIC_SNARE)|(1<<MECHANIC_SLOW_ATTACK)))
                 {
                     AuraEffectList const& mDumyAuras = GetAuraEffectsByType(SPELL_AURA_DUMMY);
                     for (AuraEffectList::const_iterator i = mDumyAuras.begin(); i != mDumyAuras.end(); ++i)

@@ -1825,7 +1825,8 @@ void Player::setDeathState(DeathState s)
         clearResurrectRequestData();
 
         // remove form before other mods to prevent incorrect stats calculation
-        RemoveAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
+        //if (IsInDisallowedMountForm)
+        //    RemoveAurasByType(SPELL_AURA_MOD_SHAPESHIFT);
 
         //FIXME: is pet dismissed at dying or releasing spirit? if second, add setDeathState(DEAD) to HandleRepopRequestOpcode and define pet unsummon here with (s == DEAD)
         RemovePet(NULL, PET_SAVE_NOT_IN_SLOT, true);
@@ -1851,14 +1852,8 @@ void Player::setDeathState(DeathState s)
         SetUInt32Value(PLAYER_SELF_RES_SPELL, ressSpellId);
 
     if (isAlive() && !cur)
-    {
         //clear aura case after resurrection by another way (spells will be applied before next death)
         SetUInt32Value(PLAYER_SELF_RES_SPELL, 0);
-
-        // restore default warrior stance
-        if (getClass() == CLASS_WARRIOR)
-            CastSpell(this, 2457, true);
-    }
 }
 
 bool Player::BuildEnumData(QueryResult result, WorldPacket* data)
@@ -2159,7 +2154,7 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
     if (duel && GetMapId() != mapid && GetMap()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)))
         DuelComplete(DUEL_FLED);
 
-    if ((GetMapId() == mapid && !m_transport) || (GetTransport() && GetMapId() == 628))
+    if (GetMapId() == mapid)
     {
         //lets reset far teleport flag if it wasn't reset during chained teleports
         SetSemaphoreTeleportFar(false);
@@ -2991,8 +2986,6 @@ void Player::GiveLevel(uint8 level)
     if (level == getLevel())
         return;
 
-    sScriptMgr->OnPlayerLevelChanged(this, level);
-
     PlayerLevelInfo info;
     sObjectMgr->GetPlayerLevelInfo(getRace(), getClass(), level, &info);
 
@@ -3068,6 +3061,8 @@ void Player::GiveLevel(uint8 level)
     }
 
     GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_REACH_LEVEL);
+
+    sScriptMgr->OnPlayerLevelChanged(this);
 }
 
 void Player::InitTalentForLevel()
@@ -4842,7 +4837,7 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
 
                     uint32 pl_account = sObjectMgr->GetPlayerAccountIdByGUID(MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER));
 
-                    draft.AddMoney(money).SendReturnToSender(pl_account, guid, sender);
+                    draft.AddMoney(money).SendReturnToSender(pl_account, guid, sender, trans);
                 }
                 while (resultMail->NextRow());
             }
@@ -6771,8 +6766,7 @@ void Player::SendMessageToSet(WorldPacket *data, Player const* skipped_rcvr)
 
 void Player::SendDirectMessage(WorldPacket *data)
 {
-    if (m_session)
-        m_session->SendPacket(data);
+    m_session->SendPacket(data);
 }
 
 void Player::SendCinematicStart(uint32 CinematicSequenceId)
@@ -7627,7 +7621,6 @@ void Player::DuelComplete(DuelCompleteType type)
             if (duel->opponent)
             {
                  duel->opponent->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_WIN_DUEL, 1);
-                 duel->opponent->HandleEmoteCommand(EMOTE_ONESHOT_CHEER);
 
                 //Credit for quest Death's Challenge
                 if (getClass() == CLASS_DEATH_KNIGHT && duel->opponent->GetQuestStatus(12733) == QUEST_STATUS_INCOMPLETE)
@@ -7637,6 +7630,10 @@ void Player::DuelComplete(DuelCompleteType type)
         default:
             break;
     }
+
+    // Victory emote spell
+    if (type != DUEL_INTERRUPTED && duel->opponent)
+        duel->opponent->CastSpell(duel->opponent, 52852, true);
 
     //Remove Duel Flag object
     GameObject* obj = GetMap()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER));
@@ -8876,6 +8873,8 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
             permission = NONE_PERMISSION;
         else
             permission = OWNER_PERMISSION;
+
+        RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_USE);
     }
     else
     {
@@ -17294,9 +17293,6 @@ void Player::_LoadAuras(PreparedQueryResult result, uint32 timediff)
         }
         while (result->NextRow());
     }
-
-    if (getClass() == CLASS_WARRIOR && !HasAuraType(SPELL_AURA_MOD_SHAPESHIFT))
-        CastSpell(this, 2457, true);
 }
 
 void Player::_LoadGlyphAuras()
@@ -20754,10 +20750,11 @@ void Player::AddSpellCooldown(uint32 spellid, uint32 itemid, time_t end_time)
     m_spellCooldowns[spellid] = sc;
 }
 
-void Player::SendCooldownEvent(SpellEntry const *spellInfo, uint32 itemId, Spell* spell)
+void Player::SendCooldownEvent(SpellEntry const* spellInfo, uint32 itemId /*= 0*/, Spell* spell /*= NULL*/, bool setCooldown /*= true*/)
 {
     // start cooldowns at server side, if any
-    AddSpellAndCategoryCooldowns(spellInfo, itemId, spell);
+    if (setCooldown)
+        AddSpellAndCategoryCooldowns(spellInfo, itemId, spell);
 
     // Send activate cooldown timer (possible 0) at client side
     WorldPacket data(SMSG_COOLDOWN_EVENT, 4 + 8);

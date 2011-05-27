@@ -3933,6 +3933,17 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->EffectRadiusIndex[0] = 37;
             ++count;
             break;
+        case 67201: // Item - Priest T9 Healing 2P Bonus
+            spellInfo->EffectApplyAuraName[0] = SPELL_AURA_ADD_PCT_MODIFIER;
+            spellInfo->EffectMiscValue[0] = 0;
+            ++count;
+            break;
+        case 67202: // Item - Priest T9 Healing 4P Bonus
+            spellInfo->EffectApplyAuraName[0] = SPELL_AURA_ADD_PCT_MODIFIER;
+            spellInfo->EffectMiscValue[0] = 0;
+            spellInfo->EffectSpellClassMask[0] = flag96(0x00000000, 0x01000000, 0x00001000);
+            ++count;
+            break;
         // Master Shapeshifter: missing stance data for forms other than bear - bear version has correct data
         // To prevent aura staying on target after talent unlearned
         case 48420:
@@ -4238,10 +4249,6 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->EffectImplicitTargetA[0] = TARGET_DEST_TARGET_ANY;
             spellInfo->EffectImplicitTargetB[0] = TARGET_UNIT_TARGET_ANY;
             spellInfo->Effect[1] = 0;
-            ++count;
-            break;
-        case 51590: // Toss Ice Boulder
-            spellInfo->MaxAffectedTargets = 1;
             ++count;
             break;
         default:

@@ -42,7 +42,7 @@
 #include "CreatureAISelector.h"
 #include "Group.h"
 
-GameObject::GameObject() : WorldObject(), m_goValue(new GameObjectValue), m_AI(NULL)
+GameObject::GameObject() : WorldObject(), m_goValue(new GameObjectValue), m_AI(NULL), IsTemporary(false)
 {
     m_objectType |= TYPEMASK_GAMEOBJECT;
     m_objectTypeId = TYPEID_GAMEOBJECT;
@@ -563,14 +563,28 @@ void GameObject::Update(uint32 diff)
                 return;
             }
 
+            if (IsTemporary)
+            {
+                SetRespawnTime(0);
+                Delete();
+                return;
+            }
+
             SetLootState(GO_READY);
 
             //burning flags in some battlegrounds, if you find better condition, just add it
             if (GetGOInfo()->IsDespawnAtAction() || GetGoAnimProgress() > 0)
             {
                 SendObjectDeSpawnAnim(GetGUID());
-                //reset flags
-                SetUInt32Value(GAMEOBJECT_FLAGS, GetGOInfo()->flags);
+                // reset flags
+                if (GetMap()->Instanceable())
+                {
+					// In Instances GO_FLAG_LOCKED or GO_FLAG_NO_INTERACT are not changed
+					uint32 currentLockOrInteractFlags = GetUInt32Value(GAMEOBJECT_FLAGS) & (GO_FLAG_LOCKED | GO_FLAG_NO_INTERACT);
+                    SetUInt32Value(GAMEOBJECT_FLAGS, GetGOInfo()->flags & ~(GO_FLAG_LOCKED | GO_FLAG_NO_INTERACT) | currentLockOrInteractFlags);
+				}
+                else
+                    SetUInt32Value(GAMEOBJECT_FLAGS, GetGOInfo()->flags);
             }
 
             if (!m_respawnDelayTime)

@@ -2047,7 +2047,7 @@ void Spell::SelectEffectTargets(uint32 i, uint32 cur)
                     break;
                 case TARGET_UNIT_TARGET_RAID:
                 case TARGET_UNIT_TARGET_PARTY:
-                case TARGET_UNIT_TARGET_PUPPET:
+                case TARGET_UNIT_TARGET_MINIPET:
                     if (IsValidSingleTargetSpell(target))
                         AddUnitTarget(target, i);
                     break;
@@ -2970,7 +2970,7 @@ void Spell::prepare(SpellCastTargets const* targets, AuraEffect const * triggere
 
         TriggerGlobalCooldown();
 
-		//item: first cast may destroy item and second cast causes crash
+        //item: first cast may destroy item and second cast causes crash
         if (!m_casttime && !m_spellInfo->StartRecoveryTime && !m_castItemGUID && GetCurrentContainer() == CURRENT_GENERIC_SPELL)
             cast(true);
     }
@@ -5135,6 +5135,50 @@ SpellCastResult Spell::CheckCast(bool strict)
 
                 break;
             }
+            case SPELL_EFFECT_DISPEL:
+            {
+                Unit* target = m_targets.getUnitTarget();
+                if (!target || i != 0 || m_spellInfo->DmgClass != SPELL_DAMAGE_CLASS_MAGIC)
+                    break;;
+
+                // Create dispel mask by dispel type
+                uint32 dispel_type = m_spellInfo->EffectMiscValue[i];
+                uint32 dispelMask  = GetDispellMask(DispelType(dispel_type));
+                bool dispelAura = false;
+
+                 // we should not be able to dispel diseases if the target is affected by unholy blight
+                 if (dispelMask & (1 << DISPEL_DISEASE) && target->HasAura(50536))
+                     dispelMask &= ~(1 << DISPEL_DISEASE);
+
+                 Unit::AuraMap const& auras = target->GetOwnedAuras();
+                 for (Unit::AuraMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
+                 {
+                     Aura* aura = itr->second;
+
+                     // don't try to remove passive auras
+                     if (aura->IsPassive())
+                         continue;
+
+                     if ((1<<aura->GetSpellProto()->Dispel) & dispelMask)
+                     {
+                         DispelType type = (DispelType)aura->GetSpellProto()->Dispel;
+                         if (type == DISPEL_MAGIC || type == DISPEL_POISON)
+                         {
+                             // do not remove positive auras if friendly target
+                             //               negative auras if non-friendly target
+                             if (IsPositiveSpell(aura->GetId()) == target->IsFriendlyTo(m_caster))
+                                 continue;
+
+                             dispelAura = true;
+                             break;
+                        }
+                    }
+                }
+
+                if (!dispelAura)
+                    return SPELL_FAILED_NOTHING_TO_DISPEL;
+                break;
+            }
             case SPELL_EFFECT_POWER_BURN:
             case SPELL_EFFECT_POWER_DRAIN:
             {
@@ -6812,8 +6856,8 @@ bool Spell::IsValidSingleTargetEffect(Unit const* target, Targets type) const
             return m_caster != target && m_caster->IsInPartyWith(target);
         case TARGET_UNIT_TARGET_RAID:
             return m_caster->IsInRaidWith(target);
-        case TARGET_UNIT_TARGET_PUPPET:
-            return target->HasUnitTypeMask(UNIT_MASK_PUPPET) && m_caster == target->GetOwner();
+        case TARGET_UNIT_TARGET_MINIPET:
+            return target->GetGUID() == m_caster->GetCritterGUID();
         default:
             break;
     }

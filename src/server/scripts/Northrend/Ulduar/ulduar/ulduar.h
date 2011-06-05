@@ -18,6 +18,9 @@
 #ifndef DEF_ULDUAR_H
 #define DEF_ULDUAR_H
 
+#include "ObjectMgr.h"
+#define UlduarScriptName "instance_ulduar"
+
 enum UlduarBosses
 {
     MAX_ENCOUNTER                                = 20,
@@ -51,6 +54,9 @@ enum UlduarBosses
     // Kologarn
     DATA_LEFT_ARM,
     DATA_RIGHT_ARM,
+
+    // Hodir
+    DATA_HODIR_RARE_CACHE,
 };
 
 enum UlduarNPCs
@@ -116,6 +122,8 @@ enum UlduarGameObjects
     GO_KOLOGARN_DOOR                             = 194553,
     GO_THORIM_CHEST_HERO                         = 194315,
     GO_THORIM_CHEST                              = 194314,
+    GO_HODIR_RARE_CACHE_OF_WINTER                = 194200,
+    GO_HODIR_RARE_CACHE_OF_WINTER_HERO           = 194201,
     GO_HODIR_CHEST_HERO                          = 194308,
     GO_HODIR_CHEST                               = 194307,
     GO_FREYA_CHEST_HERO                          = 194325,
@@ -129,6 +137,8 @@ enum UlduarGameObjects
     GO_RAZOR_HARPOON_3                           = 194543,
     GO_RAZOR_HARPOON_4                           = 194519,
     GO_RAZOR_BROKEN_HARPOON                      = 194565,
+    GO_HODIR_DOOR                                = 194634,
+    GO_HODIR_ICE_DOOR                            = 194441,
 };
 
 enum UlduarTowerEvents
@@ -156,5 +166,16 @@ enum UlduarAchievementCriteria
     ACHIEVEMENT_CRITERIA_QUICK_SHAVE_10                  = 10062, // Razorscale
     ACHIEVEMENT_CRITERIA_QUICK_SHAVE_25                  = 10063,
 };
+
+template<class AI>
+CreatureAI* GetUlduarAI(Creature* creature)
+{
+    if (InstanceMap* instance = creature->GetMap()->ToInstanceMap())
+        if (instance->GetInstanceScript())
+            if (instance->GetScriptId() == GetScriptId(UlduarScriptName))
+                return new AI(creature);
+
+    return NULL;
+}
 
 #endif

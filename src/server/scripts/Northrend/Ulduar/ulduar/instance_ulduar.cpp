@@ -425,7 +425,7 @@ public:
                     {
                         if (GameObject* HodirRareCache = instance->GetGameObject(HodirRareCacheGUID))
                             if (GetData(DATA_HODIR_RARE_CACHE) == 1)
-                                HodirRareCache->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_UNK1);
+                                HodirRareCache->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
                         if (GameObject* HodirChest = instance->GetGameObject(HodirChestGUID))
                             HodirChest->SetRespawnTime(HodirChest->GetRespawnDelay());
                         HandleGameObject(HodirDoorGUID, true);

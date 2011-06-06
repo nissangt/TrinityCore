@@ -30,7 +30,7 @@
 #include "Config.h"
 
 ChatLogInfo::ChatLogInfo(ChatLogType type, bool chat, bool lexics, uint32 flushLength) : 
-    _file(NULL), _screenFlag(false), _cutFlag(false), _flushLength(flushLength), _type(type), _writtenLength(0)
+    _file(NULL), _screenFlag(false), _cutFlag(false), _flushLength(flushLength), _writtenLength(0), _type(type)
 {
     std::string strType = ChatLog::GetChatNameByType(type);
     if (chat)
@@ -51,7 +51,7 @@ void ChatLogInfo::OpenFile(bool dateSplit, const std::string& date, bool utfHead
         if (dateSplit)
         {
             // Replace $d with date value if applicable
-            int dpos = tmp.find("$d");
+            size_t dpos = tmp.find("$d");
             if (dpos != tmp.npos)
                 tmp.replace(dpos, 2, date.c_str(), date.size());
         }

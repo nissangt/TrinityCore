@@ -135,7 +135,7 @@ bool isPlayerHasGuildhouse(Player* player, Creature* creature, bool whisper = fa
         {
             // whisper to player "already have etc..."
             char msg[100];
-            sprintf(msg, MSG_ALREADYHAVEGH, (*result)[0].GetString());
+            sprintf(msg, MSG_ALREADYHAVEGH, (*result)[0].GetString().c_str());
             creature->MonsterWhisper(msg, player->GetGUID());
         }
         return true;

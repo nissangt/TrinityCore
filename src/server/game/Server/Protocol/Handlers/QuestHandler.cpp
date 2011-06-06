@@ -311,7 +311,7 @@ void WorldSession::HandleQuestgiverChooseRewardOpcode(WorldPacket & recv_data)
             (_player->GetQuestStatus(quest) != QUEST_STATUS_COMPLETE && !pQuest->IsAutoComplete()))
         {
             sLog->outError("HACK ALERT: Player %s (guid: %u) is trying to complete quest (id: %u) but he has no right to do it!",
-                           _player->GetName(), _player->GetGUID(), quest);
+                           _player->GetName(), _player->GetGUIDLow(), quest);
             return;
         }
         if (_player->CanRewardQuest(pQuest, reward, true))

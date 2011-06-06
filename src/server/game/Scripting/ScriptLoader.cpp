@@ -78,6 +78,8 @@ void AddSC_npc_taxi();
 void AddSC_achievement_scripts();
 //guildhouse
 void AddSC_guildmaster();
+//npc guard
+void AddSC_npc_areaguard();
 
 //eastern kingdoms
 void AddSC_alterac_valley();                 //Alterac Valley
@@ -1241,5 +1243,6 @@ void AddCustomScripts()
     /* This is where custom scripts should be added. */
     //guildhouse
     AddSC_guildmaster();
+    AddSC_npc_areaguard();
 #endif
 }

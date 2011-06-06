@@ -23,13 +23,13 @@
 GuardMgr::GuardMgr() { }
 
 GuardMgr::~GuardMgr() { }
-    
+
 void GuardMgr::LoadGuardTemplates()
 {
     uint32 oldMSTime = getMSTime();
-    
+
     _guardMap.clear();                                  // for reload case
-    
+
     QueryResult result = WorldDatabase.Query("SELECT `entry`,`type`,`value`,`distance`,`teleId` FROM `npc_areaguard_template`");
     if (!result)
     {
@@ -37,19 +37,19 @@ void GuardMgr::LoadGuardTemplates()
         sLog->outString();
         return;
     }
-    
+
     uint32 count = 0;
     do
     {
         Field* fields   = result->Fetch();
-        
+
         GuardInfo gi;
         gi.entry        = fields[0].GetUInt32();
         gi.type         = GuardType(fields[1].GetUInt8());
         gi.value        = fields[2].GetUInt32();
         gi.distance     = fields[3].GetFloat();
         gi.teleId       = fields[4].GetUInt32();
-        
+
         if (!sObjectMgr->GetGameTele(gi.teleId))
         {
             sLog->outError("GUARD: area guard (entry: %u) has invalid teleport id (%u)", gi.entry, gi.teleId);
@@ -63,21 +63,21 @@ void GuardMgr::LoadGuardTemplates()
         }
 
         _guardMap[gi.entry] = gi;
-        
+
         ++count;
     }
     while (result->NextRow());
-    
+
     sLog->outString(">> Loaded %u area guard templates in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
     sLog->outString();
 }
-    
+
 void GuardMgr::LoadGuards()
 {
     uint32 oldMSTime = getMSTime();
-    
+
     _guards.clear();
-    
+
     QueryResult result = WorldDatabase.Query("SELECT `guid`,`guardEntry` FROM `npc_areaguard`");
     if (!result)
     {
@@ -85,14 +85,14 @@ void GuardMgr::LoadGuards()
         sLog->outString();
         return;
     }
-    
+
     uint32 count = 0;
     do
     {
         uint32 guid = (*result)[0].GetUInt32();
         uint32 guardEntry = (*result)[0].GetUInt32();
         _guards[guid] = guardEntry;
-        
+
         ++count;
     }
     while (result->NextRow());
@@ -117,7 +117,7 @@ class npc_areaguard : public CreatureScript
 {
 public:
     npc_areaguard() : CreatureScript("npc_areaguard") { }
-        
+
     struct npc_areaguardAI : public Scripted_NoMovementAI
     {
         npc_areaguardAI(Creature* creature) : Scripted_NoMovementAI(creature)
@@ -126,13 +126,13 @@ public:
             creature->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_NORMAL, true);
             creature->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true);
         }
-        
+
         void Reset() { }
-        
+
         void Aggro(Unit* /*who*/) { }
-        
+
         void AttackStart(Unit* /*who*/) { }
-        
+
         void MoveInLineOfSight(Unit* who)
         {
             if (!who || !who->IsInWorld())
@@ -149,12 +149,12 @@ public:
             // Return if distance is greater than guard distance
             if (!me->IsWithinDist(who, info->distance, false))
                 return;
-            
+
             Player* player = who->GetCharmerOrOwnerPlayerOrPlayerItself();
             // Return if player has GM flag on or is in process of teleport
             if (!player || player->isGameMaster() || player->IsBeingTeleported())
                 return;
-            
+
             bool teleport = false;
             switch (info->type)
             {
@@ -186,7 +186,7 @@ public:
                     teleport = (player->GetGUID() != info->value);
                     break;
             }
-            
+
             if (teleport)
             {
                 GameTele const* tele = sObjectMgr->GetGameTele(info->teleId);
@@ -205,7 +205,7 @@ public:
         
         void UpdateAI(const uint32 /*diff*/) { }
     };
-    
+
     CreatureAI* GetAI_npc_areaguard(Creature* creature)
     {
         return new npc_areaguardAI(creature);

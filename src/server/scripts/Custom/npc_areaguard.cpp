@@ -17,8 +17,9 @@
 
 #include "ScriptPCH.h"
 #include "npc_areaguard.h"
+#include "LogMgr.h"
 
-#define MAX_RADIUS 65.0f
+#define MAX_RADIUS 100.0f
 
 GuardMgr::GuardMgr() { }
 
@@ -90,7 +91,7 @@ void GuardMgr::LoadGuards()
     do
     {
         uint32 guid = (*result)[0].GetUInt32();
-        uint32 guardEntry = (*result)[0].GetUInt32();
+        uint32 guardEntry = (*result)[1].GetUInt32();
         _guards[guid] = guardEntry;
 
         ++count;
@@ -98,7 +99,7 @@ void GuardMgr::LoadGuards()
     while (result->NextRow());
     
     sLog->outString(">> Loaded %u area guards in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
-    sLog->outString();        
+    sLog->outString();
 }
 
 GuardInfo const* GuardMgr::GetInfo(uint32 guidLow) const
@@ -122,9 +123,24 @@ public:
     {
         npc_areaguardAI(Creature* creature) : Scripted_NoMovementAI(creature)
         {
-            creature->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
-            creature->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_NORMAL, true);
-            creature->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true);
+            _info = sGuardMgr->GetInfo(me->GetGUIDLow());
+            if (!_info)
+            {
+                sLog->outError("GUARD: creature (GUID: %u, entry: %u) has 'npc_areaguard' script, but no template is assigned to it",
+                               me->GetGUIDLow(), me->GetEntry());
+                return;
+            }
+
+            _tele = sObjectMgr->GetGameTele(_info->teleId);
+            if (!_tele)
+            {
+                sLog->outError("GUARD: given game teleport (ID: %u) not found!", _info->teleId);
+                return;
+            }
+
+            me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
+            me->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_NORMAL, true);
+            me->ApplySpellImmune(0, IMMUNITY_DAMAGE, SPELL_SCHOOL_MASK_MAGIC, true);
         }
 
         void Reset() { }
@@ -135,19 +151,14 @@ public:
 
         void MoveInLineOfSight(Unit* who)
         {
-            if (!who || !who->IsInWorld())
+            if (!_info || !_tele)
                 return;
 
-            GuardInfo const* info = sGuardMgr->GetInfo(me->GetGUIDLow());
-            if (!info)
-            {
-                sLog->outError("GUARD: creature (GUID: %u, entry: %u) has 'npc_areaguard' script, but no template is assigned to it",
-                               me->GetGUIDLow(), me->GetEntry());
-                return;
-            }
+            if (!who || !who->IsInWorld())
+                return
 
             // Return if distance is greater than guard distance
-            if (!me->IsWithinDist(who, info->distance, false))
+            if (!me->IsWithinDist(who, _info->distance, false))
                 return;
 
             Player* player = who->GetCharmerOrOwnerPlayerOrPlayerItself();
@@ -156,7 +167,7 @@ public:
                 return;
 
             bool teleport = false;
-            switch (info->type)
+            switch (_info->type)
             {
                 // Action on all players without GM flag on
                 case NPCG_ALL:
@@ -167,46 +178,42 @@ public:
                     // 0 - Alliance
                     // 1 - Horde
                     // 2 - Neutral
-                    teleport = (player->GetTeamId() != TeamId(info->value));
+                    teleport = (player->GetTeamId() != TeamId(_info->value));
                     break;
                 case NPCG_SECURITY:
                     // Action based on GM Level
-                    teleport = (player->GetSession()->GetSecurity() < AccountTypes(info->value));
+                    teleport = (player->GetSession()->GetSecurity() < AccountTypes(_info->value));
                     break;
                 case NPCG_LEVEL:
                     // Action based on Player Level
-                    teleport = (player->getLevel() < info->value);
+                    teleport = (player->getLevel() < _info->value);
                     break;
                 case NPCG_GUILD:
                     // Action based on Guild ID
-                    teleport = (player->GetGuildId() != info->value);
+                    teleport = (player->GetGuildId() != _info->value);
                     break;
                 case NPCG_GUID:
                     // Action based on Player GUID
-                    teleport = (player->GetGUID() != info->value);
+                    teleport = (player->GetGUID() != _info->value);
                     break;
             }
 
             if (teleport)
-            {
-                GameTele const* tele = sObjectMgr->GetGameTele(info->teleId);
-                if (!tele)
-                {
-                    sLog->outError("GUARD: given game teleport (ID: %u) not found!", info->teleId);
-                    return;
-                }
-                player->TeleportTo(tele->mapId, tele->position_x, tele->position_y, tele->position_z, tele->orientation);
-            }
+                player->TeleportTo(_tele->mapId, _tele->position_x, _tele->position_y, _tele->position_z, _tele->orientation);
 
             float x, y, z, o;
             me->GetHomePosition(x, y, z, o);
             me->SetOrientation(o);
         }
-        
+
         void UpdateAI(const uint32 /*diff*/) { }
+
+        private:
+            GuardInfo const* _info;
+            GameTele const* _tele;
     };
 
-    CreatureAI* GetAI_npc_areaguard(Creature* creature)
+    CreatureAI* GetAI(Creature* creature) const
     {
         return new npc_areaguardAI(creature);
     }

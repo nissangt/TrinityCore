@@ -29,12 +29,12 @@ enum GuardType {
 
 struct GuardInfo
 {
-    uint32 entry;       // Guard entry from npc_areaguard_template
-    GuardType type;     // Guard type
-    uint32 value;       // Parameter for type
-    float distance;     // Interaction distance
-    uint32 teleId;      // Teleport ID from game_tele table
-    
+    uint32 entry;           // Guard entry from npc_areaguard_template
+    GuardType type;         // Guard type
+    uint32 value;           // Parameter for type
+    float distance;         // Interaction distance
+    uint32 teleId;          // Teleport ID from game_tele table
+
     GuardInfo() : entry(0), type(NPCG_ALL), value(0), distance(0.0f), teleId(0) { }
     GuardInfo(uint32 _entry, GuardType _type, uint32 _value, float _distance, uint32 _teleId) :
         entry(_entry), type(_type), value(_value), distance(_distance), teleId(_teleId) { } 
@@ -48,16 +48,16 @@ class GuardMgr
     friend class ACE_Singleton<GuardMgr, ACE_Null_Mutex>;
     GuardMgr();
     ~GuardMgr();
-    
+
 public:
     void LoadGuardTemplates();
     void LoadGuards();
-    
+
     GuardInfo const* GetInfo(uint32 guidLow) const;
-    
-private:    
+
+private:
     GuardInfoMap _guardMap;
-    Guards _guards;    
+    Guards _guards;
 };
 
 #define sGuardMgr ACE_Singleton<GuardMgr, ACE_Null_Mutex>::instance()

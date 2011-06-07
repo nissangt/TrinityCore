@@ -155,7 +155,7 @@ public:
                 return;
 
             if (!who || !who->IsInWorld())
-                return
+                return;
 
             // Return if distance is greater than guard distance
             if (!me->IsWithinDist(who, _info->distance, false))

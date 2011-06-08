@@ -3,13 +3,14 @@
 
 #include "AnticheatMgr.h"
 
-#define MAX_REPORT_TYPES 6
-
 class AnticheatData
 {
 public:
     AnticheatData();
     ~AnticheatData();
+
+    void Reset();
+    void SaveToDB(const char* tableName, uint32 guidLow);
 
     void SetLastOpcode(uint32 opcode);
     uint32 GetLastOpcode() const;
@@ -19,45 +20,38 @@ public:
 
     void SetPosition(float x, float y, float z, float o);
 
-    /*
-    bool GetDisableACCheck() const;
-    void SetDisableACCheck(bool check);
-
-    uint32 GetDisableACTimer() const;
-    void SetDisableACTimer(uint32 timer);*/
-
     uint32 GetTotalReports() const;
-    void SetTotalReports(uint32 _totalReports);
+    void SetTotalReports(uint32 totalReports);
 
     uint32 GetTypeReports(uint32 type) const;
     void SetTypeReports(uint32 type, uint32 amount);
 
     float GetAverage() const;
-    void SetAverage(float _average);
+    void SetAverage(float average);
 
     uint32 GetCreationTime() const;
     void SetCreationTime(uint32 creationTime);
 
-    void SetTempReports(uint32 amount, uint8 type);
+    void SetTempReports(uint8 type, uint32 amount);
     uint32 GetTempReports(uint8 type);
 
-    void SetTempReportsTimer(uint32 time, uint8 type);
+    void SetTempReportsTimer(uint8 type, uint32 time);
     uint32 GetTempReportsTimer(uint8 type);
     
     void SetDailyReportState(bool b);
     bool GetDailyReportState();
+
 private:
-    uint32 lastOpcode;
-    MovementInfo lastMovementInfo;
-    //bool disableACCheck;
-    //uint32 disableACCheckTimer;
-    uint32 totalReports;
-    uint32 typeReports[MAX_REPORT_TYPES];
-    float average;
-    uint32 creationTime;
-    uint32 tempReports[MAX_REPORT_TYPES];
-    uint32 tempReportsTimer[MAX_REPORT_TYPES];
-    bool hasDailyReport;
+    uint32          _guidLow;
+    uint32          _lastOpcode;
+    MovementInfo    _lastMovementInfo;
+    uint32          _totalReports;
+    float           _average;
+    uint32          _creationTime;
+    uint32          _typeReports[MAX_REPORT_TYPES];
+    uint32          _tempReports[MAX_REPORT_TYPES];
+    uint32          _tempReportsTimer[MAX_REPORT_TYPES];
+    bool            _hasDailyReport;
 };
 
 #endif

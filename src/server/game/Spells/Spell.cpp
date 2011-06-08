@@ -5139,39 +5139,38 @@ SpellCastResult Spell::CheckCast(bool strict)
             {
                 Unit* target = m_targets.getUnitTarget();
                 if (!target || i != 0 || m_spellInfo->DmgClass != SPELL_DAMAGE_CLASS_MAGIC)
-                    break;;
+                    break;
 
-                // Create dispel mask by dispel type
-                uint32 dispel_type = m_spellInfo->EffectMiscValue[i];
-                uint32 dispelMask  = GetDispellMask(DispelType(dispel_type));
                 bool dispelAura = false;
 
-                 // we should not be able to dispel diseases if the target is affected by unholy blight
-                 if (dispelMask & (1 << DISPEL_DISEASE) && target->HasAura(50536))
-                     dispelMask &= ~(1 << DISPEL_DISEASE);
+                // Create dispel mask by dispel type
+                uint32 dispelMask;
+                for (uint8 j = 0; j < MAX_SPELL_EFFECTS; ++j)
+                    if (m_spellInfo->Effect[j] == SPELL_EFFECT_DISPEL)
+                        dispelMask |= GetDispellMask(DispelType(m_spellInfo->EffectMiscValue[j]));
 
-                 Unit::AuraMap const& auras = target->GetOwnedAuras();
-                 for (Unit::AuraMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
-                 {
-                     Aura* aura = itr->second;
+                // we should not be able to dispel diseases if the target is affected by unholy blight
+                if (dispelMask & (1 << DISPEL_DISEASE) && target->HasAura(50536))
+                    dispelMask &= ~(1 << DISPEL_DISEASE);
 
-                     // don't try to remove passive auras
-                     if (aura->IsPassive())
-                         continue;
+                Unit::AuraMap const& auras = target->GetOwnedAuras();
+                for (Unit::AuraMap::const_iterator itr = auras.begin(); itr != auras.end(); ++itr)
+                {
+                    Aura* aura = itr->second;
 
-                     if ((1<<aura->GetSpellProto()->Dispel) & dispelMask)
-                     {
-                         DispelType type = (DispelType)aura->GetSpellProto()->Dispel;
-                         if (type == DISPEL_MAGIC || type == DISPEL_POISON)
-                         {
-                             // do not remove positive auras if friendly target
-                             //               negative auras if non-friendly target
-                             if (IsPositiveSpell(aura->GetId()) == target->IsFriendlyTo(m_caster))
-                                 continue;
+                    // don't try to remove passive auras
+                    if (aura->IsPassive())
+                        continue;
 
-                             dispelAura = true;
-                             break;
-                        }
+                    if ((1<<aura->GetSpellProto()->Dispel) & dispelMask)
+                    {
+                        // do not remove positive auras if friendly target
+                        //               negative auras if non-friendly target
+                        if (IsPositiveSpell(aura->GetId()) == target->IsFriendlyTo(m_caster))
+                            continue;
+
+                        dispelAura = true;
+                        break;
                     }
                 }
 

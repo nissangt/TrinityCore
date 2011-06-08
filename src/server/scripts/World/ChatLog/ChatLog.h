@@ -55,57 +55,24 @@ enum LexicsActions
 class ChatLogInfo
 {
 private:
-    FILE *_file;
-    std::string _name;
-    bool _screenFlag;
     bool _cutFlag;
-    uint32 _flushLength;
-    uint32 _writtenLength;
     ChatLogType _type;
-    ACE_Thread_Mutex _lock;
+    std::string _strType;
 
 public:
-    ChatLogInfo(ChatLogType type, bool chat, bool lexics, uint32 flushLength);
+    ChatLogInfo(ChatLogType type, bool chat, bool lexics);
 
-    void OpenFile(bool dateSplit, const std::string& date, bool utfHeader);
-    void CloseFile()
-    {
-        ACE_Guard<ACE_Thread_Mutex> guard(_lock);
-        if (_file)
-        {
-            fclose(_file);
-            _file = NULL;
-        }
-    }
-    void WriteFile(const std::string& msg);
-
-    FILE* GetFile() const { return _file; }
-    std::string GetName() const { return _name; }
     bool IsCut() const { return _cutFlag; }
-    bool IsScreen() const { return _screenFlag; }
 
-    bool SetFileIfSame(ChatLogInfo* log)
-    {
-        if (_name == log->GetName())
-        {
-            _file = log->GetFile();
-            return true;
-        }
-        return false;
-    }
-    void CloseFileIfSame(ChatLogInfo* log)
-    {
-        if (_file == log->GetFile())
-            _file = NULL;
-    }
+    void Write(const std::string& msg);
+    void Write(const char* fmt, ...)        ATTR_PRINTF(2, 3);
 };
 
 class ChatLog : public PlayerScript
 {
 public:
-    static std::string GetChatNameByType(ChatLogType type);
-    static std::string GetChatDescByType(ChatLogType type);
-    static void OutTimestamp(FILE *file);
+    static const char* GetChatNameByType(ChatLogType type);
+    static const char* GetChatDescByType(ChatLogType type);
 
     ChatLog();
     ~ChatLog();
@@ -122,21 +89,13 @@ private:
     void _ApplySpell(Player* player, uint32 spellId);
 
     void _Initialize();
-    void _OpenAllFiles();
-    void _CloseAllFiles();
-    void _CheckDateSwitch();
-    void _AppendPlayerName(Player* player, std::string& s);
-    void _AppendGroupMembers(Group* group, std::string& s);
-    void _WriteLog(ChatLogInfo* log, std::string& logStr, const std::string& msg, const std::string& origMsg);
+    void _AppendPlayerName(Player* player, std::ostringstream& ss);
+    void _AppendGroupMembers(Group* group, std::ostringstream& ss);
+    void _WriteLog(ChatLogInfo* log, const std::string& logStr, const std::string& origMsg);
 
     // Chats
     bool _enable;
-    bool _dateSplit;
-    bool _utfHeader;
     bool _ignoreUnprintable;
-
-    uint32 _flushLength;
-    int32 _lastDay;
 
     ChatLogInfo* _logs[CHAT_LOG_COUNT];
 
@@ -152,8 +111,8 @@ private:
     uint32 _lexicsActionDuration;
 
     ChatLogInfo* _innormativeLog;
-    ACE_Thread_Mutex _lock;
 };
 
 #define sChatLog (*ACE_Singleton<ChatLog, ACE_Thread_Mutex>::instance())
+
 #endif

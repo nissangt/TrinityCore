@@ -808,33 +808,6 @@ Log.AntiCheat.FlushBytes = 1024
 ChatLog.Enable = 1
 
 #
-#    ChatLog.FlushAfterNumberOfBytes
-#        Defines number of written bytes when log should be flushed to disk (for all logs except
-#        log with filtered innormative messages. This log is flushed for every message).
-#        Default: 1024
-#
-
-ChatLog.FlushAfterNumberOfBytes = 1024
-
-#
-#    ChatLog.DateSplit
-#        Split log files by date (filename must include $d as date placeholder).
-#        Default: 1 - split
-#                 0 - do not split
-#
-
-ChatLog.DateSplit = 1
-
-#
-#    ChatLog.UTFHeader
-#        Add UTF8 header at the beginning of new file.
-#        Default: 1 - add
-#                 0 - do not add
-#
-
-ChatLog.UTFHeader = 1
-
-#
 #    ChatLog.Ignore.Unprintable
 #        Ignore messages with unprintable characters.
 #        Default: 1 - ignore
@@ -945,13 +918,28 @@ ChatLog.Lexics.Action.Duration = 0
 #        * BattleGround - battleground chat
 #        * Lexics.Innormative - messages filtered by lexics cutter
 #
-#    ChatLog.*.File
+#    Log.*.File
 #        Log file name for given chat type.
 #
-#    ChatLog.*.Screen
+#    Log.*.SplitDate
+#        Create separate log for each new day.
+#        Default: 1 - split
+#                 0 - do not split
+#
+#    Log.*.Append
+#        If file already exists: append new messages to existing or overwrite with new
+#        Default: 1 - append
+#                 0 - overwrite existing
+#
+#    Log.*.Screen
 #        Output message in server console for given chat type.
 #        Default: 0 - do not show
 #                 1 - show
+#
+#    Log.*.FlushBytes
+#        Number of bytes which should be written before buffers are flushed to disk.
+#        Default: 0 - flush every message
+#                 1024 - flush every 1k of data
 #
 #    ChatLog.Lexics.*.Cut
 #        Cut lexics for given chat type (except Innormative).
@@ -959,36 +947,60 @@ ChatLog.Lexics.Action.Duration = 0
 #                 0 - do not cut
 #
 
-ChatLog.Chat.File = "main_chat-$d.log"
-ChatLog.Chat.Screen = 0
+Log.Chat.File = "main_chat-$d.log"
+Log.Chat.SplitDate = 1
+Log.Chat.Append = 1
+Log.Chat.Screen = 0
+Log.Chat.FlushBytes = 1024
 ChatLog.Lexics.Chat.Cut = 1
 
-ChatLog.Party.File = "party_chat-$d.log"
-ChatLog.Party.Screen = 0
+Log.Party.File = "party_chat-$d.log"
+Log.Party.SplitDate = 1
+Log.Party.Append = 1
+Log.Party.Screen = 0
+Log.Party.FlushBytes = 1024
 ChatLog.Lexics.Party.Cut = 1
 
-ChatLog.Guild.File = "guild_chat-$d.log"
-ChatLog.Guild.Screen = 0
+Log.Guild.File = "guild_chat-$d.log"
+Log.Guild.SplitDate = 1
+Log.Guild.Append = 1
+Log.Guild.Screen = 0
+Log.Guild.FlushBytes = 1024
 ChatLog.Lexics.Guild.Cut = 1
 
-ChatLog.Whisper.File = "whisper_chat-$d.log"
-ChatLog.Whisper.Screen = 0
+Log.Whisper.File = "whisper_chat-$d.log"
+Log.Whisper.SplitDate = 1
+Log.Whisper.Append = 1
+Log.Whisper.Screen = 0
+Log.Whisper.FlushBytes = 1024
 ChatLog.Lexics.Whisper.Cut = 1
 
-ChatLog.Channel.File = "channel_chat-$d.log"
-ChatLog.Channel.Screen = 0
+Log.Channel.File = "channel_chat-$d.log"
+Log.Channel.SplitDate = 1
+Log.Channel.Append = 1
+Log.Channel.Screen = 0
+Log.Channel.FlushBytes = 1024
 ChatLog.Lexics.Channel.Cut = 1
 
-ChatLog.Raid.File = "raid_chat-$d.log"
-ChatLog.Raid.Screen = 0
+Log.Raid.File = "raid_chat-$d.log"
+Log.Raid.SplitDate = 1
+Log.Raid.Append = 1
+Log.Raid.Screen = 0
+Log.Raid.FlushBytes = 1024
 ChatLog.Lexics.Raid.Cut = 1
 
-ChatLog.BattleGround.File = "bg_chat-$d.log"
-ChatLog.BattleGround.Screen = 0
+Log.BattleGround.File = "bg_chat-$d.log"
+Log.BattleGround.SplitDate = 1
+Log.BattleGround.Append = 1
+Log.BattleGround.Screen = 0
+Log.BattleGround.FlushBytes = 1024
 ChatLog.Lexics.BattleGround.Cut = 1
 
-ChatLog.Lexics.Innormative.File = "innormative-$d.log"
-ChatLog.Lexics.Innormative.Screen = 0
+Log.Lexics.Innormative.File = "innormative-$d.log"
+Log.Lexics.Innormative.SplitDate = 1
+Log.Lexics.Innormative.Append = 1
+Log.Lexics.Innormative.Screen = 0
+Log.Lexics.Innormative.FlushBytes = 0
 
 #
 ###############################################################################

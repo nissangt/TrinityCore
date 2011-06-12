@@ -980,6 +980,23 @@ enum TrinityStrings
 
     LANG_GM_SILENCE                      = 6616,              // "Silence is ON for %s" - Spell 1852
 
+    // Guild house
+    LANG_GH_IN_COMBAT                   = 6660,
+    LANG_GH_NO_GUILDHOUSE               = 6661,
+    LANG_GH_NO_FREE_GUILDHOUSE          = 6662,
+    LANG_GH_ALREADY_HAVE_GUILDHOUSE     = 6663,
+    LANG_GH_NOT_ENOUGH_GOLD             = 6664,
+    LANG_GH_GUILDHOUSE_IN_USE           = 6665,
+    LANG_GH_BUY_SUCCESS                 = 6666,
+    LANG_GH_SELL_SUCCESS                = 6667,
+    LANG_GH_NO_GUILD                    = 6668,
+    LANG_GH_SELL_WORD                   = 6669,
+    LANG_GH_SELL_PROMPT                 = 6670,
+    LANG_GH_GOSSIP_TELEPORT             = 6671,
+    LANG_GH_GOSSIP_BUY                  = 6672,
+    LANG_GH_GOSSIP_SELL                 = 6673,
+    LANG_GH_GOSSIP_NEXT                 = 6674,
+    
     LANG_WORLD_CLOSED                    = 7523,
     LANG_WORLD_OPENED                    = 7524,
 

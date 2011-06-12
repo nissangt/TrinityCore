@@ -3042,31 +3042,54 @@ Anticheat.DetectionsEnabled = 31
 
 Anticheat.MaxReportsForDailyReport = 70
 
+#
 ###################################################################################################
 
-######################################################################
+###################################################################################################
+# WINTERGRASP
+#
 #   OutdoorPvP.Wintergrasp.Enabled
 #       Determines whether the Wintergrasp battle is enabled or not.
 #        Default: 0 = Disable
 #                 1 = Enable
 #
+
+OutdoorPvP.Wintergrasp.Enabled = 1
+
+#
 #   OutdoorPvP.Wintergrasp.SaveState.Period
 #      Interval of Save Wintergrasp State Data  to restore it after crash/shutdown/restart
 #      Interval (in milliseconds)
-#      Default (10000 milliseconds)
 #      Warning:  Do not set it less 1 second!
+#      Default: 10000 (ms)
+#
+
+OutdoorPvP.Wintergrasp.SaveState.Period = 60000
+
 #
 #   OutdoorPvP.Wintergrasp.StartTime
 #       The start time of the first battle after server starts (in minutes)
 #       Default: 30
 #
+
+OutdoorPvP.Wintergrasp.StartTime = 30
+
+#
 #   OutdoorPvP.Wintergrasp.BattleTime
 #       Time limit of a battle (in minutes)
 #       Default: 30
 #
+
+OutdoorPvP.Wintergrasp.BattleTime = 30
+
+#
 #   OutdoorPvP.Wintergrasp.Interval
 #       Interval between battles (in minutes)
 #       Default: 150
+#
+
+OutdoorPvP.Wintergrasp.Interval = 150
+
 #
 #   OutdoorPvP.Wintergrasp.CustomHonorRewards
 #       Defines whether custom honor rewards should be given to player
@@ -3074,11 +3097,19 @@ Anticheat.MaxReportsForDailyReport = 70
 #        Default: 0 = Disable
 #                 1 = Enable
 #
+
+OutdoorPvP.Wintergrasp.CustomHonorRewards = 0
+
+#
 #   OutdoorPvP.Wintergrasp.CustomHonorBattleWin
 #       Defines the amount of honor points that should be given to the
 #        team winning the Wintergrasp Battle.
 #       Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
 #       Default: 3000
+#
+
+OutdoorPvP.Wintergrasp.CustomHonorBattleWin = 3000
+
 #
 #   OutdoorPvP.Wintergrasp.CustomHonorBattleLose
 #       Defines the amount of honor points that should be given to the
@@ -3086,11 +3117,19 @@ Anticheat.MaxReportsForDailyReport = 70
 #       Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
 #       Default: 1250
 #
+
+OutdoorPvP.Wintergrasp.CustomHonorBattleLose = 1250
+
+#
 #   OutdoorPvP.Wintergrasp.CustomHonorDamageTower
 #       Defines the amount of honor points that should be given to the
 #        team for damaging a tower.
 #       Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
 #       Default: 750
+#
+
+OutdoorPvP.Wintergrasp.CustomHonorDamageTower = 750
+
 #
 #   OutdoorPvP.Wintergrasp.CustomHonorDestroyedTower
 #       Defines the amount of honor points that should be given to the
@@ -3098,37 +3137,64 @@ Anticheat.MaxReportsForDailyReport = 70
 #       Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
 #       Default: 750
 #
+
+OutdoorPvP.Wintergrasp.CustomHonorDestroyedTower = 750
+
+#
 #   OutdoorPvP.Wintergrasp.CustomHonorIntactBuilding
 #      Defines the amount of honor points that should be given to the
 #        team for intact buildings after the battle.
 #       Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
 #       Default: 1500
 #
+
+OutdoorPvP.Wintergrasp.CustomHonorIntactBuilding = 1500
+
+#
 #   OutdoorPvP.Wintergrasp.Antifarm.Enable
 #		Enable or Disable antifarm system
-#              (Default: 0)
+#       Default: 0 = disable
+#				 1 = enable
+#
+
+OutdoorPvP.Wintergrasp.Antifarm.Enable = 0
+
 #
 #   OutdoorPvP.Wintergrasp.Antifarm.Atk
-#		Min count atack players for antifarm
-#              (Default: 5)
+#		Min count attack players for antifarm
+#       Default: 5
+#
+
+OutdoorPvP.Wintergrasp.Antifarm.Atk = 5
+
 #
 #   OutdoorPvP.Wintergrasp.Antifarm.Def
 #		Min count defense players for antifarm
-#              (Default: 5)
+#       Default: 5
 #
-##########################################################
 
-OutdoorPvP.Wintergrasp.Enabled = 1
-OutdoorPvP.Wintergrasp.SaveState.Period = 60000
-OutdoorPvP.Wintergrasp.StartTime = 30
-OutdoorPvP.Wintergrasp.BattleTime = 30
-OutdoorPvP.Wintergrasp.Interval = 150
-OutdoorPvP.Wintergrasp.CustomHonorRewards = 0
-OutdoorPvP.Wintergrasp.CustomHonorBattleWin = 3000
-OutdoorPvP.Wintergrasp.CustomHonorBattleLose = 1250
-OutdoorPvP.Wintergrasp.CustomHonorDamageTower = 750
-OutdoorPvP.Wintergrasp.CustomHonorDestroyedTower = 750
-OutdoorPvP.Wintergrasp.CustomHonorIntactBuilding = 1500
-OutdoorPvP.Wintergrasp.Antifarm.Enable = 0
-OutdoorPvP.Wintergrasp.Antifarm.Atk = 5
 OutdoorPvP.Wintergrasp.Antifarm.Def = 5
+
+#
+###################################################################################################
+
+###################################################################################################
+# GUILD HOUSES
+#
+#    GuildHouse.BuyPrice
+#        Description: Price which guildmaster must pay to purchase a GuildHouse (in copper)
+#	     Default: 500000000 - 50.000 gold
+#
+
+GuildHouse.BuyPrice = 500000000
+
+#
+#    GuildHouse.SellPrice
+#        Description: Amount of money guildmaster will get for selling GuildHouse back (in copper)
+#	     Default: 250000000 - 25.000 gold
+#
+
+GuildHouse.SellPrice = 250000000
+
+#
+###################################################################################################

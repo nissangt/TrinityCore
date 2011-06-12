@@ -52,3 +52,22 @@ INSERT INTO `guildhouses` VALUES ('37', '0', '-920.231323', '7096.489258', '170.
 INSERT INTO `guildhouses` VALUES ('38', '0', '-2140.501953', '9142.6875', '137.041855', '530', 'Outland Nagrand : Tomb');
 INSERT INTO `guildhouses` VALUES ('39', '0', '-483.401794', '7461.944824', '186.120987', '530', 'Outland Nagrand: Challe\'s Home for Little Tykes');
 INSERT INTO `guildhouses` VALUES ('40', '0', '2387.753906', '3191.757324', '152.669388', '530', 'Outland Netherstorm: Nova\'s Shrine');
+
+--
+DELETE FORM `trinity_string` WHERE `entry` BETWEEN 6660 AND 6674;
+INSERT INTO `trinity_string`(`entry`, `content_default`) VALUES
+(6660, 'You are in combat and cannot be teleported to your GuildHouse.'),
+(6661, 'Your guild currently does not have a GuildHouse.'),
+(6662, 'Unfortunately, all GuildHouses are in use.'),
+(6663, 'Sorry, but you already have a GuildHouse.'),
+(6664, 'You do not have enough gold to purchase a GuildHouse.'),
+(6665, 'This GuildHouse is unavailable for purchase as it is currently in use.'),
+(6666, 'Congratulations! You have successfully purchased a GuildHouse.'),
+(6667, 'You have successfully sold your GuildHouse.'),
+(6668, 'You need to be in a guild before you can use a GuildHouse.'),
+(6669, 'SELL'),
+(6670, 'Type "%s" to confirm that you want to sell your GuildHouse.'),
+(6671, 'Teleport to GuildHouse'),
+(6672, 'Buy GuildHouse for %u gold'),
+(6673, 'Sell GuildHouse for %u gold'),
+(6674, 'Next page --->');

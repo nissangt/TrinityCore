@@ -1384,8 +1384,8 @@ class Player : public Unit, public GridObject<Player>
         void OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 menuId);
 
         uint32 GetGossipTextId(uint32 menuId);
-        uint32 GetGossipTextId(WorldObject *pSource);
-        uint32 GetDefaultGossipMenuForSource(WorldObject *pSource);
+        uint32 GetGossipTextId(WorldObject* source);
+        static uint32 GetDefaultGossipMenuForSource(WorldObject* source);
 
         /*********************************************************/
         /***                    QUEST SYSTEM                   ***/
@@ -1424,7 +1424,7 @@ class Player : public Unit, public GridObject<Player>
         bool SatisfyQuestDay(Quest const* qInfo, bool msg);
         bool SatisfyQuestWeek(Quest const* qInfo, bool msg);
         bool GiveQuestSourceItem(Quest const *pQuest);
-        bool TakeQuestSourceItem(uint32 quest_id, bool msg);
+        bool TakeQuestSourceItem(uint32 questId, bool msg);
         bool GetQuestRewardStatus(uint32 quest_id) const;
         QuestStatus GetQuestStatus(uint32 quest_id) const;
         void SetQuestStatus(uint32 quest_id, QuestStatus status);

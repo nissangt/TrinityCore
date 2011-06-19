@@ -946,7 +946,7 @@ void Battleground::RemovePlayerAtLeave(const uint64& guid, bool Transport, bool 
         plr->SpawnCorpseBones();
     }
 
-    RemovePlayer(plr, guid);                                // BG subclass specific code
+    RemovePlayer(plr, guid, team);                           // BG subclass specific code
 
     if (participant) // if the player was a match participant, remove auras, calc rating, update queue
     {
@@ -961,7 +961,6 @@ void Battleground::RemovePlayerAtLeave(const uint64& guid, bool Transport, bool 
             // if arena, remove the specific arena auras
             if (isArena())
             {
-                plr->RemoveArenaAuras(true);                // removes debuffs / dots etc., we don't want the player to die after porting out
                 bgTypeId=BATTLEGROUND_AA;                   // set the bg type to all arenas (it will be used for queue refreshing)
 
                 // unsummon current and summon old pet if there was one and there isn't a current pet
@@ -1232,7 +1231,7 @@ void Battleground::EventPlayerLoggedOut(Player* player)
     if (GetStatus() == STATUS_IN_PROGRESS)
     {
         // drop flag and handle other cleanups
-        RemovePlayer(player, player->GetGUID());
+        RemovePlayer(player, player->GetGUID(), GetPlayerTeam(player->GetGUID()));
 
         // 1 player is logging out, if it is the last, then end arena!
         if (isArena())

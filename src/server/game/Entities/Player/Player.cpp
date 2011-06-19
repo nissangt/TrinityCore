@@ -1261,7 +1261,7 @@ uint32 Player::EnvironmentalDamage(EnviromentalDamage type, uint32 damage)
     else if (type == DAMAGE_SLIME)
         CalcAbsorbResist(this, SPELL_SCHOOL_MASK_NATURE, DIRECT_DAMAGE, damage, &absorb, &resist);
 
-    damage-=absorb+resist;
+    damage -= absorb + resist;
 
     DealDamageMods(this, damage, &absorb);
 
@@ -1419,7 +1419,7 @@ void Player::HandleDrowning(uint32 time_diff)
                 // Calculate and deal damage
                 // TODO: Check this formula
                 uint32 damage = urand(600, 700);
-                if (m_MirrorTimerFlags&UNDERWATER_INLAVA)
+                if (m_MirrorTimerFlags & UNDERWATER_INLAVA)
                     EnvironmentalDamage(DAMAGE_LAVA, damage);
                 // need to skip Slime damage in Undercity,
                 // maybe someone can find better way to handle environmental damage
@@ -5160,8 +5160,9 @@ bool Player::FallGround(uint8 FallMode)
     // Below formula for falling damage is from Player::HandleFall
     if (FallMode == 2 && z_diff >= 14.57f)
     {
-        uint32 damage = std::min(GetMaxHealth(), (uint32)((0.018f*z_diff-0.2426f)*GetMaxHealth()*sWorld->getRate(RATE_DAMAGE_FALL)));
-        if (damage > 0) EnvironmentalDamage(DAMAGE_FALL, damage);
+        uint32 damage = std::min(GetMaxHealth(), (uint32)((0.018f * z_diff - 0.2426f) * GetMaxHealth() * sWorld->getRate(RATE_DAMAGE_FALL)));
+        if (damage)
+            EnvironmentalDamage(DAMAGE_FALL, damage);
     }
     else if (FallMode == 0)
         Unit::setDeathState(DEAD_FALLING);
@@ -14376,15 +14377,12 @@ void Player::OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 men
     ModifyMoney(-cost);
 }
 
-uint32 Player::GetGossipTextId(WorldObject *pSource)
+uint32 Player::GetGossipTextId(WorldObject* source)
 {
-    if (!pSource || pSource->GetTypeId() != TYPEID_UNIT || !pSource->ToCreature()->GetDBTableGUIDLow())
+    if (!source)
         return DEFAULT_GOSSIP_MESSAGE;
 
-    if (uint32 pos = sObjectMgr->GetNpcGossip(pSource->ToCreature()->GetDBTableGUIDLow()))
-        return pos;
-
-    return DEFAULT_GOSSIP_MESSAGE;
+    return GetGossipTextId(GetDefaultGossipMenuForSource(source));
 }
 
 uint32 Player::GetGossipTextId(uint32 menuId)
@@ -14394,23 +14392,24 @@ uint32 Player::GetGossipTextId(uint32 menuId)
     if (!menuId)
         return textId;
 
-    GossipMenusMapBounds pMenuBounds = sObjectMgr->GetGossipMenusMapBounds(menuId);
+    GossipMenusMapBounds menuBounds = sObjectMgr->GetGossipMenusMapBounds(menuId);
 
-    for (GossipMenusMap::const_iterator itr = pMenuBounds.first; itr != pMenuBounds.second; ++itr)
-    {
+    for (GossipMenusMap::const_iterator itr = menuBounds.first; itr != menuBounds.second; ++itr)
         if (sConditionMgr->IsPlayerMeetToConditions(this, itr->second.conditions))
             textId = itr->second.text_id;
-    }
 
     return textId;
 }
 
-uint32 Player::GetDefaultGossipMenuForSource(WorldObject *pSource)
+uint32 Player::GetDefaultGossipMenuForSource(WorldObject* source)
 {
-    if (pSource->GetTypeId() == TYPEID_UNIT)
-        return pSource->ToCreature()->GetCreatureInfo()->GossipMenuId;
-    else if (pSource->GetTypeId() == TYPEID_GAMEOBJECT)
-        return((GameObject*)pSource)->GetGOInfo()->GetGossipMenuId();
+    switch (source->GetTypeId())
+    {
+        case TYPEID_UNIT:
+            return source->ToCreature()->GetCreatureInfo()->GossipMenuId;
+        case TYPEID_GAMEOBJECT:
+            return source->ToGameObject()->GetGOInfo()->GetGossipMenuId();
+    }
 
     return 0;
 }
@@ -14950,7 +14949,7 @@ void Player::RewardQuest(Quest const *pQuest, uint32 reward, Object* questGiver,
         if (uint32 qItem = pQuest->ReqItemId[i])
         {
             bool questItem = false;
-            if (Item * pItem = GetItemByEntry(qItem))
+            if (Item* pItem = GetItemByEntry(qItem))
                 if (pItem->GetTemplate()->Bonding == BIND_QUEST_ITEM)
                     questItem = true;
             DestroyItemCount(qItem, questItem ? 9999 : pQuest->ReqItemCount[i], true);
@@ -15555,36 +15554,48 @@ bool Player::GiveQuestSourceItem(Quest const *pQuest)
     return true;
 }
 
-bool Player::TakeQuestSourceItem(uint32 quest_id, bool msg)
+bool Player::TakeQuestSourceItem(uint32 questId, bool msg)
 {
-    Quest const* qInfo = sObjectMgr->GetQuestTemplate(quest_id);
-    if (qInfo)
+    Quest const* quest = sObjectMgr->GetQuestTemplate(questId);
+    if (quest)
     {
         for (uint8 i = 0; i < QUEST_ITEM_OBJECTIVES_COUNT; ++i)
-            if (uint32 qItem = qInfo->ReqItemId[i])
-                if (Item * pItem = GetItemByEntry(qItem))
+            if (uint32 qItem = quest->ReqItemId[i])
+                if (Item* pItem = GetItemByEntry(qItem))
                     if (pItem->GetTemplate()->Bonding == BIND_QUEST_ITEM)
                         DestroyItemCount(qItem, 9999, true);
-        uint32 srcitem = qInfo->GetSrcItemId();
-        if (srcitem > 0)
+
+        uint32 srcItemId = quest->GetSrcItemId();
+        ItemTemplate const* item = sObjectMgr->GetItemTemplate(srcItemId);
+        bool destroyItem = true;
+
+        if (srcItemId > 0)
         {
-            uint32 count = qInfo->GetSrcItemCount();
+            uint32 count = quest->GetSrcItemCount();
             if (count <= 0)
                 count = 1;
 
-            // exist one case when destroy source quest item not possible:
-            // non un-equippable item (equipped non-empty bag, for example)
-            InventoryResult res = CanUnequipItems(srcitem, count);
+            // exist two cases when destroy source quest item not possible:
+            // a) non un-equippable item (equipped non-empty bag, for example)
+            // b) when quest is started from an item and item also is needed in
+            // the end as ReqItemId
+            InventoryResult res = CanUnequipItems(srcItemId, count);
             if (res != EQUIP_ERR_OK)
             {
                 if (msg)
-                    SendEquipError(res, NULL, NULL, srcitem);
+                    SendEquipError(res, NULL, NULL, srcItemId);
                 return false;
             }
 
-            DestroyItemCount(srcitem, count, true, true);
+            for (uint8 n = 0; n < QUEST_ITEM_OBJECTIVES_COUNT; ++n)
+                if (item->StartQuest == questId && srcItemId == quest->ReqItemId[n])
+                    destroyItem = false;
+
+            if (destroyItem)
+                DestroyItemCount(srcItemId, count, true, true);
         }
     }
+
     return true;
 }
 

@@ -1264,7 +1264,6 @@ class npc_ancient_conservator : public CreatureScript
                 natureFuryTimer = 7500;
                 healthySporeTimer = 3500;
                 SummonHealthySpores(2);
-                grip = false;
             }
 
             void SummonHealthySpores(uint8 sporesCount)
@@ -1278,16 +1277,15 @@ class npc_ancient_conservator : public CreatureScript
                 }
             }
 
+            void EnterCombat(Unit* who)
+            {
+                DoCast(who, SPELL_CONSERVATOR_GRIP, true);
+            }
+
             void UpdateAI(uint32 const diff)
             {
                 if (!UpdateVictim())
                     return;
-
-                if (!grip)
-                {
-                    me->CastSpell(me->getVictim(), SPELL_CONSERVATOR_GRIP, true);
-                    grip = true;
-                }
 
                 if (healthySporeTimer <= diff)
                 {
@@ -1313,7 +1311,6 @@ class npc_ancient_conservator : public CreatureScript
         private:
             uint32 natureFuryTimer;
             uint32 healthySporeTimer;
-            bool grip;
         };
 
         CreatureAI* GetAI(Creature* creature) const
@@ -1507,16 +1504,16 @@ class npc_unstable_sun_beam : public CreatureScript
         }
 };
 
-class spell_attuned_to_nature_dose_reduction : public SpellScriptLoader
+class spell_freya_attuned_to_nature_dose_reduction : public SpellScriptLoader
 {
     public:
-        spell_attuned_to_nature_dose_reduction() : SpellScriptLoader("spell_attuned_to_nature_dose_reduction")
+        spell_freya_attuned_to_nature_dose_reduction() : SpellScriptLoader("spell_freya_attuned_to_nature_dose_reduction")
         {
         }
 
-        class spell_attuned_to_nature_dose_reduction_SpellScript : public SpellScript
+        class spell_freya_attuned_to_nature_dose_reduction_SpellScript : public SpellScript
         {
-            PrepareSpellScript(spell_attuned_to_nature_dose_reduction_SpellScript)
+            PrepareSpellScript(spell_freya_attuned_to_nature_dose_reduction_SpellScript)
 
             void HandleScript(SpellEffIndex /*effIndex*/)
             {
@@ -1546,13 +1543,13 @@ class spell_attuned_to_nature_dose_reduction : public SpellScriptLoader
 
             void Register()
             {
-                OnEffect += SpellEffectFn(spell_attuned_to_nature_dose_reduction_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
+                OnEffect += SpellEffectFn(spell_freya_attuned_to_nature_dose_reduction_SpellScript::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
             }
         };
 
         SpellScript* GetSpellScript() const
         {
-            return new spell_attuned_to_nature_dose_reduction_SpellScript();
+            return new spell_freya_attuned_to_nature_dose_reduction_SpellScript();
         }
 };
 
@@ -1608,6 +1605,6 @@ void AddSC_boss_freya()
     new npc_healthy_spore();
     new npc_unstable_sun_beam();
     new npc_iron_roots();
-    new spell_attuned_to_nature_dose_reduction();
+    new spell_freya_attuned_to_nature_dose_reduction();
     new spell_freya_iron_roots();
 }

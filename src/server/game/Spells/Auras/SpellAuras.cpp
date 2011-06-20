@@ -1089,7 +1089,7 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                     case 44544: // Fingers of Frost
                     {
                         // See if we already have the indicator aura. If not, create one.
-                        if (Aura *aur = target->GetAura(74396))
+                        if (Aura* aur = target->GetAura(74396))
                         {
                             // Aura already there. Refresh duration and set original charges
                             aur->SetCharges(2);
@@ -1103,28 +1103,11 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                 }
                 break;
             case SPELLFAMILY_HUNTER:
-                // Rapid Killing
-                if (GetSpellProto()->SpellFamilyFlags[1] & 0x01000000)
-                {
-                    // Rapid Recuperation
-                    // FIXME: this is completely wrong way to fixing this talent
-                    // but for unknown reason it won't proc if your target are dead
-                    if (AuraEffect * auraEff = target->GetAuraEffect(SPELL_AURA_DUMMY, SPELLFAMILY_HUNTER, 3560, 1))
-                    {
-                        uint32 spellId;
-                        switch (auraEff->GetId())
-                        {
-                            case 53228: spellId = 56654; break;
-                            case 53232: spellId = 58882; break;
-                        }
-                        target->CastSpell(target, spellId, true);
-                    }
-                }
                 // Animal Handler
-                else if (GetId() == 68361)
+                if (GetId() == 68361)
                 {
-                    if (Unit * owner = target->GetOwner())
-                        if (AuraEffect * auraEff = owner->GetDummyAuraEffect(SPELLFAMILY_HUNTER, 2234, 1))
+                    if (Unit* owner = target->GetOwner())
+                        if (AuraEffect* auraEff = owner->GetDummyAuraEffect(SPELLFAMILY_HUNTER, 2234, 1))
                             GetEffect(0)->SetAmount(auraEff->GetAmount());
                 }
                 break;
@@ -1662,13 +1645,14 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                     else
                         target->RemoveAurasDueToSpell(64364, GetCasterGUID());
                     break;
-                case 31842:
-                    if (caster->HasAura(70755))
+                case 31842: // Divine Illumination
+                    // Item - Paladin T10 Holy 2P Bonus
+                    if (target->HasAura(70755))
                     {
                         if (apply)
-                            caster->CastSpell(caster, 71166, true);
+                            target->CastSpell(target, 71166, true);
                         else
-                            caster->RemoveAurasDueToSpell(71166);
+                            target->RemoveAurasDueToSpell(71166);
                     }
                     break;
             }
@@ -2216,7 +2200,7 @@ void UnitAura::FillTargetMap(std::map<Unit *, uint8> & targets, Unit* caster)
                         targetList.push_back(GetUnitOwner());
                     case SPELL_EFFECT_APPLY_AREA_AURA_OWNER:
                     {
-                        if (Unit *owner = GetUnitOwner()->GetCharmerOrOwner())
+                        if (Unit* owner = GetUnitOwner()->GetCharmerOrOwner())
                             if (GetUnitOwner()->IsWithinDistInMap(owner, radius))
                                 targetList.push_back(owner);
                         break;

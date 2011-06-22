@@ -8092,6 +8092,7 @@ void ObjectMgr::LoadGameTele()
 
         GameTele gt;
 
+        gt.id             = id;
         gt.position_x     = fields[1].GetFloat();
         gt.position_y     = fields[2].GetFloat();
         gt.position_z     = fields[3].GetFloat();
@@ -8162,10 +8163,11 @@ bool ObjectMgr::AddGameTele(GameTele& tele)
 
     wstrToLower(tele.wnameLow);
 
+    tele.id = new_id;
     m_GameTeleMap[new_id] = tele;
 
     WorldDatabase.PExecute("INSERT INTO game_tele (id, position_x, position_y, position_z, orientation, map, name) VALUES (%u, %f, %f, %f, %f, %d, '%s')",
-        new_id, tele.position_x, tele.position_y, tele.position_z, tele.orientation, tele.mapId, tele.name.c_str());
+        tele.id, tele.position_x, tele.position_y, tele.position_z, tele.orientation, tele.mapId, tele.name.c_str());
     return true;
 }
 

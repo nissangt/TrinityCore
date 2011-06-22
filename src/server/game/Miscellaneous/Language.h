@@ -996,7 +996,26 @@ enum TrinityStrings
     LANG_GH_GOSSIP_BUY                  = 6672,
     LANG_GH_GOSSIP_SELL                 = 6673,
     LANG_GH_GOSSIP_NEXT                 = 6674,
-    
+
+    // Area guard
+    LANG_GUARD_INFO_ALL                 = 6700,
+    LANG_GUARD_INFO_TEAM_ALLIANCE       = 6701,
+    LANG_GUARD_INFO_TEAM_HORDE          = 6702,
+    LANG_GUARD_INFO_SECURITY            = 6703,
+    LANG_GUARD_INFO_LEVEL               = 6704,
+    LANG_GUARD_INFO_GUILD               = 6705,
+    LANG_GUARD_INFO_GUID                = 6706,
+    LANG_GUARD_NO_INFO                  = 6707, // 1 param - lowGuid (%u)
+    LANG_GUARD_NO_TEMPLATE              = 6708, // 1 param - entry (%u)
+    LANG_GUARD_WRONG_DISTANCE           = 6709, // 1 param - distance (%s)
+    LANG_GUARD_WRONG_GUID               = 6710, // 1 param - guid (%s)
+    LANG_GUARD_WRONG_TEAM               = 6711, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_WRONG_SECURITY           = 6712, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_WRONG_LEVEL              = 6713, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_WRONG_GUILD              = 6714, // 1 param - value (%u)
+    LANG_GUARD_WRONG_TYPE               = 6715, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_HEADER                   = 6716,
+
     LANG_WORLD_CLOSED                    = 7523,
     LANG_WORLD_OPENED                    = 7524,
 

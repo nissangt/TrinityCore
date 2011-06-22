@@ -73,6 +73,7 @@ typedef UNORDERED_MAP<uint16, InstanceTemplate> InstanceTemplateContainer;
 
 struct GameTele
 {
+    uint32 id;
     float  position_x;
     float  position_y;
     float  position_z;

@@ -18,8 +18,119 @@
 #include "ScriptPCH.h"
 #include "npc_areaguard.h"
 #include "LogMgr.h"
+#include "GuildMgr.h"
 
 #define MAX_RADIUS 100.0f
+
+void GuardInfo::SaveToDB() const
+{
+    WorldDatabase.PExecute("REPLACE INTO `npc_areaguard`(`entry`,`type`,`value`,`distance`,`teleId`) VALUES (%u, %u, %u, %f, %u)",
+                           _entry, _type, _value, _distance, _teleId);
+}
+
+bool GuardInfo::LoadFromDB(Field* fields)
+{
+    _entry      = fields[0].GetUInt32();
+    _type       = GuardType(fields[1].GetUInt8());
+    _value      = fields[2].GetUInt32();
+    _distance   = fields[3].GetFloat();
+    _teleId     = fields[4].GetUInt32();
+    
+    if (!sObjectMgr->GetGameTele(_teleId))
+    {
+        sLog->outError("GUARD: area guard (entry: %u) has invalid teleport id (%u)", _entry, _teleId);
+        return false;
+    }
+    if (_distance < 0.0f || _distance > MAX_RADIUS)
+    {
+        sLog->outError("GUARD: area guard (entry: %u) has invalid interaction radius (%.1f), it will be set to %.1f",
+                       _entry, _distance, MAX_RADIUS);
+        _distance = MAX_RADIUS;
+    }
+    return true;
+}
+
+const char* divider = "|----------|-----|------------------|--------------------------|----------------------------------|";
+// |---------------|--------------|---------------|----------------|---------------|
+// | entry (max 8) | dist (max 3) | type (max 16) | value (max 24) | tele (max 32) |
+// |---------------|--------------|---------------|----------------|---------------|
+void GuardInfo::SendMessage(ChatHandler* handler, bool showHeader) const
+{
+    std::string sType;
+    std::string sValue;
+    switch (_type)
+    {
+        case NPCG_ALL:
+            sType = handler->GetTrinityString(LANG_GUARD_INFO_ALL);
+            break;
+        case NPCG_TEAM:
+            sType = handler->GetTrinityString(_value == TEAM_ALLIANCE ? LANG_GUARD_INFO_TEAM_ALLIANCE : LANG_GUARD_INFO_TEAM_HORDE);
+            break;
+        case NPCG_SECURITY:
+            sType = handler->GetTrinityString(LANG_GUARD_INFO_SECURITY);
+            sValue = _value;
+            break;
+        case NPCG_LEVEL:
+            sType = handler->GetTrinityString(LANG_GUARD_INFO_LEVEL);
+            sValue = _value;
+            break;
+        case NPCG_GUILD:
+        {
+            sType = handler->GetTrinityString(LANG_GUARD_INFO_GUILD);
+            Guild const* guild = sGuildMgr->GetGuildById(_value);
+            sValue = (guild ? guild->GetName() : "<unknown>");
+            break;
+        }
+        case NPCG_GUID:
+        {
+            if (!sObjectMgr->GetPlayerNameByGUID(_value, sValue))
+                sValue = "<unknown>";
+            sValue += " (";
+            sValue += _value;
+            sValue += ")";
+            sType = handler->GetTrinityString(LANG_GUARD_INFO_GUID);
+            break;
+        }
+        case NPCG_NONE:
+            break;
+    }
+    GameTele const* tele = sObjectMgr->GetGameTele(_teleId);
+    char str[255];
+    sprintf(str, "| %8u | %3.0f | %16s | %24s | %32s |",
+            _entry, _distance, sType.c_str(), sValue.c_str(), (tele ? tele->name.c_str() : "<unknown>"));
+
+    if (showHeader)
+    {
+        handler->SendSysMessage(divider);
+        handler->SendSysMessage(LANG_GUARD_HEADER);
+        handler->SendSysMessage(divider);
+    }
+    handler->SendSysMessage(str);
+    if (showHeader)
+        handler->SendSysMessage(divider);
+}
+
+void GuardInfo::SetType(GuardType type, uint32 value)
+{
+    _type = type;
+    _value = value;
+    SaveToDB();
+}
+
+void GuardInfo::SetTele(uint32 teleId)
+{
+    _teleId = teleId;
+    SaveToDB();
+}
+
+void GuardInfo::SetDistance(float distance)
+{
+    _distance = distance;
+    SaveToDB();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Guard Manager
 
 GuardMgr::GuardMgr() { }
 
@@ -29,7 +140,8 @@ void GuardMgr::LoadGuardTemplates()
 {
     uint32 oldMSTime = getMSTime();
 
-    _guardMap.clear();                                  // for reload case
+    _maxEntry = 0;
+    _guardMap.clear();
 
     QueryResult result = WorldDatabase.Query("SELECT `entry`,`type`,`value`,`distance`,`teleId` FROM `npc_areaguard_template`");
     if (!result)
@@ -42,28 +154,17 @@ void GuardMgr::LoadGuardTemplates()
     uint32 count = 0;
     do
     {
-        Field* fields   = result->Fetch();
+        Field* fields = result->Fetch();
 
         GuardInfo gi;
-        gi.entry        = fields[0].GetUInt32();
-        gi.type         = GuardType(fields[1].GetUInt8());
-        gi.value        = fields[2].GetUInt32();
-        gi.distance     = fields[3].GetFloat();
-        gi.teleId       = fields[4].GetUInt32();
-
-        if (!sObjectMgr->GetGameTele(gi.teleId))
-        {
-            sLog->outError("GUARD: area guard (entry: %u) has invalid teleport id (%u)", gi.entry, gi.teleId);
+        if (!gi.LoadFromDB(fields))
             continue;
-        }
-        if (gi.distance < 0.0f || gi.distance > MAX_RADIUS)
-        {
-            sLog->outError("GUARD: area guard (entry: %u) has invalid interaction radius (%.1f), will set it to %.1f",
-                           gi.entry, gi.distance, MAX_RADIUS);
-            gi.distance = MAX_RADIUS;
-        }
 
-        _guardMap[gi.entry] = gi;
+        uint32 entry = gi.GetEntry();
+        if (_maxEntry < entry)
+            _maxEntry = entry;
+
+        _guardMap[entry] = gi;
 
         ++count;
     }
@@ -102,16 +203,68 @@ void GuardMgr::LoadGuards()
     sLog->outString();
 }
 
-GuardInfo const* GuardMgr::GetInfo(uint32 guidLow) const
+GuardInfo* GuardMgr::GetInfo(uint32 lowGuid)
 {
-    Guards::const_iterator itr = _guards.find(guidLow);
+    Guards::iterator itr = _guards.find(lowGuid);
+    if (itr != _guards.end())
+        return GetInfoByEntry(itr->second);
+    return NULL;
+}
+
+GuardInfo* GuardMgr::GetInfoByEntry(uint32 entry)
+{
+    GuardInfoMap::iterator itr = _guardMap.find(entry);
+    if (itr != _guardMap.end())
+        return &itr->second;
+    return NULL;    
+}
+
+void GuardMgr::Link(GuardInfo const* info, uint32 lowGuid)
+{
+    _guards[lowGuid] = info->GetEntry();
+    WorldDatabase.PExecute("REPLACE INTO `npc_areaguard`(`guid`,`guardEntry`) VALUES (%u, %u)", lowGuid, info->GetEntry());
+}
+
+void GuardMgr::Unlink(uint32 lowGuid)
+{
+    Guards::iterator itr = _guards.find(lowGuid);
     if (itr != _guards.end())
     {
-        GuardInfoMap::const_iterator infoItr = _guardMap.find(itr->second);
-        if (infoItr != _guardMap.end())
-            return &infoItr->second;
+        _guards.erase(lowGuid);
+        WorldDatabase.PExecute("DELETE FROM `npc_areaguard` WHERE `guid` = %u", lowGuid);
     }
-    return NULL;
+}
+
+void GuardMgr::Delete(GuardInfo const* info)
+{
+    uint32 entry = info->GetEntry();
+    // Clean collections
+    // TODO: Check removal
+    for (Guards::iterator itr = _guards.begin(); itr != _guards.end(); ++itr)
+        if (itr->second == entry)
+            _guards.erase(itr);
+    _guardMap.erase(entry);
+    // Clean DB
+    WorldDatabase.PExecute("DELETE FROM `npc_areaguard` WHERE `guardEntry` = %u", entry);
+    WorldDatabase.PExecute("DELETE FROM `npc_areaguard_template` WHERE `entry` = %u", entry);
+}
+
+void GuardMgr::Create(GuardType type, uint32 value, float distance, GameTele const* tele)
+{
+    GuardInfo info(++_maxEntry, type, value, distance, tele->id);
+    info.SaveToDB();
+    _guardMap[info.GetEntry()] = info;
+}
+
+void GuardMgr::List(ChatHandler* handler, GuardType type) const
+{
+    handler->SendSysMessage(divider);
+    handler->SendSysMessage(LANG_GUARD_HEADER);
+    handler->SendSysMessage(divider);
+    for (GuardInfoMap::const_iterator itr = _guardMap.begin(); itr != _guardMap.end(); ++itr)
+        if (type == NPCG_NONE || itr->second.GetType() == type)
+            itr->second.SendMessage(handler, false);
+    handler->SendSysMessage(divider);
 }
 
 class npc_areaguard : public CreatureScript
@@ -131,10 +284,10 @@ public:
                 return;
             }
 
-            _tele = sObjectMgr->GetGameTele(_info->teleId);
+            _tele = sObjectMgr->GetGameTele(_info->GetTeleId());
             if (!_tele)
             {
-                sLog->outError("GUARD: given game teleport (ID: %u) not found!", _info->teleId);
+                sLog->outError("GUARD: given game teleport (ID: %u) not found!", _info->GetTeleId());
                 return;
             }
 
@@ -158,7 +311,7 @@ public:
                 return;
 
             // Return if distance is greater than guard distance
-            if (!me->IsWithinDist(who, _info->distance, false))
+            if (!me->IsWithinDist(who, _info->GetDistance(), false))
                 return;
 
             Player* player = who->GetCharmerOrOwnerPlayerOrPlayerItself();
@@ -167,7 +320,8 @@ public:
                 return;
 
             bool teleport = false;
-            switch (_info->type)
+            uint32 value = _info->GetValue();
+            switch (_info->GetType())
             {
                 // Action on all players without GM flag on
                 case NPCG_ALL:
@@ -178,23 +332,25 @@ public:
                     // 0 - Alliance
                     // 1 - Horde
                     // 2 - Neutral
-                    teleport = (player->GetTeamId() != TeamId(_info->value));
+                    teleport = (player->GetTeamId() != TeamId(value));
                     break;
                 case NPCG_SECURITY:
                     // Action based on GM Level
-                    teleport = (player->GetSession()->GetSecurity() < AccountTypes(_info->value));
+                    teleport = (player->GetSession()->GetSecurity() < AccountTypes(value));
                     break;
                 case NPCG_LEVEL:
                     // Action based on Player Level
-                    teleport = (player->getLevel() < _info->value);
+                    teleport = (player->getLevel() < value);
                     break;
                 case NPCG_GUILD:
                     // Action based on Guild ID
-                    teleport = (player->GetGuildId() != _info->value);
+                    teleport = (player->GetGuildId() != value);
                     break;
                 case NPCG_GUID:
                     // Action based on Player GUID
-                    teleport = (player->GetGUID() != _info->value);
+                    teleport = (player->GetGUID() != value);
+                    break;
+                case NPCG_NONE:
                     break;
             }
 
@@ -219,9 +375,338 @@ public:
     }
 };
 
+class GuardCommandScript : public CommandScript
+{
+public:
+    GuardCommandScript() : CommandScript("GuardCommandScript") { }
+    
+    ChatCommand* GetCommands() const
+    {
+        static ChatCommand modCommandTable[] =
+        {
+            { "distance",       SEC_GAMEMASTER,     true,  &HandleGuardSetDistanceCommand,  "", NULL },
+            { "tele",           SEC_GAMEMASTER,     true,  &HandleGuardSetTeleCommand,      "", NULL },
+            { "type",           SEC_GAMEMASTER,     true,  &HandleGuardSetTypeCommand,      "", NULL },
+            { NULL,             0,                  false, NULL,                            "", NULL }
+        };
+        static ChatCommand guardCommandTable[] =
+        {
+            { "info",           SEC_GAMEMASTER,     false, &HandleGuardInfoCommand,         "", NULL },
+            { "link",           SEC_GAMEMASTER,     false, &HandleGuardLinkCommand,         "", NULL },
+            { "unlink",         SEC_GAMEMASTER,     false, &HandleGuardUnlinkCommand,       "", NULL },
+            { "list",           SEC_GAMEMASTER,     true,  &HandleGuardListCommand,         "", NULL },
+            { "add",            SEC_GAMEMASTER,     true,  &HandleGuardAddCommand,          "", NULL },
+            { "del",            SEC_GAMEMASTER,     true,  &HandleGuardDelCommand,          "", NULL },
+            { "set",            SEC_GAMEMASTER,     true,  NULL,                            "", modCommandTable },
+            { NULL,             0,                  false, NULL,                            "", NULL }
+        };
+        static ChatCommand commandTable[] =
+        {
+            { "guard",          SEC_GAMEMASTER,     false, NULL,               "", guardCommandTable },
+            { NULL,             0,                  false, NULL,               "", NULL              }
+        };
+        return commandTable;
+    }
+    
+    // .guard info <guid>/<selected creature>
+    static bool HandleGuardInfoCommand(ChatHandler* handler, const char* args)
+    {
+        uint32 lowGuid = _ExtractCreatureGuid(handler, (char*)args);
+        if (!lowGuid)
+            return false;
+
+        if (GuardInfo const* gi = sGuardMgr->GetInfo(lowGuid))
+            gi->SendMessage(handler, true);
+        else
+            handler->PSendSysMessage(LANG_GUARD_NO_INFO, lowGuid);
+
+        return true;
+    }
+
+    // .guard link <guard entry> <guid>/<selected creature>
+    static bool HandleGuardLinkCommand(ChatHandler* handler, const char* args)
+    {
+        if (!args)
+            return false;
+
+        // Extract entry (1 param)
+        char* sEntry = strtok((char*)args, " ");
+        uint32 entry(atoi(sEntry));
+        GuardInfo const* gi = sGuardMgr->GetInfoByEntry(entry);
+        if (!gi)
+        {
+            handler->PSendSysMessage(LANG_GUARD_NO_TEMPLATE, entry);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+        
+        // Extract creature entry (2 param or selected creature)
+        char* sGuid = strtok(NULL, " ");
+        uint32 lowGuid = _ExtractCreatureGuid(handler, sGuid);
+        if (!lowGuid)
+            return false;
+
+        // TODO: Check if creature can be npc_areaguard
+        // Link
+        sGuardMgr->Link(gi, lowGuid);
+        return true;
+    }
+
+    // .guard unlink <guid>/<selected creature>
+    static bool HandleGuardUnlinkCommand(ChatHandler* handler, const char* args)
+    {
+        // Extract guid (or take it from selected creature)
+        uint32 lowGuid = _ExtractCreatureGuid(handler, (char*)args);
+        if (!lowGuid)
+            return false;
+
+        // Unlink
+        if (sGuardMgr->GetInfo(lowGuid))
+            sGuardMgr->Unlink(lowGuid);
+        else
+            handler->PSendSysMessage(LANG_GUARD_NO_INFO, lowGuid);
+        return true;
+    }
+
+    // Show list of available guard templates
+    // .guard list
+    static bool HandleGuardListCommand(ChatHandler* handler, const char* args)
+    {
+        char* sType = strtok((char*)args, " ");
+        sGuardMgr->List(handler, sType ? GuardType(atoi(sType)) : NPCG_NONE);
+        return true;
+    }
+
+    // Create new guard template
+    // .guard add <type> <value> <distance> <tele>
+    static bool HandleGuardAddCommand(ChatHandler* handler, const char* args)
+    {
+        // 1. Type
+        char* sType = strtok((char*)args, " ");
+        // 2. Value
+        char* sValue = strtok(NULL, " ");
+        if (!sType || !sValue)
+        {
+            handler->SendSysMessage(LANG_CMD_SYNTAX);
+            handler->SetSentErrorMessage(true);
+            return false;            
+        }
+        GuardType type = GuardType(atoi(sType));
+        uint32 value(atoi(sValue));
+        if (!_ValidateTypeValue(handler, type, value))
+            return false;
+
+        // 3. Distance
+        char* sDistance = strtok(NULL, " ");
+        float distance(atoi(sDistance));
+        if (!distance || distance > MAX_RADIUS)
+        {
+            handler->PSendSysMessage(LANG_GUARD_WRONG_DISTANCE, sDistance);
+            handler->SetSentErrorMessage(true);
+            return false;            
+        }
+        // 4. Tele
+        char* sTele = strtok(NULL, " ");
+        GameTele const* tele = handler->extractGameTeleFromLink(sTele);
+        if (!tele)
+        {
+            handler->PSendSysMessage(LANG_COMMAND_TELE_NOTFOUND);
+            handler->SetSentErrorMessage(true);
+            return false;            
+        }
+        // Create new info
+        sGuardMgr->Create(type, value, distance, tele);
+        return true;
+    }
+
+    // Delete existing guard template
+    // .guard del <entry>/<selected creature>
+    static bool HandleGuardDelCommand(ChatHandler* handler, const char* args)
+    {
+        if (GuardInfo* gi = _ExtractGuardInfo(handler, (char*)args))
+            sGuardMgr->Delete(gi);
+        return true;
+    }
+
+    // .guard set distance <distance> <entry>/<selected creature>
+    static bool HandleGuardSetDistanceCommand(ChatHandler* handler, const char* args)
+    {
+        if (!args)
+            return false;
+
+        // 1 param: distance
+        char* sDistance = strtok((char*)args, " ");
+        float distance(atoi(sDistance));
+        if (!distance || distance > MAX_RADIUS)
+        {
+            handler->PSendSysMessage(LANG_GUARD_WRONG_DISTANCE, sDistance);
+            handler->SetSentErrorMessage(true);
+            return false;            
+        }
+        
+        // 2 param (optional): guard template entry
+        char* sEntry = strtok(NULL, " ");
+        if (GuardInfo* gi = _ExtractGuardInfo(handler, sEntry))
+            gi->SetDistance(distance);
+
+        return true;
+    }
+
+    // .guard set tele <tele id>/<tele name> <entry>/<selected creature>
+    static bool HandleGuardSetTeleCommand(ChatHandler* handler, const char* args)
+    {
+        if (!args)
+            return false;
+
+        // 1 param: tele name or tele id
+        char* sTele = strtok((char*)args, " ");
+        GameTele const* tele = handler->extractGameTeleFromLink(sTele);
+        if (!tele)
+        {
+            handler->PSendSysMessage(LANG_COMMAND_TELE_NOTFOUND);
+            handler->SetSentErrorMessage(true);
+            return false;            
+        }        
+        // 2 param (optional): guard template entry
+        char* sEntry = strtok(NULL, " ");
+        if (GuardInfo* gi = _ExtractGuardInfo(handler, sEntry))
+            gi->SetTele(tele->id);
+
+        return true;
+    }
+
+    // .guard set type <type> <value> <entry>/<selected creature>
+    static bool HandleGuardSetTypeCommand(ChatHandler* handler, const char* args)
+    {
+        if (!args)
+            return false;
+
+        // 1 param: guard type
+        char* sType  = strtok((char*)args, " ");
+        // 2 param: value to use with type
+        char* sValue = strtok(NULL, " ");
+        if (!sType || !sValue)
+        {
+            handler->SendSysMessage(LANG_CMD_SYNTAX);
+            handler->SetSentErrorMessage(true);
+            return false;            
+        }
+        GuardType type = GuardType(atoi(sType));
+        uint32 value(atoi(sValue));
+        if (!_ValidateTypeValue(handler, type, value))
+            return false;
+
+        // 3 param (optional): guard template entry
+        char* sEntry = strtok(NULL, " ");
+        if (GuardInfo* gi = _ExtractGuardInfo(handler, sEntry))
+            gi->SetType(type, value);
+
+        return true;
+    }
+
+private:
+    // Extract guard info either by entry (if given), or from selected creature
+    static GuardInfo* _ExtractGuardInfo(ChatHandler* handler, char* args)
+    {
+        GuardInfo* gi = NULL;
+        if (args)
+        {
+            uint32 entry(atoi(args));
+            gi = sGuardMgr->GetInfoByEntry(entry);
+            if (!gi)
+                handler->PSendSysMessage(LANG_GUARD_NO_TEMPLATE, entry);
+        }
+        else if (Creature* creature = handler->getSelectedCreature())
+        {
+            uint32 lowGuid = creature->GetGUIDLow();
+            gi = sGuardMgr->GetInfo(lowGuid);
+            if (!gi)
+                handler->PSendSysMessage(LANG_GUARD_NO_INFO, lowGuid);
+        }
+        return gi;
+    }
+
+    // Extract guard info either by given lowGuid or from selected creature
+    static uint32 _ExtractCreatureGuid(ChatHandler* handler, char* args)
+    {
+        uint32 lowGuid = 0;
+        if (args)
+        {
+            lowGuid = uint32(atoi(args));
+            if (!lowGuid)
+            {
+                handler->PSendSysMessage(LANG_GUARD_WRONG_GUID, args);
+                handler->SetSentErrorMessage(true);
+            }
+        }
+        else
+        {
+            if (Creature* creature = handler->getSelectedCreature())
+                lowGuid = creature->GetGUIDLow();
+            else
+            {
+                handler->PSendSysMessage(LANG_SELECT_CREATURE);
+                handler->SetSentErrorMessage(true);
+            }
+        }
+        return lowGuid;
+    }
+
+    static bool _ValidateTypeValue(ChatHandler* handler, GuardType type, uint32 value)
+    {
+        bool res = true;
+        switch (type)
+        {
+            case NPCG_TEAM:
+                if (value > TEAM_HORDE)
+                {
+                    handler->PSendSysMessage(LANG_GUARD_WRONG_TEAM, value, TEAM_HORDE);
+                    res = false;
+                }
+                break;
+            case NPCG_SECURITY:
+                if (value > SEC_ADMINISTRATOR)
+                {
+                    handler->PSendSysMessage(LANG_GUARD_WRONG_SECURITY, value, SEC_ADMINISTRATOR);
+                    res = false;
+                }
+                break;
+            case NPCG_LEVEL:
+                if (value > DEFAULT_MAX_LEVEL)
+                {
+                    handler->PSendSysMessage(LANG_GUARD_WRONG_LEVEL, value, DEFAULT_MAX_LEVEL);
+                    res = false;
+                }
+                break;
+            case NPCG_GUILD:
+                if (!sGuildMgr->GetGuildById(value))
+                {
+                    handler->PSendSysMessage(LANG_GUARD_WRONG_GUILD, value);
+                    res = false;
+                }
+                break;
+            case NPCG_GUID:
+                if (!sObjectMgr->GetPlayerAccountIdByGUID(MAKE_NEW_GUID(value, 0, HIGHGUID_PLAYER)))
+                {
+                    handler->PSendSysMessage(LANG_GUARD_WRONG_GUID, value);
+                    res = false;
+                }
+                break;
+            default:
+                handler->PSendSysMessage(LANG_GUARD_WRONG_TYPE, type, NPCG_GUID);
+                res = false;
+                break;
+        }
+        if (!res)
+            handler->SetSentErrorMessage(true);
+        return res;
+    }
+};
+
 void AddSC_npc_areaguard()
 {
     sGuardMgr->LoadGuardTemplates();
     sGuardMgr->LoadGuards();
+    new GuardCommandScript();
     new npc_areaguard();
 }

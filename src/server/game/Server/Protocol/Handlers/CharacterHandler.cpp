@@ -1719,7 +1719,7 @@ void WorldSession::HandleCharFactionOrRaceChange(WorldPacket& recv_data)
         {
             // Reset guild
             if (uint32 guildId = Player::GetGuildIdFromDB(guid))
-                if (Guild* guild = sGuildMgr->GetGuildById(guid))
+                if (Guild* guild = sGuildMgr->GetGuildById(guildId))
                     guild->DeleteMember(guid);
         }
 

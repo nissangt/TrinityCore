@@ -15,9 +15,11 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "SpellScript.h"
+#include "SpellAuraEffects.h"
 #include "ulduar.h"
-#include "Vehicle.h"
 
 /* ScriptData
 SDName: boss_kologarn
@@ -95,12 +97,12 @@ class boss_kologarn : public CreatureScript
 
         CreatureAI* GetAI(Creature* pCreature) const
         {
-            return new boss_kologarnAI (pCreature);
+            return GetUlduarAI<boss_kologarnAI>(pCreature);
         }
 
         struct boss_kologarnAI : public BossAI
         {
-            boss_kologarnAI(Creature *pCreature) : BossAI(pCreature, TYPE_KOLOGARN), vehicle(pCreature->GetVehicleKit()),
+            boss_kologarnAI(Creature *pCreature) : BossAI(pCreature, BOSS_KOLOGARN), vehicle(pCreature->GetVehicleKit()),
                 left(false), right(false)
             {
                 ASSERT(vehicle);
@@ -142,7 +144,7 @@ class boss_kologarn : public CreatureScript
                 eyebeamTarget = 0;
             }
 
-            void JustDied(Unit * /*victim*/)
+            void JustDied(Unit* /*victim*/)
             {
                 DoScriptText(SAY_DEATH, me);
                 DoCast(SPELL_KOLOGARN_PACIFY);
@@ -158,7 +160,7 @@ class boss_kologarn : public CreatureScript
 
             void PassengerBoarded(Unit* who, int8 /*seatId*/, bool apply)
             {
-                bool isEncounterInProgress = instance->GetBossState(TYPE_KOLOGARN) == IN_PROGRESS;
+                bool isEncounterInProgress = instance->GetBossState(BOSS_KOLOGARN) == IN_PROGRESS;
                 if (who->GetEntry() == NPC_LEFT_ARM)
                 {
                     left = apply;
@@ -183,11 +185,11 @@ class boss_kologarn : public CreatureScript
                         instance->SetData64(DATA_RIGHT_ARM, who->GetGUID());
                 }
 
+                if (!isEncounterInProgress)
+                    return;
+
                 if (!apply)
                 {
-                    if (!isEncounterInProgress)
-                        return;
-
                     who->CastSpell(me, SPELL_ARM_DEAD_DAMAGE, true);
 
                     if (Creature* rubbleStalker = who->FindNearestCreature(NPC_RUBBLE_STALKER, 70.0f))
@@ -328,8 +330,6 @@ class boss_kologarn : public CreatureScript
                 if (!arm->isAlive())
                     arm->Respawn();
 
-                // HACK: We should send spell SPELL_ARM_ENTER_VEHICLE here, but this will not work, because
-                // the aura system will not allow it to stack from two different casters
                 int32 seatId = arm->GetEntry() == NPC_LEFT_ARM ? 0 : 1;
                 arm->CastCustomSpell(SPELL_ARM_ENTER_VEHICLE, SPELLVALUE_BASE_POINT0, seatId+1, me, true);
                 arm->CastSpell(arm, SPELL_ARM_ENTER_VISUAL, true);
@@ -352,7 +352,7 @@ class spell_ulduar_rubble_summon : public SpellScriptLoader
                 if (!caster)
                     return;
 
-                uint64 originalCaster = caster->GetInstanceScript() ? caster->GetInstanceScript()->GetData64(TYPE_KOLOGARN) : 0;
+                uint64 originalCaster = caster->GetInstanceScript() ? caster->GetInstanceScript()->GetData64(BOSS_KOLOGARN) : 0;
                 uint32 spellId = GetEffectValue();
                 for (uint8 i = 0; i < 5; ++i)
                     caster->CastSpell(caster, spellId, true, NULL, NULL, originalCaster);
@@ -435,7 +435,7 @@ class spell_ulduar_stone_grip_cast_target : public SpellScriptLoader
 
             void HandleForceCast(SpellEffIndex i)
             {
-                Player * plr = GetHitPlayer();
+                Player* plr = GetHitPlayer();
                 if (!plr)
                     return;
 
@@ -486,6 +486,8 @@ class spell_ulduar_cancel_stone_grip : public SpellScriptLoader
                         break;
                     case RAID_DIFFICULTY_25MAN_NORMAL:
                         target->RemoveAura(SpellMgr::CalculateSpellEffectAmount(GetSpellInfo(), EFFECT_1));
+                        break;
+                    default:
                         break;
                 }
             }
@@ -549,11 +551,8 @@ class spell_ulduar_stone_grip_absorb : public SpellScriptLoader
 
             //! This will be called when Right Arm (vehicle) has sustained a specific amount of damage depending on instance mode
             //! What we do here is remove all harmful aura's related and teleport to safe spot.
-            void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes mode)
+            void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
             {
-                if (!(mode & AURA_EFFECT_HANDLE_REAL))
-                    return;
-
                 if (GetTargetApplication()->GetRemoveMode() !=  AURA_REMOVE_BY_ENEMY_SPELL)
                     return;
 
@@ -568,7 +567,7 @@ class spell_ulduar_stone_grip_absorb : public SpellScriptLoader
 
             void Register()
             {
-                OnEffectRemove += AuraEffectRemoveFn(spell_ulduar_stone_grip_absorb_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_SCHOOL_ABSORB, AURA_EFFECT_HANDLE_REAL);
+                AfterEffectRemove += AuraEffectRemoveFn(spell_ulduar_stone_grip_absorb_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_SCHOOL_ABSORB, AURA_EFFECT_HANDLE_REAL);
             }
         };
 
@@ -587,11 +586,8 @@ class spell_ulduar_stone_grip : public SpellScriptLoader
         {
             PrepareAuraScript(spell_ulduar_stone_grip_AuraScript);
 
-            void OnRemoveStun(AuraEffect const* aurEff, AuraEffectHandleModes mode)
+            void OnRemoveStun(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
             {
-                if (!(mode & AURA_EFFECT_HANDLE_REAL))
-                    return;
-
                 if (Player* pOwner = GetOwner()->ToPlayer())
                     pOwner->RemoveAurasDueToSpell(aurEff->GetAmount());
             }
@@ -617,7 +613,7 @@ class spell_ulduar_stone_grip : public SpellScriptLoader
             void Register()
             {
                 OnEffectRemove += AuraEffectRemoveFn(spell_ulduar_stone_grip_AuraScript::OnRemoveVehicle, EFFECT_0, SPELL_AURA_CONTROL_VEHICLE, AURA_EFFECT_HANDLE_REAL);
-                OnEffectRemove += AuraEffectRemoveFn(spell_ulduar_stone_grip_AuraScript::OnRemoveStun, EFFECT_2, SPELL_AURA_MOD_STUN, AURA_EFFECT_HANDLE_REAL);
+                AfterEffectRemove += AuraEffectRemoveFn(spell_ulduar_stone_grip_AuraScript::OnRemoveStun, EFFECT_2, SPELL_AURA_MOD_STUN, AURA_EFFECT_HANDLE_REAL);
             }
         };
 
@@ -627,13 +623,41 @@ class spell_ulduar_stone_grip : public SpellScriptLoader
         }
 };
 
+class spell_kologarn_stone_shout : public SpellScriptLoader
+{
+    public:
+        spell_kologarn_stone_shout() : SpellScriptLoader("spell_kologarn_stone_shout") { }
+
+        class spell_kologarn_stone_shout_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_kologarn_stone_shout_SpellScript);
+
+            void FilterTargets(std::list<Unit*>& unitList)
+            {
+                unitList.remove_if(PlayerOrPetCheck());
+            }
+
+            void Register()
+            {
+                OnUnitTargetSelect += SpellUnitTargetFn(spell_kologarn_stone_shout_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_AREA_ENEMY_SRC);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_kologarn_stone_shout_SpellScript();
+        }
+};
+
 void AddSC_boss_kologarn()
 {
     new boss_kologarn();
+
     new spell_ulduar_rubble_summon();
     new spell_ulduar_squeezed_lifeless();
     new spell_ulduar_cancel_stone_grip();
     new spell_ulduar_stone_grip_cast_target();
     new spell_ulduar_stone_grip_absorb();
     new spell_ulduar_stone_grip();
+    new spell_kologarn_stone_shout();
 }

@@ -64,7 +64,7 @@ class OrientationCheck : public std::unary_function<Unit*, bool>
         {
             return !unit->isInFront(caster, 40.0f, 2.5f);
         }
-    
+
     private:
         Unit* caster;
 };
@@ -80,14 +80,14 @@ class spell_eadric_radiance : public SpellScriptLoader
             {
                 unitList.remove_if(OrientationCheck(GetCaster()));
             }
-            
+
             void Register()
             {
                 OnUnitTargetSelect += SpellUnitTargetFn(spell_eadric_radiance_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_AREA_ENEMY_SRC);
                 OnUnitTargetSelect += SpellUnitTargetFn(spell_eadric_radiance_SpellScript::FilterTargets, EFFECT_1, TARGET_UNIT_AREA_ENEMY_SRC);
             }
         };
-        
+
         SpellScript *GetSpellScript() const
         {
             return new spell_eadric_radiance_SpellScript();
@@ -126,7 +126,7 @@ public:
             bDone = false;
         }
 
-        void DamageTaken(Unit * /*done_by*/, uint32 &damage)
+        void DamageTaken(Unit* /*done_by*/, uint32 &damage)
         {
             if (damage >= me->GetHealth())
             {
@@ -252,7 +252,7 @@ public:
                 me->RemoveAura(SPELL_SHIELD);
         }
 
-        void DamageTaken(Unit * /*done_by*/, uint32 &damage)
+        void DamageTaken(Unit* /*done_by*/, uint32 &damage)
         {
             if (damage >= me->GetHealth())
             {
@@ -415,13 +415,9 @@ public:
         void JustDied(Unit* /*pKiller*/)
         {
             if (me->isSummon())
-            {
-                if (Unit* pSummoner = CAST_SUM(me)->GetSummoner())
-                {
-                    if (pSummoner && pSummoner->isAlive())
-                        CAST_CRE(pSummoner)->AI()->SetData(1, 0);
-                }
-            }
+                if (Unit* summoner = me->ToTempSummon()->GetSummoner())
+                    if (summoner->isAlive())
+                        summoner->GetAI()->SetData(1, 0);
         }
     };
 

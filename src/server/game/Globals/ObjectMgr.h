@@ -94,7 +94,6 @@ enum ScriptsType
     SCRIPTS_GAMEOBJECT,
     SCRIPTS_EVENT,
     SCRIPTS_WAYPOINT,
-    SCRIPTS_GOSSIP,
 
     SCRIPTS_LAST
 };
@@ -329,7 +328,6 @@ extern ScriptMapMap sQuestStartScripts;
 extern ScriptMapMap sSpellScripts;
 extern ScriptMapMap sGameObjectScripts;
 extern ScriptMapMap sEventScripts;
-extern ScriptMapMap sGossipScripts;
 extern ScriptMapMap sWaypointScripts;
 
 std::string GetScriptsTableNameByType(ScriptsType type);
@@ -348,7 +346,7 @@ struct SpellClickInfo
     SpellClickUserTypes userType;
 
     // helpers
-    bool IsFitToRequirements(Unit const* clicker, Unit const * clickee) const;
+    bool IsFitToRequirements(Unit const* clicker, Unit const* clickee) const;
 };
 
 typedef std::multimap<uint32, SpellClickInfo> SpellClickInfoMap;
@@ -475,19 +473,18 @@ struct PointOfInterest
 
 struct GossipMenuItems
 {
-    uint32          menu_id;
-    uint32          id;
-    uint8           option_icon;
-    std::string     option_text;
-    uint32          option_id;
-    uint32          npc_option_npcflag;
-    uint32          action_menu_id;
-    uint32          action_poi_id;
-    uint32          action_script_id;
-    bool            box_coded;
-    uint32          box_money;
-    std::string     box_text;
-    ConditionList   conditions;
+    uint32          MenuId;
+    uint32          OptionIndex;
+    uint8           OptionIcon;
+    std::string     OptionText;
+    uint32          OptionType;
+    uint32          OptionNpcflag;
+    uint32          ActionMenuId;
+    uint32          ActionPoiId;
+    bool            BoxCoded;
+    uint32          BoxMoney;
+    std::string     BoxText;
+    ConditionList   Conditions;
 };
 
 struct GossipMenus
@@ -537,9 +534,6 @@ struct GraveYardData
     uint32 team;
 };
 typedef std::multimap<uint32, GraveYardData> GraveYardMap;
-
-// NPC gossip text id
-typedef UNORDERED_MAP<uint32, uint32> CacheNpcTextIdMap;
 
 typedef UNORDERED_MAP<uint32, VendorItemData> CacheVendorItemMap;
 typedef UNORDERED_MAP<uint32, TrainerSpellData> CacheTrainerSpellMap;
@@ -636,7 +630,7 @@ class ObjectMgr
         CreatureTemplate const* GetCreatureTemplate(uint32 entry);
         CreatureTemplateContainer const* GetCreatureTemplates() { return &CreatureTemplateStore; }
         CreatureModelInfo const* GetCreatureModelInfo(uint32 modelId);
-        CreatureModelInfo const* GetCreatureModelRandomGender(uint32 &displayID);
+        CreatureModelInfo const* GetCreatureModelRandomGender(uint32* displayID);
         uint32 ChooseDisplayId(uint32 team, const CreatureTemplate *cinfo, const CreatureData *data = NULL);
         static void ChooseCreatureFlags(const CreatureTemplate *cinfo, uint32& npcflag, uint32& unit_flags, uint32& dynamicflags, const CreatureData *data = NULL);
         EquipmentInfo const *GetEquipmentInfo(uint32 entry);
@@ -648,7 +642,7 @@ class ObjectMgr
         ItemSetNameEntry const* GetItemSetNameEntry(uint32 itemId)
         {
             ItemSetNameMap::iterator itr = mItemSetNameMap.find(itemId);
-            if(itr != mItemSetNameMap.end())
+            if (itr != mItemSetNameMap.end())
                 return &itr->second;
             return NULL;
         }
@@ -865,7 +859,6 @@ class ObjectMgr
         void LoadQuestStartScripts();
         void LoadEventScripts();
         void LoadSpellScripts();
-        void LoadGossipScripts();
         void LoadWaypointScripts();
 
         void LoadSpellScriptNames();
@@ -1135,7 +1128,7 @@ class ObjectMgr
         static PetNameInvalidReason CheckPetName(const std::string& name);
         static bool IsValidCharterName(const std::string& name);
 
-        static bool CheckDeclinedNames(std::wstring mainpart, DeclinedName const& names);
+        static bool CheckDeclinedNames(std::wstring w_ownname, DeclinedName const& names);
 
         GameTele const* GetGameTele(uint32 id) const
         {
@@ -1147,15 +1140,6 @@ class ObjectMgr
         GameTeleMap const& GetGameTeleMap() const { return m_GameTeleMap; }
         bool AddGameTele(GameTele& data);
         bool DeleteGameTele(const std::string& name);
-
-        uint32 GetNpcGossip(uint32 entry) const
-        {
-            CacheNpcTextIdMap::const_iterator iter = m_mCacheNpcTextIdMap.find(entry);
-            if (iter == m_mCacheNpcTextIdMap.end())
-                return 0;
-
-            return iter->second;
-        }
 
         TrainerSpellData const* GetNpcTrainerSpells(uint32 entry) const
         {
@@ -1369,7 +1353,6 @@ class ObjectMgr
         RespawnTimes mGORespawnTimes;
         ACE_Thread_Mutex m_GORespawnTimesMtx;
 
-        CacheNpcTextIdMap m_mCacheNpcTextIdMap;
         CacheVendorItemMap m_mCacheVendorItemMap;
         CacheTrainerSpellMap m_mCacheTrainerSpellMap;
 

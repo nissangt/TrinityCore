@@ -88,10 +88,10 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket & recv_data)
 
     recv_data >> guid >> menuId >> gossipListId;
 
-    if (_player->PlayerTalkClass->GossipOptionCoded(gossipListId))
+    if (_player->PlayerTalkClass->IsGossipOptionCoded(gossipListId))
         recv_data >> code;
 
-    Creature *unit = NULL;
+    Creature* unit = NULL;
     GameObject *go = NULL;
     if (IS_CRE_OR_VEH_GUID(guid))
     {
@@ -128,7 +128,7 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket & recv_data)
             unit->LastUsedScriptID = unit->GetCreatureInfo()->ScriptID;
         if (go)
             go->LastUsedScriptID = go->GetGOInfo()->ScriptId;
-        _player->PlayerTalkClass->CloseGossip();
+        _player->PlayerTalkClass->SendCloseGossip();
         return;
     }
     if (!code.empty())
@@ -136,13 +136,13 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket & recv_data)
         if (unit)
         {
             unit->AI()->sGossipSelectCode(_player, menuId, gossipListId, code.c_str());
-            if (!sScriptMgr->OnGossipSelectCode(_player, unit, _player->PlayerTalkClass->GossipOptionSender(gossipListId), _player->PlayerTalkClass->GossipOptionAction(gossipListId), code.c_str()))
+            if (!sScriptMgr->OnGossipSelectCode(_player, unit, _player->PlayerTalkClass->GetGossipOptionSender(gossipListId), _player->PlayerTalkClass->GetGossipOptionAction(gossipListId), code.c_str()))
                 _player->OnGossipSelect(unit, gossipListId, menuId);
         }
         else
         {
             go->AI()->GossipSelectCode(_player, menuId, gossipListId, code.c_str());
-            sScriptMgr->OnGossipSelectCode(_player, go, _player->PlayerTalkClass->GossipOptionSender(gossipListId), _player->PlayerTalkClass->GossipOptionAction(gossipListId), code.c_str());
+            sScriptMgr->OnGossipSelectCode(_player, go, _player->PlayerTalkClass->GetGossipOptionSender(gossipListId), _player->PlayerTalkClass->GetGossipOptionAction(gossipListId), code.c_str());
         }
     }
     else
@@ -150,13 +150,13 @@ void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket & recv_data)
         if (unit)
         {
             unit->AI()->sGossipSelect(_player, menuId, gossipListId);
-            if (!sScriptMgr->OnGossipSelect(_player, unit, _player->PlayerTalkClass->GossipOptionSender(gossipListId), _player->PlayerTalkClass->GossipOptionAction(gossipListId)))
+            if (!sScriptMgr->OnGossipSelect(_player, unit, _player->PlayerTalkClass->GetGossipOptionSender(gossipListId), _player->PlayerTalkClass->GetGossipOptionAction(gossipListId)))
                 _player->OnGossipSelect(unit, gossipListId, menuId);
         }
         else
         {
             go->AI()->GossipSelect(_player, menuId, gossipListId);
-            sScriptMgr->OnGossipSelect(_player, go, _player->PlayerTalkClass->GossipOptionSender(gossipListId), _player->PlayerTalkClass->GossipOptionAction(gossipListId));
+            sScriptMgr->OnGossipSelect(_player, go, _player->PlayerTalkClass->GetGossipOptionSender(gossipListId), _player->PlayerTalkClass->GetGossipOptionAction(gossipListId));
         }
     }
 }
@@ -558,8 +558,8 @@ void WorldSession::HandleAddFriendOpcode(WorldPacket & recv_data)
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: %s asked to add friend : '%s'",
         GetPlayer()->GetName(), friendName.c_str());
 
-    m_addFriendCallback.SetParam(friendNote);
-    m_addFriendCallback.SetFutureResult(
+    _addFriendCallback.SetParam(friendNote);
+    _addFriendCallback.SetFutureResult(
         CharacterDatabase.AsyncPQuery("SELECT guid, race, account FROM characters WHERE name = '%s'", friendName.c_str())
         );
 }
@@ -647,7 +647,7 @@ void WorldSession::HandleAddIgnoreOpcode(WorldPacket & recv_data)
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: %s asked to Ignore: '%s'",
         GetPlayer()->GetName(), IgnoreName.c_str());
 
-    m_addIgnoreCallback = CharacterDatabase.AsyncPQuery("SELECT guid FROM characters WHERE name = '%s'", IgnoreName.c_str());
+    _addIgnoreCallback = CharacterDatabase.AsyncPQuery("SELECT guid FROM characters WHERE name = '%s'", IgnoreName.c_str());
 }
 
 void WorldSession::HandleAddIgnoreOpcodeCallBack(QueryResult result)
@@ -1250,7 +1250,7 @@ void WorldSession::HandleInspectHonorStatsOpcode(WorldPacket& recv_data)
     uint64 guid;
     recv_data >> guid;
 
-    Player *player = sObjectMgr->GetPlayer(guid);
+    Player* player = sObjectMgr->GetPlayer(guid);
 
     if (!player)
     {
@@ -1691,7 +1691,7 @@ void WorldSession::HandleQueryInspectAchievements(WorldPacket & recv_data)
     uint64 guid;
     recv_data.readPackGUID(guid);
 
-    Player *player = sObjectMgr->GetPlayer(guid);
+    Player* player = sObjectMgr->GetPlayer(guid);
     if (!player)
         return;
 
@@ -1729,7 +1729,7 @@ void WorldSession::HandleHearthAndResurrect(WorldPacket& /*recv_data*/)
         return;
 
     AreaTableEntry const *atEntry = GetAreaEntryByAreaID(_player->GetAreaId());
-    if (!atEntry || !(atEntry->flags & AREA_FLAG_OUTDOOR_PVP2))
+    if (!atEntry || !(atEntry->flags & AREA_FLAG_WINTERGRASP_2))
         return;
 
     _player->BuildPlayerRepop();

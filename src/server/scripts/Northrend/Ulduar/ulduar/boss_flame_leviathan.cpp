@@ -22,10 +22,15 @@
  *          if reached brann speaks through his radio..
  */
 
-#include "ScriptPCH.h"
+#include "ScriptMgr.h"
+#include "ScriptedCreature.h"
+#include "ScriptedGossip.h"
+#include "CombatAI.h"
+#include "PassiveAI.h"
 #include "ScriptedEscortAI.h"
+#include "ObjectMgr.h"
 #include "ulduar.h"
-#include "Vehicle.h"
+
 
 enum Spells
 {
@@ -153,20 +158,6 @@ enum Yells
     SAY_OVERLOAD_3                              = -1603075,
 };
 
-enum AchievementData
-{
-    ACHIEV_10_NUKED_FROM_ORBIT                  = 2915,
-    ACHIEV_25_NUKED_FROM_ORBIT                  = 2917,
-    ACHIEV_10_ORBITAL_BOMBARDMENT               = 2913,
-    ACHIEV_25_ORBITAL_BOMBARDMENT               = 2918,
-    ACHIEV_10_ORBITAL_DEVASTATION               = 2914,
-    ACHIEV_25_ORBITAL_DEVASTATION               = 2916,
-    ACHIEV_10_ORBIT_UARY                        = 3056,
-    ACHIEV_25_ORBIT_UARY                        = 3057,
-    ACHIEV_10_SIEGE_OF_ULDUAR                   = 2886,
-    ACHIEV_25_SIEGE_OF_ULDUAR                   = 2887,
-};
-
 enum actions
 {
     ACTION_TOWER_OF_STORM_DESTROYED             = 1,
@@ -207,6 +198,8 @@ Position const PosDemolisher[5] =
     {-798.01f, -227.24f, 429.84f, 1.446f},
 };
 
+#define DATA_ORBIT_ACHIEVEMENTS         1
+
 class boss_flame_leviathan : public CreatureScript
 {
     public:
@@ -214,7 +207,7 @@ class boss_flame_leviathan : public CreatureScript
 
         struct boss_flame_leviathanAI : public BossAI
         {
-            boss_flame_leviathanAI(Creature* creature) : BossAI(creature, TYPE_LEVIATHAN), vehicle(creature->GetVehicleKit())
+            boss_flame_leviathanAI(Creature* creature) : BossAI(creature, BOSS_LEVIATHAN), vehicle(creature->GetVehicleKit())
             {
             }
 
@@ -233,9 +226,6 @@ class boss_flame_leviathan : public CreatureScript
                 Shutout = true;
                 Unbroken = true;
 
-                // need to have correct immunities set in db
-                me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
-                me->ApplySpellImmune(0, IMMUNITY_ID, 49560, true); //deathgrip
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_STUNNED);
                 me->SetReactState(REACT_PASSIVE);
             }
@@ -309,7 +299,7 @@ class boss_flame_leviathan : public CreatureScript
             }
 
             // TODO: effect 0 and effect 1 may be on different target
-            void SpellHitTarget(Unit* target, SpellEntry* const spell)
+            void SpellHitTarget(Unit* target, SpellEntry const* spell)
             {
                 if (spell->Id == SPELL_PURSUED)
                     AttackStart(target);
@@ -319,24 +309,9 @@ class boss_flame_leviathan : public CreatureScript
             {
                 _JustDied();
                 DoScriptText(SAY_DEATH, me);
-
-                if (ActiveTowers)
-                {
-                    switch (ActiveTowersCount)
-                    {
-                        case 4:
-                            instance->DoCompleteAchievement(RAID_MODE(ACHIEV_10_ORBIT_UARY, ACHIEV_25_ORBIT_UARY));
-                        case 3:
-                            instance->DoCompleteAchievement(RAID_MODE(ACHIEV_10_NUKED_FROM_ORBIT, ACHIEV_25_NUKED_FROM_ORBIT));
-                        case 2:
-                            instance->DoCompleteAchievement(RAID_MODE(ACHIEV_10_ORBITAL_DEVASTATION, ACHIEV_25_ORBITAL_DEVASTATION));
-                        case 1:
-                            instance->DoCompleteAchievement(RAID_MODE(ACHIEV_10_ORBITAL_BOMBARDMENT, ACHIEV_25_ORBITAL_BOMBARDMENT));
-                    }
-                }
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry* const spell)
+            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
             {
                 if (spell->Id == SPELL_START_THE_ENGINE)
                     vehicle->InstallAllAccessories(false);
@@ -356,6 +331,9 @@ class boss_flame_leviathan : public CreatureScript
                         return Shutout ? 1 : 0;
                     case DATA_UNBROKEN:
                         return Unbroken ? 1 : 0;
+                    case DATA_ORBIT_ACHIEVEMENTS:
+                        if (ActiveTowers) // Only on HardMode
+                            return ActiveTowersCount;
                     default:
                         break;
                 }
@@ -567,7 +545,7 @@ class boss_flame_leviathan : public CreatureScript
 
         CreatureAI* GetAI(Creature* creature) const
         {
-            return new boss_flame_leviathanAI(creature);
+            return GetUlduarAI<boss_flame_leviathanAI>(creature);
         }
 };
 
@@ -671,7 +649,7 @@ class boss_flame_leviathan_defense_cannon : public CreatureScript
                     NapalmTimer -= diff;
             }
 
-            bool CanAIAttack(Unit* const who) const
+            bool CanAIAttack(Unit const* who) const
             {
                 if (who->GetTypeId() != TYPEID_PLAYER || !who->GetVehicle() || who->GetVehicleBase()->GetEntry() == NPC_SEAT)
                     return false;
@@ -700,7 +678,7 @@ class boss_flame_leviathan_defense_turret : public CreatureScript
                     damage = 0;
             }
 
-            bool CanAIAttack(Unit* const who) const
+            bool CanAIAttack(Unit const* who) const
             {
                 if (who->GetTypeId() != TYPEID_PLAYER || !who->GetVehicle() || who->GetVehicleBase()->GetEntry() != NPC_SEAT)
                     return false;
@@ -844,17 +822,17 @@ class npc_mechanolift : public CreatureScript
         }
 };
 
-// WHY IS THIS CALLED spell_???
-class spell_pool_of_tar : public CreatureScript
+class npc_pool_of_tar : public CreatureScript
 {
     public:
-        spell_pool_of_tar() : CreatureScript("spell_pool_of_tar") { }
+        npc_pool_of_tar() : CreatureScript("npc_pool_of_tar") { }
 
-        struct spell_pool_of_tarAI : public PassiveAI
+        struct npc_pool_of_tarAI : public ScriptedAI
         {
-            spell_pool_of_tarAI(Creature* creature) : PassiveAI(creature)
+            npc_pool_of_tarAI(Creature* creature) : ScriptedAI(creature)
             {
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
+                me->SetReactState(REACT_PASSIVE);
                 me->AddAura(SPELL_TAR_PASSIVE, me);
             }
 
@@ -868,11 +846,13 @@ class spell_pool_of_tar : public CreatureScript
                 if (spell->SchoolMask & SPELL_SCHOOL_MASK_FIRE && !me->HasAura(SPELL_BLAZE))
                     me->CastSpell(me, SPELL_BLAZE, true);
             }
+
+            void UpdateAI(uint32 const /*diff*/) {}
         };
 
         CreatureAI* GetAI(Creature* creature) const
         {
-            return new spell_pool_of_tarAI(creature);
+            return new npc_pool_of_tarAI(creature);
         }
 };
 
@@ -1180,7 +1160,7 @@ class npc_lorekeeper : public CreatureScript
                     if (player)
                         player->CLOSE_GOSSIP_MENU();
 
-                    if (Creature* leviathan = instance->instance->GetCreature(instance->GetData64(TYPE_LEVIATHAN)))
+                    if (Creature* leviathan = instance->instance->GetCreature(instance->GetData64(BOSS_LEVIATHAN)))
                     {
                         CAST_AI(boss_flame_leviathan::boss_flame_leviathanAI, (leviathan->AI()))->DoAction(0); //enable hard mode activating the 4 additional events spawning additional vehicles
                         creature->SetVisible(false);
@@ -1203,7 +1183,7 @@ class npc_lorekeeper : public CreatureScript
         bool OnGossipHello(Player* player, Creature* creature)
         {
             InstanceScript* instance = creature->GetInstanceScript();
-            if (instance && instance->GetData(TYPE_LEVIATHAN) !=DONE && player)
+            if (instance && instance->GetData(BOSS_LEVIATHAN) !=DONE && player)
             {
                 player->PrepareGossipMenu(creature);
 
@@ -1256,7 +1236,7 @@ public:
     //bool OnGossipHello(Player* pPlayer, Creature* creature)
     //{
     //    InstanceScript* instance = creature->GetInstanceScript();
-    //    if (instance && instance->GetData(TYPE_LEVIATHAN) !=DONE)
+    //    if (instance && instance->GetData(BOSS_LEVIATHAN) !=DONE)
     //    {
     //        pPlayer->PrepareGossipMenu(creature);
     //
@@ -1316,7 +1296,7 @@ class at_RX_214_repair_o_matic_station : public AreaTriggerScript
                 {
                     player->MonsterTextEmote(EMOTE_REPAIR, player->GetGUID(), true);
                     player->CastSpell(vehicle, SPELL_AUTO_REPAIR, true);
-                    if (Creature* leviathan = ObjectAccessor::GetCreature(*player, instance ? instance->GetData64(TYPE_LEVIATHAN) : 0))
+                    if (Creature* leviathan = ObjectAccessor::GetCreature(*player, instance ? instance->GetData64(BOSS_LEVIATHAN) : 0))
                         leviathan->AI()->SetData(DATA_UNBROKEN, 0); // set bool to false thats checked in leviathan getdata
                 }
             }
@@ -1407,6 +1387,78 @@ class achievement_unbroken : public AchievementCriteriaScript
         }
 };
 
+class achievement_orbital_bombardment : public AchievementCriteriaScript
+{
+    public:
+        achievement_orbital_bombardment() : AchievementCriteriaScript("achievement_orbital_bombardment") { }
+
+        bool OnCheck(Player* /*source*/, Unit* target)
+        {
+            if (!target)
+                return false;
+
+            if (Creature* Leviathan = target->ToCreature())
+                if (Leviathan->AI()->GetData(DATA_ORBIT_ACHIEVEMENTS) >= 1)
+                    return true;
+
+            return false;
+        }
+};
+
+class achievement_orbital_devastation : public AchievementCriteriaScript
+{
+    public:
+        achievement_orbital_devastation() : AchievementCriteriaScript("achievement_orbital_devastation") { }
+
+        bool OnCheck(Player* /*source*/, Unit* target)
+        {
+            if (!target)
+                return false;
+
+            if (Creature* Leviathan = target->ToCreature())
+                if (Leviathan->AI()->GetData(DATA_ORBIT_ACHIEVEMENTS) >= 2)
+                    return true;
+
+            return false;
+        }
+};
+
+class achievement_nuked_from_orbit : public AchievementCriteriaScript
+{
+    public:
+        achievement_nuked_from_orbit() : AchievementCriteriaScript("achievement_nuked_from_orbit") { }
+
+        bool OnCheck(Player* /*source*/, Unit* target)
+        {
+            if (!target)
+                return false;
+
+            if (Creature* Leviathan = target->ToCreature())
+                if (Leviathan->AI()->GetData(DATA_ORBIT_ACHIEVEMENTS) >= 3)
+                    return true;
+
+            return false;
+        }
+};
+
+class achievement_orbit_uary : public AchievementCriteriaScript
+{
+    public:
+        achievement_orbit_uary() : AchievementCriteriaScript("achievement_orbit_uary") { }
+
+        bool OnCheck(Player* /*source*/, Unit* target)
+        {
+            if (!target)
+                return false;
+
+            if (Creature* Leviathan = target->ToCreature())
+                if (Leviathan->AI()->GetData(DATA_ORBIT_ACHIEVEMENTS) == 4)
+                    return true;
+
+            return false;
+        }
+};
+
 void AddSC_boss_flame_leviathan()
 {
     new boss_flame_leviathan();
@@ -1416,7 +1468,7 @@ void AddSC_boss_flame_leviathan()
     new boss_flame_leviathan_overload_device();
     new boss_flame_leviathan_safety_container();
     new npc_mechanolift();
-    new spell_pool_of_tar();
+    new npc_pool_of_tar();
     new npc_colossus();
     new npc_thorims_hammer();
     new npc_mimirons_inferno();
@@ -1432,4 +1484,8 @@ void AddSC_boss_flame_leviathan()
     new achievement_three_car_garage_siege();
     new achievement_shutout();
     new achievement_unbroken();
+    new achievement_orbital_bombardment();
+    new achievement_orbital_devastation();
+    new achievement_nuked_from_orbit();
+    new achievement_orbit_uary();
 }

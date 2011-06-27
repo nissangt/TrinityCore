@@ -49,7 +49,7 @@ class ChatHandler
         WorldSession * GetSession() { return m_session; }
         explicit ChatHandler(WorldSession* session) : m_session(session) {}
         explicit ChatHandler(Player* player) : m_session(player->GetSession()) {}
-         ~ChatHandler() {}
+        virtual ~ChatHandler() {}
 
         static void FillMessageData(WorldPacket *data, WorldSession* session, uint8 type, uint32 language, const char *channelName, uint64 target_guid, const char *message, Unit *speaker);
 
@@ -293,7 +293,6 @@ class ChatHandler
         bool HandleHideAreaCommand(const char* args);
         bool HandleAddItemCommand(const char* args);
         bool HandleAddItemSetCommand(const char* args);
-        bool HandlePetTpCommand(const char* args);
         bool HandlePetUnlearnCommand(const char* args);
         bool HandlePetLearnCommand(const char* args);
         bool HandleCreatePetCommand(const char* args);

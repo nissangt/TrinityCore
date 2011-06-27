@@ -90,6 +90,49 @@ class spell_gen_aura_of_anger : public SpellScriptLoader
         }
 };
 
+class spell_gen_av_drekthar_presence : public SpellScriptLoader
+{
+    public:
+        spell_gen_av_drekthar_presence() : SpellScriptLoader("spell_gen_av_drekthar_presence") { }
+
+        class spell_gen_av_drekthar_presence_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_gen_av_drekthar_presence_AuraScript);
+
+            bool CheckAreaTarget(Unit* target)
+            {
+                switch(target->GetEntry())
+                {
+                    // alliance
+                    case 14762: // Dun Baldar North Marshal
+                    case 14763: // Dun Baldar South Marshal
+                    case 14764: // Icewing Marshal
+                    case 14765: // Stonehearth Marshal
+                    case 11948: // Vandar Stormspike
+                    // horde
+                    case 14772: // East Frostwolf Warmaster
+                    case 14776: // Tower Point Warmaster
+                    case 14773: // Iceblood Warmaster
+                    case 14777: // West Frostwolf Warmaster
+                    case 11946: // Drek'thar
+                        return true;
+                    default:
+                        return false;
+                        break;
+                }
+            }
+            void Register()
+            {
+                DoCheckAreaTarget += AuraCheckAreaTargetFn(spell_gen_av_drekthar_presence_AuraScript::CheckAreaTarget);
+            }
+        };
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_gen_av_drekthar_presence_AuraScript();
+        }
+};
+
 // 46394 Brutallus Burn
 class spell_gen_burn_brutallus : public SpellScriptLoader
 {
@@ -569,50 +612,14 @@ class spell_gen_animal_blood : public SpellScriptLoader
 
             void Register()
             {
-                OnEffectApply += AuraEffectRemoveFn(spell_gen_animal_blood_AuraScript::OnApply, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL, AURA_EFFECT_HANDLE_REAL);
-                OnEffectRemove += AuraEffectRemoveFn(spell_gen_animal_blood_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL, AURA_EFFECT_HANDLE_REAL);
+                AfterEffectApply += AuraEffectRemoveFn(spell_gen_animal_blood_AuraScript::OnApply, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL, AURA_EFFECT_HANDLE_REAL);
+                AfterEffectRemove += AuraEffectRemoveFn(spell_gen_animal_blood_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_PERIODIC_TRIGGER_SPELL, AURA_EFFECT_HANDLE_REAL);
             }
         };
 
         AuraScript* GetAuraScript() const
         {
             return new spell_gen_animal_blood_AuraScript();
-        }
-};
-
-class spell_gen_shroud_of_death : public SpellScriptLoader
-{
-    public:
-        spell_gen_shroud_of_death() : SpellScriptLoader("spell_gen_shroud_of_death") { }
-
-        class spell_gen_shroud_of_death_AuraScript : public AuraScript
-        {
-            PrepareAuraScript(spell_gen_shroud_of_death_AuraScript);
-
-            void HandleEffectApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-            {
-                Unit* target = GetTarget();
-                target->m_serverSideVisibility.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_GHOST);
-                target->m_serverSideVisibilityDetect.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_GHOST);
-            }
-
-            void HandleEffectRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-            {
-                Unit* target = GetTarget();
-                target->m_serverSideVisibility.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_ALIVE);
-                target->m_serverSideVisibilityDetect.SetValue(SERVERSIDE_VISIBILITY_GHOST, GHOST_VISIBILITY_ALIVE);
-            }
-
-            void Register()
-            {
-                OnEffectApply += AuraEffectApplyFn(spell_gen_shroud_of_death_AuraScript::HandleEffectApply, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-                OnEffectRemove += AuraEffectRemoveFn(spell_gen_shroud_of_death_AuraScript::HandleEffectRemove, EFFECT_0, SPELL_AURA_DUMMY, AURA_EFFECT_HANDLE_REAL);
-            }
-        };
-
-        AuraScript* GetAuraScript() const
-        {
-            return new spell_gen_shroud_of_death_AuraScript();
         }
 };
 
@@ -1010,30 +1017,6 @@ class spell_gen_turkey_marker : public SpellScriptLoader
                     GetTarget()->CastSpell(GetTarget(), SPELL_TURKEY_VENGEANCE, true, NULL, aurEff, GetCasterGUID());
             }
 
-            void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
-            {
-                if (GetTargetApplication()->GetRemoveMode() != AURA_REMOVE_BY_STACK)
-                    return;
-
-                // find our new aura which replaces this one aura is inserted to m_ownedAuras before old removal takes place
-                Aura* newAura = GetTarget()->GetOwnedAura(GetId(), 0, 0, 0, GetAura());
-                // this should never happen
-                if (!newAura)
-                    return;
-
-                std::list<AuraScript*> const& loadedScripts = newAura->m_loadedScripts;
-
-                // find the new aura's script and give it our stored stack apply times
-                for (std::list<AuraScript*>::const_iterator itr = loadedScripts.begin(); itr != loadedScripts.end(); ++itr)
-                {
-                    if (spell_gen_turkey_marker_AuraScript* scr = dynamic_cast<spell_gen_turkey_marker_AuraScript*>(*itr))
-                    {
-                        scr->_applyTimes.splice(scr->_applyTimes.begin(), _applyTimes);
-                        break;
-                    }
-                }
-            }
-
             void OnPeriodic(AuraEffect const* /*aurEff*/)
             {
                 if (_applyTimes.empty())
@@ -1041,14 +1024,12 @@ class spell_gen_turkey_marker : public SpellScriptLoader
 
                 // pop stack if it expired for us
                 if (_applyTimes.front() + GetMaxDuration() < getMSTime())
-                    if (ModStackAmount(-1))
-                        GetTarget()->RemoveOwnedAura(GetAura(), AURA_REMOVE_BY_EXPIRE);
+                    ModStackAmount(-1, AURA_REMOVE_BY_EXPIRE);
             }
 
             void Register()
             {
-                OnEffectApply += AuraEffectApplyFn(spell_gen_turkey_marker_AuraScript::OnApply, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY, AURA_EFFECT_HANDLE_REAL);
-                OnEffectRemove += AuraEffectRemoveFn(spell_gen_turkey_marker_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY, AURA_EFFECT_HANDLE_REAL);
+                AfterEffectApply += AuraEffectApplyFn(spell_gen_turkey_marker_AuraScript::OnApply, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY, AURA_EFFECT_HANDLE_REAL);
                 OnEffectPeriodic += AuraEffectPeriodicFn(spell_gen_turkey_marker_AuraScript::OnPeriodic, EFFECT_0, SPELL_AURA_PERIODIC_DUMMY);
             }
 
@@ -1061,10 +1042,182 @@ class spell_gen_turkey_marker : public SpellScriptLoader
         }
 };
 
+class spell_gen_lifeblood : public SpellScriptLoader
+{
+    public:
+        spell_gen_lifeblood() : SpellScriptLoader("spell_gen_lifeblood") { }
+
+        class spell_gen_lifeblood_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_gen_lifeblood_AuraScript);
+
+            void CalculateAmount(AuraEffect const* aurEff, int32& amount, bool& /*canBeRecalculated*/)
+            {
+                if (Unit* owner = GetUnitOwner())
+                    amount += int32(CalculatePctF(owner->GetMaxHealth(), 1.5f / aurEff->GetTotalTicks()));
+            }
+
+            void Register()
+            {
+                DoEffectCalcAmount += AuraEffectCalcAmountFn(spell_gen_lifeblood_AuraScript::CalculateAmount, EFFECT_0, SPELL_AURA_PERIODIC_HEAL);
+            }
+        };
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_gen_lifeblood_AuraScript();
+        }
+};
+
+enum MagicRoosterSpells
+{
+    SPELL_MAGIC_ROOSTER_NORMAL          = 66122,
+    SPELL_MAGIC_ROOSTER_DRAENEI_MALE    = 66123,
+    SPELL_MAGIC_ROOSTER_TAUREN_MALE     = 66124,
+};
+
+class spell_gen_magic_rooster : public SpellScriptLoader
+{
+    public:
+        spell_gen_magic_rooster() : SpellScriptLoader("spell_gen_magic_rooster") { }
+
+        class spell_gen_magic_rooster_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_gen_magic_rooster_SpellScript);
+
+            void HandleScript(SpellEffIndex effIndex)
+            {
+                PreventHitDefaultEffect(effIndex);
+                Player* target = GetHitPlayer();
+                if (!target)
+                    return;
+
+                // prevent client crashes from stacking mounts
+                target->RemoveAurasByType(SPELL_AURA_MOUNTED);
+
+                uint32 spellId = SPELL_MAGIC_ROOSTER_NORMAL;
+                switch (target->getRace())
+                {
+                    case RACE_DRAENEI:
+                        if (target->getGender() == GENDER_MALE)
+                            spellId = SPELL_MAGIC_ROOSTER_DRAENEI_MALE;
+                        break;
+                    case RACE_TAUREN:
+                        if (target->getGender() == GENDER_MALE)
+                            spellId = SPELL_MAGIC_ROOSTER_TAUREN_MALE;
+                        break;
+                    default:
+                        break;
+                }
+
+                target->CastSpell(target, spellId, true);
+            }
+
+            void Register()
+            {
+                OnEffect += SpellEffectFn(spell_gen_magic_rooster_SpellScript::HandleScript, EFFECT_2, SPELL_EFFECT_SCRIPT_EFFECT);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_gen_magic_rooster_SpellScript();
+        }
+};
+
+class spell_gen_allow_cast_from_item_only : public SpellScriptLoader
+{
+public:
+    spell_gen_allow_cast_from_item_only() : SpellScriptLoader("spell_gen_allow_cast_from_item_only") { }
+
+    class spell_gen_allow_cast_from_item_only_SpellScript : public SpellScript
+    {
+        PrepareSpellScript(spell_gen_allow_cast_from_item_only_SpellScript);
+
+        SpellCastResult CheckRequirement()
+        {
+            if (!GetCastItem())
+                return SPELL_FAILED_CANT_DO_THAT_RIGHT_NOW;
+
+            return SPELL_CAST_OK;
+        }
+
+        void Register()
+        {
+            OnCheckCast += SpellCheckCastFn(spell_gen_allow_cast_from_item_only_SpellScript::CheckRequirement);
+        }
+    };
+
+    SpellScript* GetSpellScript() const
+    {
+        return new spell_gen_allow_cast_from_item_only_SpellScript();
+    }
+};
+
+enum Launch
+{
+    SPELL_LAUNCH_NO_FALLING_DAMAGE = 66251
+};
+
+class spell_gen_launch : public SpellScriptLoader
+{
+    public:
+        spell_gen_launch() : SpellScriptLoader("spell_gen_launch") {}
+
+        class spell_gen_launch_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_gen_launch_SpellScript);
+
+            void HandleScript(SpellEffIndex effIndex)
+            {
+                PreventHitDefaultEffect(effIndex);
+
+                SpellEntry const* const spell = GetSpellInfo();
+
+                if (Player* player = GetHitPlayer())
+                {
+                    player->CastSpell(player,spell->EffectTriggerSpell[1],true); // changes the player's seat
+                    player->AddAura(SPELL_LAUNCH_NO_FALLING_DAMAGE,player); // prevents falling damage
+                }
+            }
+
+            void Launch()
+            {
+                WorldLocation const* const position = GetTargetDest();
+
+                if (Player* player = GetHitPlayer())
+                {
+                    player->ExitVehicle();
+
+                    // A better research is needed
+                    // There is no spell for this, the following calculation was based on void Spell::CalculateJumpSpeeds
+
+                    float speedZ = 10.0f;
+                    float dist = position->GetExactDist2d(player->GetPositionX(),player->GetPositionY());
+                    float speedXY = dist;
+
+                    player->GetMotionMaster()->MoveJump(position->GetPositionX(),position->GetPositionY(),position->GetPositionZ(),speedXY,speedZ);
+                }
+            }
+
+            void Register()
+            {
+                OnEffect += SpellEffectFn(spell_gen_launch_SpellScript::HandleScript, EFFECT_1, SPELL_EFFECT_FORCE_CAST);
+                AfterHit += SpellHitFn(spell_gen_launch_SpellScript::Launch);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_gen_launch_SpellScript();
+        }
+};
+
 void AddSC_generic_spell_scripts()
 {
     new spell_gen_absorb0_hitlimit1();
     new spell_gen_aura_of_anger();
+    new spell_gen_av_drekthar_presence();
     new spell_gen_burn_brutallus();
     new spell_gen_leeching_swarm();
     new spell_gen_parachute();
@@ -1075,7 +1228,6 @@ void AddSC_generic_spell_scripts()
     new spell_creature_permanent_feign_death();
     new spell_pvp_trinket_wotf_shared_cd();
     new spell_gen_animal_blood();
-    new spell_gen_shroud_of_death();
     new spell_gen_divine_storm_cd_reset();
     new spell_gen_parachute_ic();
     new spell_gen_gunship_portal();
@@ -1085,4 +1237,8 @@ void AddSC_generic_spell_scripts()
     new spell_generic_clone_weapon();
     new spell_gen_seaforium_blast();
     new spell_gen_turkey_marker();
+    new spell_gen_lifeblood();
+    new spell_gen_magic_rooster();
+    new spell_gen_allow_cast_from_item_only();
+    new spell_gen_launch();
 }

@@ -351,17 +351,18 @@ class spell_festergut_pungent_blight : public SpellScriptLoader
         {
             PrepareSpellScript(spell_festergut_pungent_blight_SpellScript);
 
+            bool Load()
+            {
+                return GetCaster()->GetTypeId() == TYPEID_UNIT;
+            }
+
             void HandleScript(SpellEffIndex /*effIndex*/)
             {
-                SpellEntry const* spellInfo = sSpellStore.LookupEntry(uint32(GetEffectValue()));
-                if (!spellInfo || GetCaster()->GetTypeId() != TYPEID_UNIT)
-                    return;
-
                 // Get Inhaled Blight id for our difficulty
-                spellInfo = sSpellMgr->GetSpellForDifficultyFromSpell(spellInfo, GetCaster());
+                uint32 blightId = sSpellMgr->GetSpellIdForDifficulty(uint32(GetEffectValue()), GetCaster());
 
                 // ...and remove it
-                GetCaster()->RemoveAurasDueToSpell(spellInfo->Id);
+                GetCaster()->RemoveAurasDueToSpell(blightId);
                 GetCaster()->ToCreature()->AI()->Talk(EMOTE_PUNGENT_BLIGHT);
             }
 
@@ -386,7 +387,7 @@ class spell_festergut_gastric_bloat : public SpellScriptLoader
         {
             PrepareSpellScript(spell_festergut_gastric_bloat_SpellScript);
 
-            bool Validate(SpellEntry const* spell)
+            bool Validate(SpellEntry const* /*spell*/)
             {
                 if (!sSpellStore.LookupEntry(SPELL_GASTRIC_EXPLOSION))
                     return false;
@@ -431,25 +432,29 @@ class spell_festergut_blighted_spores : public SpellScriptLoader
                 return true;
             }
 
+            bool Load()
+            {
+                return GetCaster()->GetTypeId() == TYPEID_UNIT;
+            }
+
             void ExtraEffect(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
             {
-                if (GetCaster()->GetTypeId() != TYPEID_UNIT)
-                    return;
+                if (Unit* caster = GetCaster())
+                {
+                    uint32 inoculatedId = sSpellMgr->GetSpellIdForDifficulty(SPELL_INOCULATED, caster);
+                    uint32 currStack = 0;
+                    if (Aura const* inoculate = GetTarget()->GetAura(inoculatedId))
+                        currStack = inoculate->GetStackAmount();
 
-                SpellEntry const* inoculated = sSpellStore.LookupEntry(SPELL_INOCULATED);
-                inoculated = sSpellMgr->GetSpellForDifficultyFromSpell(inoculated, GetCaster());
-                uint32 currStack = 0;
-                if (Aura const* inoculate = GetTarget()->GetAura(inoculated->Id))
-                    currStack = inoculate->GetStackAmount();
-
-                GetTarget()->CastSpell(GetTarget(), SPELL_INOCULATED, true);
-                ++currStack;
-                GetCaster()->ToCreature()->AI()->SetData(DATA_INOCULATED_STACK, currStack);
+                    GetTarget()->CastSpell(GetTarget(), SPELL_INOCULATED, true);
+                    ++currStack;
+                    caster->ToCreature()->AI()->SetData(DATA_INOCULATED_STACK, currStack);
+                }
             }
 
             void Register()
             {
-                OnEffectApply += AuraEffectApplyFn(spell_festergut_blighted_spores_AuraScript::ExtraEffect, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE, AURA_EFFECT_HANDLE_REAL);
+                AfterEffectApply += AuraEffectApplyFn(spell_festergut_blighted_spores_AuraScript::ExtraEffect, EFFECT_0, SPELL_AURA_PERIODIC_DAMAGE, AURA_EFFECT_HANDLE_REAL_OR_REAPPLY_MASK);
             }
         };
 

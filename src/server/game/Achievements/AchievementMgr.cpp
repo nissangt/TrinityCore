@@ -101,10 +101,15 @@ bool AchievementCriteriaData::IsValid(AchievementCriteriaEntry const* criteria)
         case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL:
         case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_DAILY_QUEST:    // only Children's Week achievements
         case ACHIEVEMENT_CRITERIA_TYPE_USE_ITEM:                // only Children's Week achievements
+        case ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS:
             break;
         default:
-            sLog->outErrorDb("Table `achievement_criteria_data` has data for non-supported criteria type (Entry: %u Type: %u), ignored.", criteria->ID, criteria->requiredType);
-            return false;
+            if (dataType != ACHIEVEMENT_CRITERIA_DATA_TYPE_SCRIPT)
+            {
+                sLog->outErrorDb("Table `achievement_criteria_data` has data for non-supported criteria type (Entry: %u Type: %u), ignored.", criteria->ID, criteria->requiredType);
+                return false;
+            }
+            break;
     }
 
     switch (dataType)
@@ -391,7 +396,7 @@ bool AchievementCriteriaDataSet::Meets(Player const* source, Unit const* target,
     return true;
 }
 
-AchievementMgr::AchievementMgr(Player *player)
+AchievementMgr::AchievementMgr(Player* player)
 {
     m_player = player;
 }
@@ -428,7 +433,7 @@ void AchievementMgr::ResetAchievementCriteria(AchievementCriteriaTypes type, uin
 {
     sLog->outDebug(LOG_FILTER_ACHIEVEMENTSYS, "AchievementMgr::ResetAchievementCriteria(%u, %u, %u)", type, miscvalue1, miscvalue2);
 
-    if (!sWorld->getBoolConfig(CONFIG_GM_ALLOW_ACHIEVEMENT_GAINS) && m_player->GetSession()->GetSecurity() > SEC_PLAYER)
+    if (m_player->GetSession()->GetSecurity() > AccountTypes(sWorld->getIntConfig(CONFIG_GM_LEVEL_ALLOW_ACHIEVEMENTS)))
         return;
 
     AchievementCriteriaEntryList const& achievementCriteriaList = sAchievementMgr->GetAchievementCriteriaByType(type);
@@ -728,7 +733,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
 {
     sLog->outDebug(LOG_FILTER_ACHIEVEMENTSYS, "AchievementMgr::UpdateAchievementCriteria(%u, %u, %u)", type, miscValue1, miscValue2);
 
-    if (!sWorld->getBoolConfig(CONFIG_GM_ALLOW_ACHIEVEMENT_GAINS) && m_player->GetSession()->GetSecurity() > SEC_PLAYER)
+    if (m_player->GetSession()->GetSecurity() > AccountTypes(sWorld->getIntConfig(CONFIG_GM_LEVEL_ALLOW_ACHIEVEMENTS)))
         return;
 
     AchievementCriteriaEntryList const& achievementCriteriaList = sAchievementMgr->GetAchievementCriteriaByType(type);
@@ -901,7 +906,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                     continue;
 
                 uint32 counter =0;
-                for (RewardedQuestSet::const_iterator itr = GetPlayer()->getRewardedQuests().begin(); itr != GetPlayer()->getRewardedQuests().end(); itr++)
+                for (RewardedQuestSet::const_iterator itr = GetPlayer()->getRewardedQuests().begin(); itr != GetPlayer()->getRewardedQuests().end(); ++itr)
                 {
                     Quest const* quest = sObjectMgr->GetQuestTemplate(*itr);
                     if (quest && quest->GetZoneOrSort() >= 0 && uint32(quest->GetZoneOrSort()) == achievementCriteria->complete_quests_in_zone.zoneID)
@@ -1056,24 +1061,13 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                         continue;
                 }
 
-                // exist many achievements with this criteria, use at this moment hardcoded check to skil simple case
-                switch (achievement->ID)
+                if (achievement->ID == 1282)
                 {
-                    case 31:
-                    case 1275:
-                    case 1276:
-                    case 1277:
-                    case 1282:
-                    case 1789:
-                    {
-                        // those requirements couldn't be found in the dbc
-                        AchievementCriteriaDataSet const* data = sAchievementMgr->GetCriteriaDataSet(achievementCriteria);
-                        if (!data || !data->Meets(GetPlayer(), unit))
-                            continue;
-                        break;
-                    }
-                    default:
-                        break;
+                    // those requirements couldn't be found in the dbc
+                    AchievementCriteriaDataSet const* data = sAchievementMgr->GetCriteriaDataSet(achievementCriteria);
+                    if (!data || !data->Meets(GetPlayer(), unit))
+                        continue;
+                    break;
                 }
 
                 SetCriteriaProgress(achievementCriteria, 1);
@@ -1479,10 +1473,12 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
             }
             case ACHIEVEMENT_CRITERIA_TYPE_HONORABLE_KILL:
             case ACHIEVEMENT_CRITERIA_TYPE_SPECIAL_PVP_KILL:
+            case ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS:
             {
                 // skip login update
                 if (!miscValue1)
                     continue;
+
                 // those requirements couldn't be found in the dbc
                 AchievementCriteriaDataSet const* data = sAchievementMgr->GetCriteriaDataSet(achievementCriteria);
                 if (!data || !data->Meets(GetPlayer(), unit))
@@ -1500,11 +1496,8 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 break;
             }
             case ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_TEAM_RATING:
-            case ACHIEVEMENT_CRITERIA_TYPE_REACH_TEAM_RATING:
             {
-                uint32 reqTeamType = type == ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_TEAM_RATING ?
-                    achievementCriteria->highest_team_rating.teamtype :
-                    achievementCriteria->reach_team_rating.teamtype;
+                uint32 reqTeamType = achievementCriteria->highest_team_rating.teamtype;
 
                 if (miscValue1)
                 {
@@ -1516,13 +1509,51 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 else    // login case
                 {
                     for (uint32 arena_slot = 0; arena_slot < MAX_ARENA_SLOT; ++arena_slot)
-                        if (uint32 arena_team_id = GetPlayer()->GetArenaTeamId(arena_slot))
-                            if (ArenaTeam * at = sArenaTeamMgr->GetArenaTeamById(arena_team_id))
-                                if (at->GetType() == reqTeamType)
-                                {
-                                    SetCriteriaProgress(achievementCriteria, at->GetStats().Rating, PROGRESS_HIGHEST);
-                                    break;
-                                }
+                    {
+                        uint32 teamId = GetPlayer()->GetArenaTeamId(arena_slot);
+                        if (!teamId)
+                            continue;
+
+                        ArenaTeam* team = sArenaTeamMgr->GetArenaTeamById(teamId);
+                        if (!team || team->GetType() != reqTeamType)
+                            continue;
+
+                        SetCriteriaProgress(achievementCriteria, team->GetStats().Rating, PROGRESS_HIGHEST);
+                        break;
+                    }
+                }
+
+                break;
+            }
+            case ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_PERSONAL_RATING:
+            {
+                uint32 reqTeamType = achievementCriteria->highest_personal_rating.teamtype;
+
+                if (miscValue1)
+                {
+                    if (miscValue2 != reqTeamType)
+                        continue;
+
+                    SetCriteriaProgress(achievementCriteria, miscValue1, PROGRESS_HIGHEST);
+                }
+                else    // login case
+                {
+                    for (uint32 arena_slot = 0; arena_slot < MAX_ARENA_SLOT; ++arena_slot)
+                    {
+                        uint32 teamId = GetPlayer()->GetArenaTeamId(arena_slot);
+                        if (!teamId)
+                            continue;
+
+                        ArenaTeam* team = sArenaTeamMgr->GetArenaTeamById(teamId);
+                        if (!team || team->GetType() != reqTeamType)
+                            continue;
+
+                        if (ArenaTeamMember const* member = team->GetMember(GetPlayer()->GetGUID()))
+                        {
+                            SetCriteriaProgress(achievementCriteria, member->PersonalRating, PROGRESS_HIGHEST);
+                            break;
+                        }
+                    }
                 }
 
                 break;
@@ -1540,7 +1571,6 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
             case ACHIEVEMENT_CRITERIA_TYPE_WIN_ARENA:
             case ACHIEVEMENT_CRITERIA_TYPE_PLAY_ARENA:
             case ACHIEVEMENT_CRITERIA_TYPE_OWN_RANK:
-            case ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS:
             case ACHIEVEMENT_CRITERIA_TYPE_EARNED_PVP_TITLE:
             case ACHIEVEMENT_CRITERIA_TYPE_KILL_CREATURE_TYPE:
             case ACHIEVEMENT_CRITERIA_TYPE_TOTAL:
@@ -1642,8 +1672,8 @@ bool AchievementMgr::IsCompletedCriteria(AchievementCriteriaEntry const* achieve
             return progress->counter >= achievementCriteria->own_item.itemCount;
         case ACHIEVEMENT_CRITERIA_TYPE_WIN_RATED_ARENA:
             return progress->counter >= achievementCriteria->win_rated_arena.count;
-        case ACHIEVEMENT_CRITERIA_TYPE_REACH_TEAM_RATING:
-            return progress->counter >= achievementCriteria->reach_team_rating.teamrating;
+        case ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_PERSONAL_RATING:
+            return progress->counter >= achievementCriteria->highest_personal_rating.PersonalRating;
         case ACHIEVEMENT_CRITERIA_TYPE_LEARN_SKILL_LEVEL:
             return progress->counter >= (achievementCriteria->learn_skill_level.skillLevel * 75);
         case ACHIEVEMENT_CRITERIA_TYPE_USE_ITEM:
@@ -1695,6 +1725,8 @@ bool AchievementMgr::IsCompletedCriteria(AchievementCriteriaEntry const* achieve
             return progress->counter >= 9000;
         case ACHIEVEMENT_CRITERIA_TYPE_USE_LFD_TO_GROUP_WITH_PLAYERS:
             return progress->counter >= achievementCriteria->use_lfg.dungeonsComplete;
+        case ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS:
+            return progress->counter >= achievementCriteria->get_killing_blow.killCount;
         // handle all statistic-only criteria here
         case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_BATTLEGROUND:
         case ACHIEVEMENT_CRITERIA_TYPE_DEATH_AT_MAP:
@@ -1972,7 +2004,7 @@ void AchievementMgr::CompletedAchievement(AchievementEntry const* achievement, b
 {
     sLog->outDetail("AchievementMgr::CompletedAchievement(%u)", achievement->ID);
 
-    if (!sWorld->getBoolConfig(CONFIG_GM_ALLOW_ACHIEVEMENT_GAINS) && m_player->GetSession()->GetSecurity() > SEC_PLAYER && !ignoreGMAllowAchievementConfig)
+    if (m_player->GetSession()->GetSecurity() > AccountTypes(sWorld->getIntConfig(CONFIG_GM_LEVEL_ALLOW_ACHIEVEMENTS)) && !ignoreGMAllowAchievementConfig)
         return;
 
     if (achievement->flags & ACHIEVEMENT_FLAG_COUNTER || HasAchieved(achievement))
@@ -2267,17 +2299,10 @@ void AchievementGlobalMgr::LoadAchievementCriteriaData()
                     continue;
 
                 // exist many achievements with this criteria, use at this moment hardcoded check to skil simple case
-                switch (achievement->ID)
-                {
-                    case 31:
-                    case 1275:
-                    case 1276:
-                    case 1277:
-                    case 1282:
-                        break;
-                    default:
-                        continue;
-                }
+                if (achievement->ID == 1282)
+                    break;
+
+                continue;
             }
             case ACHIEVEMENT_CRITERIA_TYPE_FALL_WITHOUT_DYING:
                 break;                                      // any cases
@@ -2327,6 +2352,8 @@ void AchievementGlobalMgr::LoadAchievementCriteriaData()
                     continue;
                 break;
             }
+            case ACHIEVEMENT_CRITERIA_TYPE_GET_KILLING_BLOWS:
+                break;
             default:                                        // type not use DB data, ignore
                 continue;
         }

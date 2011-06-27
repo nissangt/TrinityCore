@@ -206,7 +206,6 @@ ChatCommand * ChatHandler::getCommandTable()
         { "create",         SEC_GAMEMASTER,     false, OldHandler<&ChatHandler::HandleCreatePetCommand>,           "", NULL },
         { "learn",          SEC_GAMEMASTER,     false, OldHandler<&ChatHandler::HandlePetLearnCommand>,            "", NULL },
         { "unlearn",        SEC_GAMEMASTER,     false, OldHandler<&ChatHandler::HandlePetUnlearnCommand>,          "", NULL },
-        { "tp",             SEC_GAMEMASTER,     false, OldHandler<&ChatHandler::HandlePetTpCommand>,               "", NULL },
         { NULL,             0,                  false, NULL,                                           "", NULL }
     };
 
@@ -347,8 +346,8 @@ ChatCommand * ChatHandler::getCommandTable()
 
         { "aura",           SEC_ADMINISTRATOR,  false, OldHandler<&ChatHandler::HandleAuraCommand>,                "", NULL },
         { "unaura",         SEC_ADMINISTRATOR,  false, OldHandler<&ChatHandler::HandleUnAuraCommand>,              "", NULL },
-        { "nameannounce",   SEC_MODERATOR,      false, OldHandler<&ChatHandler::HandleNameAnnounceCommand>,        "", NULL },
-        { "gmnameannounce", SEC_MODERATOR,      false, OldHandler<&ChatHandler::HandleGMNameAnnounceCommand>,      "", NULL },
+        { "nameannounce",   SEC_MODERATOR,      true,  OldHandler<&ChatHandler::HandleNameAnnounceCommand>,        "", NULL },
+        { "gmnameannounce", SEC_MODERATOR,      true,  OldHandler<&ChatHandler::HandleGMNameAnnounceCommand>,      "", NULL },
         { "announce",       SEC_MODERATOR,      true,  OldHandler<&ChatHandler::HandleAnnounceCommand>,            "", NULL },
         { "gmannounce",     SEC_MODERATOR,      true,  OldHandler<&ChatHandler::HandleGMAnnounceCommand>,          "", NULL },
         { "notify",         SEC_MODERATOR,      true,  OldHandler<&ChatHandler::HandleNotifyCommand>,              "", NULL },
@@ -1056,7 +1055,7 @@ void ChatHandler::FillMessageData(WorldPacket *data, WorldSession* session, uint
         *data << uint8(0);
 }
 
-Player * ChatHandler::getSelectedPlayer()
+Player* ChatHandler::getSelectedPlayer()
 {
     if (!m_session)
         return NULL;

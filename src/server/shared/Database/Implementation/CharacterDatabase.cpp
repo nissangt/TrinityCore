@@ -24,11 +24,12 @@ void CharacterDatabaseConnection::DoPrepareStatements()
 
     PREPARE_STATEMENT(CHAR_DEL_QUEST_POOL_SAVE, "DELETE FROM pool_quest_save WHERE pool_id = ?", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_ADD_QUEST_POOL_SAVE, "INSERT INTO pool_quest_save (pool_id, quest_id) VALUES (?, ?)", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_DEL_OLD_GUILD_EVENT_LOGS, "DELETE FROM guild_eventlog WHERE LogGuid > ?", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_DEL_OLD_GUILD_BANK_EVENT_LOGS, "DELETE FROM guild_bank_eventlog WHERE LogGuid > ?", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_DEL_NONEXISTENT_GUILD_BANK_ITEM, "DELETE FROM guild_bank_item WHERE guildid = ? AND TabId = ? AND SlotId = ?", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_DEL_EXPIRED_BANS, "UPDATE character_banned SET active = 0 WHERE unbandate <= UNIX_TIMESTAMP() AND unbandate <> bandate", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_GET_GUID_BY_NAME, "SELECT guid FROM characters WHERE name = ?", CONNECTION_SYNCH)
+    PREPARE_STATEMENT(CHAR_GET_GUID_BY_NAME, "SELECT guid FROM characters WHERE name = ?", CONNECTION_SYNCH);
+    PREPARE_STATEMENT(CHAR_GET_CHECK_NAME, "SELECT 1 FROM characters WHERE name = ?", CONNECTION_ASYNC);
+    PREPARE_STATEMENT(CHAR_GET_SUM_CHARS, "SELECT COUNT(guid) FROM characters WHERE account = ?", CONNECTION_ASYNC);
+    PREPARE_STATEMENT(CHAR_GET_CHAR_CREATE_INFO, "SELECT level, race, class FROM characters WHERE account = ? LIMIT 0,?", CONNECTION_ASYNC);
     PREPARE_STATEMENT(CHAR_ADD_BAN, "INSERT INTO character_banned VALUES (?, UNIX_TIMESTAMP(), UNIX_TIMESTAMP()+?, ?, ?, 1)", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_SET_NOT_BANNED, "UPDATE character_banned SET active = 0 WHERE guid = ? AND active != 0", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_GET_BANINFO, "SELECT FROM_UNIXTIME(bandate), unbandate-bandate, active, unbandate, banreason, bannedby FROM character_banned WHERE guid = ? ORDER BY bandate ASC", CONNECTION_SYNCH)
@@ -87,7 +88,7 @@ void CharacterDatabaseConnection::DoPrepareStatements()
     PREPARE_STATEMENT(CHAR_ADD_MAIL_ITEM, "INSERT INTO mail_items(mail_id, item_guid, receiver) VALUES (?, ?, ?)", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_DEL_EMPTY_EXPIRED_MAIL, "DELETE FROM mail WHERE expire_time < ? AND has_items = 0 AND body = ''", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_GET_EXPIRED_MAIL, "SELECT id, messageType, sender, receiver, has_items, expire_time, cod, checked, mailTemplateId FROM mail WHERE expire_time < ?", CONNECTION_SYNCH)
-    PREPARE_STATEMENT(CHAR_GET_MAIL_ITEM_LITE, "SELECT item_guid, itemEntry FROM mail_items mi INNER JOIN item_instance ii ON ii.guid = mi.item_guid WHERE mail_id = ?", CONNECTION_SYNCH)
+    PREPARE_STATEMENT(CHAR_GET_EXPIRED_MAIL_ITEMS, "SELECT item_guid, itemEntry, mail_id FROM mail_items mi INNER JOIN item_instance ii ON ii.guid = mi.item_guid LEFT JOIN mail mm ON mi.mail_id = mm.id WHERE mm.id IS NOT NULL AND mm.expire_time < ?", CONNECTION_SYNCH)
     PREPARE_STATEMENT(CHAR_SET_MAIL_RETURNED, "UPDATE mail SET sender = ?, receiver = ?, expire_time = ?, deliver_time = ?, cod = 0, checked = ? WHERE id = ?", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_SET_MAIL_ITEM_RECEIVER, "UPDATE mail_items SET receiver = ? WHERE item_guid = ?", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_SET_ITEM_OWNER, "UPDATE item_instance SET owner_guid = ? WHERE guid = ?", CONNECTION_ASYNC)
@@ -185,47 +186,7 @@ void CharacterDatabaseConnection::DoPrepareStatements()
     PREPARE_STATEMENT(CHAR_RESET_GUILD_RANK_BANK_TIME3, "UPDATE guild_member SET BankResetTimeTab3 = 0 WHERE guildid = ? AND rank = ?", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_RESET_GUILD_RANK_BANK_TIME4, "UPDATE guild_member SET BankResetTimeTab4 = 0 WHERE guildid = ? AND rank = ?", CONNECTION_ASYNC)
     PREPARE_STATEMENT(CHAR_RESET_GUILD_RANK_BANK_TIME5, "UPDATE guild_member SET BankResetTimeTab5 = 0 WHERE guildid = ? AND rank = ?", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_LOAD_GUILDS,
-    //          0          1       2             3              4              5              6
-    "SELECT g.guildid, g.name, g.leaderguid, g.EmblemStyle, g.EmblemColor, g.BorderStyle, g.BorderColor, "
-    //   7                  8       9       10            11           12
-    "g.BackgroundColor, g.info, g.motd, g.createdate, g.BankMoney, COUNT(gbt.guildid) "
-    "FROM guild g LEFT JOIN guild_bank_tab gbt ON g.guildid = gbt.guildid GROUP BY g.guildid ORDER BY g.guildid ASC", CONNECTION_SYNCH)
-    //                                              0        1    2      3       4
-    PREPARE_STATEMENT(CHAR_LOAD_GUILD_RANKS, "SELECT guildid, rid, rname, rights, BankMoneyPerDay FROM guild_rank ORDER BY guildid ASC, rid ASC", CONNECTION_SYNCH)
     PREPARE_STATEMENT(CHAR_LOAD_CHAR_DATA_FOR_GUILD, "SELECT name, level, class, zone, account FROM characters WHERE guid = ?", CONNECTION_SYNCH)
-    PREPARE_STATEMENT(CHAR_LOAD_GUILD_MEMBERS,
-    //          0        1        2     3      4        5                   6
-    "SELECT guildid, gm.guid, rank, pnote, offnote, BankResetTimeMoney, BankRemMoney, "
-    //   7                  8                 9                  10                11                 12
-    "BankResetTimeTab0, BankRemSlotsTab0, BankResetTimeTab1, BankRemSlotsTab1, BankResetTimeTab2, BankRemSlotsTab2, "
-    //   13                 14                15                 16                17                 18
-    "BankResetTimeTab3, BankRemSlotsTab3, BankResetTimeTab4, BankRemSlotsTab4, BankResetTimeTab5, BankRemSlotsTab5, "
-    //   19      20       21       22      23         24
-    "c.name, c.level, c.class, c.zone, c.account, c.logout_time "
-    "FROM guild_member gm LEFT JOIN characters c ON c.guid = gm.guid ORDER BY guildid ASC", CONNECTION_SYNCH)
-    PREPARE_STATEMENT(CHAR_LOAD_GUILD_BANK_RIGHTS,
-    //          0        1      2    3        4
-    "SELECT guildid, TabId, rid, gbright, SlotPerDay FROM guild_bank_right ORDER BY guildid ASC, TabId ASC", CONNECTION_SYNCH)
-    //                                                  0        1      2        3        4
-    PREPARE_STATEMENT(CHAR_LOAD_GUILD_BANK_TABS, "SELECT guildid, TabId, TabName, TabIcon, TabText FROM guild_bank_tab ORDER BY guildid ASC, TabId ASC", CONNECTION_SYNCH)
-    PREPARE_STATEMENT(CHAR_LOAD_GUILD_EVENTLOGS,
-    //          0        1        2          3            4            5        6
-    "SELECT guildid, LogGuid, EventType, PlayerGuid1, PlayerGuid2, NewRank, TimeStamp FROM guild_eventlog ORDER BY TimeStamp DESC, LogGuid DESC", CONNECTION_SYNCH)
-    PREPARE_STATEMENT(CHAR_LOAD_GUILD_BANK_EVENTLOGS,
-    //          0        1      2        3          4           5            6               7          8
-    "SELECT guildid, TabId, LogGuid, EventType, PlayerGuid, ItemOrMoney, ItemStackCount, DestTabId, TimeStamp FROM guild_bank_eventlog ORDER BY TimeStamp DESC, LogGuid DESC", CONNECTION_SYNCH)
-    PREPARE_STATEMENT(CHAR_LOAD_GUILD_BANK_ITEMS,
-    //          0            1                2      3         4        5      6             7                 8           9           10
-    "SELECT creatorGuid, giftCreatorGuid, count, duration, charges, flags, enchantments, randomPropertyId, durability, playedTime, text, "
-    //   11       12     13      14         15
-    "guildid, TabId, SlotId, item_guid, itemEntry FROM guild_bank_item gbi INNER JOIN item_instance ii ON gbi.item_guid = ii.guid", CONNECTION_SYNCH)
-
-    PREPARE_STATEMENT(CHAR_DEL_NONEXISTENT_GUILD_RANKS, "DELETE FROM guild_rank WHERE guildId NOT IN (SELECT guildid FROM guild)", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_DEL_NONEXISTENT_GUILD_MEMBERS, "DELETE FROM guild_member WHERE guildId NOT IN (SELECT guildid FROM guild)", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_DEL_NONEXISTENT_GUILD_BANK_TABS, "DELETE FROM guild_bank_tab WHERE guildId NOT IN (SELECT guildid FROM guild)", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_DEL_NONEXISTENT_GUILD_BANK_RIGHTS, "DELETE FROM guild_bank_right WHERE guildId NOT IN (SELECT guildid FROM guild)", CONNECTION_ASYNC)
-    PREPARE_STATEMENT(CHAR_DEL_NONEXISTENT_GUILD_BANK_ITEMS, "DELETE FROM guild_bank_item WHERE guildId NOT IN (SELECT guildid FROM guild)", CONNECTION_ASYNC)
 
     // Chat channel handling
     PREPARE_STATEMENT(CHAR_LOAD_CHANNEL, "SELECT announce, ownership, password, bannedList FROM channels WHERE name = ? AND team = ?", CONNECTION_SYNCH)

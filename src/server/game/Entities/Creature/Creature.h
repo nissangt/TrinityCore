@@ -432,6 +432,7 @@ class Creature : public Unit, public GridObject<Creature>
         uint32 GetEquipmentId() const { return GetCreatureInfo()->equipmentId; }
 
         void SetCorpseDelay(uint32 delay) { m_corpseDelay = delay; }
+        uint32 GetCorpseDelay() const { return m_corpseDelay; }
         bool isRacialLeader() const { return GetCreatureInfo()->RacialLeader; }
         bool isCivilian() const { return GetCreatureInfo()->flags_extra & CREATURE_FLAG_EXTRA_CIVILIAN; }
         bool isTrigger() const { return GetCreatureInfo()->flags_extra & CREATURE_FLAG_EXTRA_TRIGGER; }
@@ -558,7 +559,7 @@ class Creature : public Unit, public GridObject<Creature>
         Player *GetLootRecipient() const;
         Group *GetLootRecipientGroup() const;
         bool hasLootRecipient() const { return m_lootRecipient || m_lootRecipientGroup; }
-        bool isTappedBy(Player *player) const;                          // return true if the creature is tapped by the player or a member of his party.
+        bool isTappedBy(Player* player) const;                          // return true if the creature is tapped by the player or a member of his party.
 
         void SetLootRecipient (Unit* unit);
         void AllLootRemovedFromCorpse();

@@ -111,28 +111,25 @@ void InstanceScript::UpdateDoorState(GameObject *door)
         return;
 
     bool open = true;
-    for (DoorInfoMap::iterator itr = lower; itr != upper; ++itr)
+    for (DoorInfoMap::iterator itr = lower; itr != upper && open; ++itr)
     {
-        if (itr->second.type == DOOR_TYPE_ROOM)
+        switch (itr->second.type)
         {
-            if (itr->second.bossInfo->state == IN_PROGRESS)
-            {
-                open = false;
+            case DOOR_TYPE_ROOM:
+                open = (itr->second.bossInfo->state != IN_PROGRESS);
                 break;
-            }
-        }
-        else if (itr->second.type == DOOR_TYPE_PASSAGE)
-        {
-            if (itr->second.bossInfo->state != DONE)
-            {
-                open = false;
+            case DOOR_TYPE_PASSAGE:
+                open = (itr->second.bossInfo->state == DONE);
                 break;
-            }
+            case DOOR_TYPE_SPAWN_HOLE:
+                open = (itr->second.bossInfo->state == IN_PROGRESS);
+                break;
+            default:
+                break;
         }
     }
 
     door->SetGoState(open ? GO_STATE_ACTIVE : GO_STATE_READY);
-    //sLog->outError("Door %u is %s.", door->GetEntry(), open ? "opened" : "closed");
 }
 
 void InstanceScript::AddDoor(GameObject *door, bool add)
@@ -320,24 +317,6 @@ void InstanceScript::DoSendNotifyToInstance(const char *format, ...)
         }
         va_end(ap);
     }
-}
-
-// Complete Achievement for all players in instance
-void InstanceScript::DoCompleteAchievement(uint32 achievement)
-{
-    AchievementEntry const* pAE = GetAchievementStore()->LookupEntry(achievement);
-    Map::PlayerList const &PlayerList = instance->GetPlayers();
-
-    if (!pAE)
-    {
-        sLog->outError("TSCR: DoCompleteAchievement called for not existing achievement %u", achievement);
-        return;
-    }
-
-    if (!PlayerList.isEmpty())
-        for (Map::PlayerList::const_iterator i = PlayerList.begin(); i != PlayerList.end(); ++i)
-            if (Player *pPlayer = i->getSource())
-                pPlayer->CompletedAchievement(pAE);
 }
 
 // Update Achievement Criteria for all players in instance

@@ -46,7 +46,11 @@ bool ChatHandler::HandleNameAnnounceCommand(const char* args)
     if (!*args)
         return false;
 
-    sWorld->SendWorldText(LANG_ANNOUNCE_COLOR, m_session->GetPlayer()->GetName(), args);
+    std::string name("Console");
+    if (WorldSession* session = GetSession())
+        name = session->GetPlayer()->GetName();
+
+    sWorld->SendWorldText(LANG_ANNOUNCE_COLOR, name.c_str(), args);
     return true;
 }
 
@@ -56,7 +60,11 @@ bool ChatHandler::HandleGMNameAnnounceCommand(const char* args)
     if (!*args)
         return false;
 
-    sWorld->SendGMText(LANG_GM_ANNOUNCE_COLOR, m_session->GetPlayer()->GetName(), args);
+    std::string name("Console");
+    if (WorldSession* session = GetSession())
+        name = session->GetPlayer()->GetName();
+
+    sWorld->SendGMText(LANG_GM_ANNOUNCE_COLOR, name.c_str(), args);
     return true;
 }
 
@@ -169,9 +177,9 @@ bool ChatHandler::HandleGPSCommand(const char* args)
     uint32 have_map = Map::ExistMap(obj->GetMapId(), gx, gy) ? 1 : 0;
     uint32 have_vmap = Map::ExistVMap(obj->GetMapId(), gx, gy) ? 1 : 0;
 
-    if(have_vmap)
+    if (have_vmap)
     {
-        if(map->IsOutdoors(obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ()))
+        if (map->IsOutdoors(obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ()))
             PSendSysMessage("You are outdoors");
         else
             PSendSysMessage("You are indoors");
@@ -388,7 +396,7 @@ bool ChatHandler::HandleAppearCommand(const char* args)
             InstancePlayerBind *pBind = _player->GetBoundInstance(target->GetMapId(), target->GetDifficulty(cMap->IsRaid()));
             if (!pBind)
             {
-                Group *group = _player->GetGroup();
+                Group* group = _player->GetGroup();
                 // if no bind exists, create a solo bind
                 InstanceGroupBind *gBind = group ? group->GetBoundInstance(target) : NULL;                // if no bind exists, create a solo bind
                 if (!gBind)

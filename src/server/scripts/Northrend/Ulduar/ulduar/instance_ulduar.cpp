@@ -349,59 +349,16 @@ class instance_ulduar : public InstanceMapScript
 
             void OnGameObjectRemove(GameObject* gameObject)
             {
-                case BOSS_LEVIATHAN:
-                case BOSS_IGNIS:
-                case BOSS_RAZORSCALE:
-                case BOSS_XT002:
-                case BOSS_AURIAYA:
-                case BOSS_MIMIRON:
-                    break;
-                case BOSS_ASSEMBLY_OF_IRON:
-                    if (state == DONE)
-                        HandleGameObject(ArchivumDoorGUID, true);
-                    break;
-                case BOSS_VEZAX:
-                    if (state == DONE)
-                        HandleGameObject(VezaxDoorGUID, true);
-                    break;
-                case BOSS_YOGGSARON:
-                    break;
-                case BOSS_KOLOGARN:
-                    if (state == DONE)
-                    {
-                        if (GameObject* gameObject = instance->GetGameObject(KologarnChestGUID))
-                            gameObject->SetRespawnTime(gameObject->GetRespawnDelay());
-                        HandleGameObject(KologarnBridgeGUID, false);
-                    }
-                    if (state == IN_PROGRESS)
-                        HandleGameObject(KologarnDoorGUID, false);
-                    else
-                        HandleGameObject(KologarnDoorGUID, true);
-                    break;
-                case BOSS_HODIR:
-                    if (state == DONE)
-                    {
-                        if (GameObject* HodirRareCache = instance->GetGameObject(HodirRareCacheGUID))
-                            if (GetData(DATA_HODIR_RARE_CACHE) == 1)
-                                HodirRareCache->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
-                        if (GameObject* HodirChest = instance->GetGameObject(HodirChestGUID))
-                            HodirChest->SetRespawnTime(HodirChest->GetRespawnDelay());
-                        HandleGameObject(HodirDoorGUID, true);
-                        HandleGameObject(HodirIceDoorGUID, true);
-                    }
-                    break;
-                case BOSS_THORIM:
-                    if (state == DONE)
-                        if (GameObject* gameObject = instance->GetGameObject(ThorimChestGUID))
-                            gameObject->SetRespawnTime(gameObject->GetRespawnDelay());
-                    break;
-                case BOSS_FREYA:
-                    if (state == DONE)
-                        if (GameObject* gameObject = instance->GetGameObject(FreyaChestGUID))
-                            gameObject->SetRespawnTime(gameObject->GetRespawnDelay());
-                    break;
+                switch (gameObject->GetEntry())
+                {
+                    case GO_LEVIATHAN_DOOR:
+                        AddDoor(gameObject, false);
+                        break;
+                    default:
+                        break;
+                }
             }
-
+            
             void OnCreatureDeath(Creature* creature)
             {
                 switch (creature->GetEntry())
@@ -424,38 +381,38 @@ class instance_ulduar : public InstanceMapScript
                         break;
                 }
             }
-
+            
             void ProcessEvent(GameObject* /*gameObject*/, uint32 eventId)
             {
                 // Flame Leviathan's Tower Event triggers
                 Creature* FlameLeviathan = instance->GetCreature(LeviathanGUID);
                 if (FlameLeviathan && FlameLeviathan->isAlive()) // No leviathan, no event triggering ;)
                     switch (eventId)
-                    {
-                        case EVENT_TOWER_OF_STORM_DESTROYED:
-                            FlameLeviathan->AI()->DoAction(1);
-                            break;
-                        case EVENT_TOWER_OF_FROST_DESTROYED:
-                            FlameLeviathan->AI()->DoAction(2);
-                            break;
-                        case EVENT_TOWER_OF_FLAMES_DESTROYED:
-                            FlameLeviathan->AI()->DoAction(3);
-                            break;
-                        case EVENT_TOWER_OF_LIFE_DESTROYED:
-                            FlameLeviathan->AI()->DoAction(4);
-                            break;
-                    }
+                {
+                    case EVENT_TOWER_OF_STORM_DESTROYED:
+                        FlameLeviathan->AI()->DoAction(1);
+                        break;
+                    case EVENT_TOWER_OF_FROST_DESTROYED:
+                        FlameLeviathan->AI()->DoAction(2);
+                        break;
+                    case EVENT_TOWER_OF_FLAMES_DESTROYED:
+                        FlameLeviathan->AI()->DoAction(3);
+                        break;
+                    case EVENT_TOWER_OF_LIFE_DESTROYED:
+                        FlameLeviathan->AI()->DoAction(4);
+                        break;
+                }
             }
-
+            
             void ProcessEvent(Unit* /*unit*/, uint32 /*eventId*/)
             {
             }
-
+            
             bool SetBossState(uint32 type, EncounterState state)
             {
                 if (!InstanceScript::SetBossState(type, state))
                     return false;
-
+                
                 switch (type)
                 {
                     case BOSS_LEVIATHAN:
@@ -492,7 +449,7 @@ class instance_ulduar : public InstanceMapScript
                         {
                             if (GameObject* HodirRareCache = instance->GetGameObject(HodirRareCacheGUID))
                                 if (GetData(DATA_HODIR_RARE_CACHE))
-                                    HodirRareCache->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_UNK1);
+                                    HodirRareCache->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
                             if (GameObject* HodirChest = instance->GetGameObject(HodirChestGUID))
                                 HodirChest->SetRespawnTime(HodirChest->GetRespawnDelay());
                             HandleGameObject(HodirDoorGUID, true);
@@ -510,10 +467,10 @@ class instance_ulduar : public InstanceMapScript
                                 gameObject->SetRespawnTime(gameObject->GetRespawnDelay());
                         break;
                 }
-
+                
                 return true;
             }
-
+            
             void SetData(uint32 type, uint32 data)
             {
                 switch (type)
@@ -542,7 +499,7 @@ class instance_ulduar : public InstanceMapScript
                         break;
                 }
             }
-
+            
             void SetData64(uint32 type, uint64 data)
             {
                 switch (type)
@@ -555,7 +512,7 @@ class instance_ulduar : public InstanceMapScript
                         break;
                 }
             }
-
+            
             uint64 GetData64(uint32 data)
             {
                 switch (data)
@@ -597,8 +554,8 @@ class instance_ulduar : public InstanceMapScript
                         return YoggSaronGUID;
                     case BOSS_ALGALON:
                         return AlgalonGUID;
-
-                    // Razorscale expedition commander
+                        
+                        // Razorscale expedition commander
                     case DATA_EXPEDITION_COMMANDER:
                         return ExpeditionCommanderGUID;
                     case GO_RAZOR_HARPOON_1:
@@ -609,16 +566,16 @@ class instance_ulduar : public InstanceMapScript
                         return RazorHarpoonGUIDs[2];
                     case GO_RAZOR_HARPOON_4:
                         return RazorHarpoonGUIDs[3];
-
-                    // Assembly of Iron
+                        
+                        // Assembly of Iron
                     case BOSS_STEELBREAKER:
                         return AssemblyGUIDs[0];
                     case BOSS_MOLGEIM:
                         return AssemblyGUIDs[1];
                     case BOSS_BRUNDIR:
                         return AssemblyGUIDs[2];
-
-                    // Freya's Keepers
+                        
+                        // Freya's Keepers
                     case BOSS_BRIGHTLEAF:
                         return KeeperGUIDs[0];
                     case BOSS_IRONBRANCH:
@@ -626,10 +583,10 @@ class instance_ulduar : public InstanceMapScript
                     case BOSS_STONEBARK:
                         return KeeperGUIDs[2];
                 }
-
+                
                 return 0;
             }
-
+            
             uint32 GetData(uint32 type)
             {
                 switch (type)
@@ -641,21 +598,21 @@ class instance_ulduar : public InstanceMapScript
                     default:
                         break;
                 }
-
+                
                 return 0;
             }
-
+            
             std::string GetSaveData()
             {
                 OUT_SAVE_INST_DATA;
-
+                
                 std::ostringstream saveStream;
                 saveStream << "U U " << GetBossSaveData() << GetData(TYPE_COLOSSUS);
-
+                
                 OUT_SAVE_INST_DATA_COMPLETE;
                 return saveStream.str();
             }
-
+            
             void Load(char const* strIn)
             {
                 if (!strIn)
@@ -663,14 +620,14 @@ class instance_ulduar : public InstanceMapScript
                     OUT_LOAD_INST_DATA_FAIL;
                     return;
                 }
-
+                
                 OUT_LOAD_INST_DATA(strIn);
-
+                
                 char dataHead1, dataHead2;
-
+                
                 std::istringstream loadStream(strIn);
                 loadStream >> dataHead1 >> dataHead2;
-
+                
                 if (dataHead1 == 'U' && dataHead2 == 'U')
                 {
                     for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
@@ -679,22 +636,22 @@ class instance_ulduar : public InstanceMapScript
                         loadStream >> tmpState;
                         if (tmpState == IN_PROGRESS || tmpState > SPECIAL)
                             tmpState = NOT_STARTED;
-
+                        
                         if (i == TYPE_COLOSSUS)
                             SetData(i, tmpState);
                         else
                             SetBossState(i, EncounterState(tmpState));
                     }
                 }
-
+                
                 OUT_LOAD_INST_DATA_COMPLETE;
             }
         };
-
-        InstanceScript* GetInstanceScript(InstanceMap* map) const
-        {
-            return new instance_ulduar_InstanceMapScript(map);
-        }
+    
+    InstanceScript* GetInstanceScript(InstanceMap* map) const
+    {
+        return new instance_ulduar_InstanceMapScript(map);
+    }
 };
 
 void AddSC_instance_ulduar()

@@ -14403,8 +14403,9 @@ uint32 Player::GetDefaultGossipMenuForSource(WorldObject* source)
             return source->ToCreature()->GetCreatureInfo()->GossipMenuId;
         case TYPEID_GAMEOBJECT:
             return source->ToGameObject()->GetGOInfo()->GetGossipMenuId();
+        default:
+            break;
     }
-
     return 0;
 }
 

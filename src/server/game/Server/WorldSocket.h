@@ -161,6 +161,7 @@ class WorldSocket : public WorldHandler
         /// Called by ProcessIncoming() on CMSG_PING.
         int HandlePing (WorldPacket& recvPacket);
 
+        void _LogPacket(const WorldPacket& pct, bool isServer) const;
     private:
         /// Time in which the last ping was received
         ACE_Time_Value m_LastPingTime;

@@ -334,7 +334,7 @@ void AnticheatMgr::BuildReport(Player* player, ReportTypes reportType)
         sWorld->SendGlobalGMMessage(&data);
     }
     // Write information to log file
-    sLogMgr->Write(LOG_NAME, "[%u] %s (account: %u): %s", player->GetGUIDLow(), player->GetName(), player->GetSession()->GetAccountId(), CheatTypeToString(reportType));
+    sLogMgr->WriteLn(LOG_NAME, "[%u] %s (account: %u): %s", player->GetGUIDLow(), player->GetName(), player->GetSession()->GetAccountId(), CheatTypeToString(reportType));
 }
 
 void AnticheatMgr::AnticheatGlobalCommand(ChatHandler* handler)

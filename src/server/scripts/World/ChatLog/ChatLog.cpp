@@ -35,8 +35,8 @@ ChatLogInfo::ChatLogInfo(ChatLogType type, bool chat, bool lexics) : _cutFlag(fa
     _strType = ChatLog::GetChatNameByType(type);
     if (chat)
     {
-        sLogMgr->RegisterLogFile(_strType);
-        sLogMgr->Write(_strType, "[SYSTEM] %s Log Initialized", ChatLog::GetChatDescByType(_type));
+        sLogMgr->RegisterLogFile(_strType.c_str());
+        sLogMgr->WriteLn(_strType.c_str(), "[SYSTEM] %s Log Initialized", ChatLog::GetChatDescByType(_type));
     }
     if (lexics)
         _cutFlag = sConfig->GetBoolDefault(std::string("ChatLog.Lexics." + _strType + ".Cut").c_str(), true);
@@ -44,14 +44,14 @@ ChatLogInfo::ChatLogInfo(ChatLogType type, bool chat, bool lexics) : _cutFlag(fa
 
 void ChatLogInfo::Write(const std::string& msg)
 {
-    sLogMgr->Write(_strType, msg);
+    sLogMgr->WriteLn(_strType.c_str(), msg);
 }
 
 void ChatLogInfo::Write(const char* fmt, ...)
 {
     va_list lst;
     va_start(lst, fmt);
-    sLogMgr->Write(_strType, fmt, lst);
+    sLogMgr->WriteLn(_strType.c_str(), fmt, lst);
     va_end(lst);
 }
 

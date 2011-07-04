@@ -109,16 +109,13 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket & recv_data)
 
     if (lang == LANG_ADDON)
     {
-        if (sWorld->getBoolConfig(CONFIG_CHATLOG_ADDON))
-        {
-            std::string msg = "";
-            recv_data >> msg;
+        std::string msg = "";
+        recv_data >> msg;
 
-            if (msg.empty())
-                return;
+        if (msg.empty())
+            return;
 
-            sScriptMgr->OnPlayerChat(GetPlayer(), uint32(CHAT_MSG_ADDON), lang, msg);
-        }
+        sScriptMgr->OnPlayerChat(GetPlayer(), uint32(CHAT_MSG_ADDON), lang, msg);
 
         // Disabled addon channel?
         if (!sWorld->getBoolConfig(CONFIG_ADDON_CHANNEL))

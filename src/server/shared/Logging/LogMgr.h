@@ -18,6 +18,7 @@
 #ifndef TRINITYCORE_LOGMGR_H
 #define TRINITYCORE_LOGMGR_H
 
+#include "Common.h"
 #include <ace/Singleton.h>
 
 #define SERVER_LOG "Server"

@@ -26,6 +26,7 @@ EndScriptData */
 #include "Chat.h"
 #include "OutdoorPvPMgr.h"
 #include "OutdoorPvPWG.h"
+#include "ObjectMgr.h"
 
 class wg_commandscript : public CommandScript
 {

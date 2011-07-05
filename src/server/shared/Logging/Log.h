@@ -19,6 +19,8 @@
 #ifndef TRINITYCORE_LOG_H
 #define TRINITYCORE_LOG_H
 
+#include "Common.h"
+#include <ace/Null_Mutex.h>
 #include <ace/Singleton.h>
 
 enum DebugLogFilters

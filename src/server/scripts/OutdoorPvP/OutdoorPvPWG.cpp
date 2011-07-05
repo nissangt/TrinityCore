@@ -554,6 +554,8 @@ void OutdoorPvPWG::ProcessEvent(GameObject *obj, uint32 eventId)
                         (*itr)->PlayDirectSound(TeamIDsound); // Wintergrasp Fortress under Siege
                     }
                     break;
+                default:
+                    break;
             }
         }
         else if (eventId == obj->GetGOInfo()->building.destroyedEvent)
@@ -641,6 +643,8 @@ void OutdoorPvPWG::ProcessEvent(GameObject *obj, uint32 eventId)
                             TeamIDsound = OutdoorPvP_WG_ALLIANCE_CAPTAIN; // Horde Worn Sound
                         (*itr)->PlayDirectSound(TeamIDsound); // Wintergrasp Fortress destroyed Siege
                     }
+                    break;
+                default:
                     break;
             }
             BroadcastStateChange(state);
@@ -1344,6 +1348,8 @@ void OutdoorPvPWG::HandleKill(Player *killer, Unit *victim)
                 break;
             case CREATURE_TURRET:
                 ok = true;
+                break;
+            default:
                 break;
         }
     }

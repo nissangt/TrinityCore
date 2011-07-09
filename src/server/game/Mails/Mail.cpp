@@ -301,7 +301,7 @@ void WorldSession::SendExternalMails()
         uint32 itemId = fields[5].GetUInt32();
         uint32 itemCount = fields[6].GetUInt32();
 
-        Player *receiver = sObjectMgr->GetPlayer(receiver_guid);
+        Player* receiver = sObjectMgr->GetPlayer(receiver_guid);
 
         mail = new MailDraft(subject, body);
 
@@ -313,10 +313,16 @@ void WorldSession::SendExternalMails()
 
         if (itemId)
         {
-            sLog->outDetail("EXTERNAL MAIL> Adding %u of item with id %u", itemCount, itemId);
-            Item* mailItem = Item::CreateItem(itemId, itemCount);
-            mailItem->SaveToDB(trans);
-            mail->AddItem(mailItem);
+            ItemTemplate const* pProto = sObjectMgr->GetItemTemplate(itemId);
+            if (pProto)
+            {
+                sLog->outDetail("EXTERNAL MAIL> Adding %u of item with id %u", itemCount, itemId);
+                Item* mailItem = Item::CreateItem(itemId, itemCount);
+                mailItem->SaveToDB(trans);
+                mail->AddItem(mailItem);
+            }
+            else
+                sLog->outError("EXTERNAL MAIL> Tried to add non-existing item with id %u, aborted", itemId);
         }
 
         mail->SendMailTo(trans, receiver ? receiver : MailReceiver(receiver_guid), MailSender(MAIL_NORMAL, 0, MAIL_STATIONERY_GM), MAIL_CHECK_MASK_RETURNED);

@@ -388,26 +388,22 @@ class instance_ulduar : public InstanceMapScript
                 Creature* FlameLeviathan = instance->GetCreature(LeviathanGUID);
                 if (FlameLeviathan && FlameLeviathan->isAlive()) // No leviathan, no event triggering ;)
                     switch (eventId)
-                {
-                    case EVENT_TOWER_OF_STORM_DESTROYED:
-                        FlameLeviathan->AI()->DoAction(1);
-                        break;
-                    case EVENT_TOWER_OF_FROST_DESTROYED:
-                        FlameLeviathan->AI()->DoAction(2);
-                        break;
-                    case EVENT_TOWER_OF_FLAMES_DESTROYED:
-                        FlameLeviathan->AI()->DoAction(3);
-                        break;
-                    case EVENT_TOWER_OF_LIFE_DESTROYED:
-                        FlameLeviathan->AI()->DoAction(4);
-                        break;
-                }
+                    {
+                        case EVENT_TOWER_OF_STORM_DESTROYED:
+                            FlameLeviathan->AI()->DoAction(ACTION_TOWER_OF_STORM_DESTROYED);
+                            break;
+                        case EVENT_TOWER_OF_FROST_DESTROYED:
+                            FlameLeviathan->AI()->DoAction(ACTION_TOWER_OF_FROST_DESTROYED);
+                            break;
+                        case EVENT_TOWER_OF_FLAMES_DESTROYED:
+                            FlameLeviathan->AI()->DoAction(ACTION_TOWER_OF_FLAMES_DESTROYED);
+                            break;
+                        case EVENT_TOWER_OF_LIFE_DESTROYED:
+                            FlameLeviathan->AI()->DoAction(ACTION_TOWER_OF_LIFE_DESTROYED);
+                            break;
+                    }
             }
-            
-            void ProcessEvent(Unit* /*unit*/, uint32 /*eventId*/)
-            {
-            }
-            
+
             bool SetBossState(uint32 type, EncounterState state)
             {
                 if (!InstanceScript::SetBossState(type, state))
@@ -475,12 +471,12 @@ class instance_ulduar : public InstanceMapScript
             {
                 switch (type)
                 {
-                    case TYPE_COLOSSUS:
-                        Encounter[TYPE_COLOSSUS] = data;
+                    case DATA_COLOSSUS:
+                        Encounter[DATA_COLOSSUS] = data;
                         if (data == 2)
                         {
                             if (Creature* Leviathan = instance->GetCreature(LeviathanGUID))
-                                Leviathan->AI()->DoAction(10);
+                                Leviathan->AI()->DoAction(ACTION_MOVE_TO_CENTER_POSITION);
                             if (GameObject* gameObject = instance->GetGameObject(LeviathanGateGUID))
                                 gameObject->SetGoState(GO_STATE_ACTIVE_ALTERNATIVE);
                             SaveToDB();
@@ -591,7 +587,7 @@ class instance_ulduar : public InstanceMapScript
             {
                 switch (type)
                 {
-                    case TYPE_COLOSSUS:
+                    case DATA_COLOSSUS:
                         return Encounter[type];
                     case DATA_HODIR_RARE_CACHE:
                         return HodirRareCacheData;
@@ -607,8 +603,7 @@ class instance_ulduar : public InstanceMapScript
                 OUT_SAVE_INST_DATA;
                 
                 std::ostringstream saveStream;
-                saveStream << "U U " << GetBossSaveData() << GetData(TYPE_COLOSSUS);
-                
+                saveStream << "U U " << GetBossSaveData() << GetData(DATA_COLOSSUS);
                 OUT_SAVE_INST_DATA_COMPLETE;
                 return saveStream.str();
             }
@@ -636,8 +631,7 @@ class instance_ulduar : public InstanceMapScript
                         loadStream >> tmpState;
                         if (tmpState == IN_PROGRESS || tmpState > SPECIAL)
                             tmpState = NOT_STARTED;
-                        
-                        if (i == TYPE_COLOSSUS)
+                        if (i == DATA_COLOSSUS)
                             SetData(i, tmpState);
                         else
                             SetBossState(i, EncounterState(tmpState));

@@ -54,7 +54,7 @@ INSERT INTO `guildhouses` VALUES ('39', '0', '-483.401794', '7461.944824', '186.
 INSERT INTO `guildhouses` VALUES ('40', '0', '2387.753906', '3191.757324', '152.669388', '530', 'Outland Netherstorm: Nova\'s Shrine');
 
 --
-DELETE FORM `trinity_string` WHERE `entry` BETWEEN 6660 AND 6674;
+DELETE FROM `trinity_string` WHERE `entry` BETWEEN 6660 AND 6674;
 INSERT INTO `trinity_string`(`entry`, `content_default`) VALUES
 (6660, 'You are in combat and cannot be teleported to your GuildHouse.'),
 (6661, 'Your guild currently does not have a GuildHouse.'),

@@ -185,10 +185,7 @@ void LogMgr::PhysicalLogFile::Open()
         else
             path += szDate;
         // Make sure path exists
-        if (LogMgr::CreatePath(path))
-            _file = fopen(path.c_str(), _isAppend ? "a+b" : "w");
-        else
-            sLogMgr->WriteConsoleLn(LOGL_ERROR, "LogMgr: unable to create path '%s'", path.c_str());
+        _file = LogMgr::OpenFile(path, _isAppend);
     }
 }
 
@@ -561,10 +558,12 @@ void LogMgr::WriteFile(const std::string& path, bool isAppend, const std::string
 {
     if (!path.empty())
     {
-        FILE* file = fopen((GetLogDirectory() + path).c_str(), isAppend ? "a+b" : "w");
-        fprintf(file, "%s", msg.c_str());
-        fflush(file);
-        fclose(file);
+        if (FILE* file = OpenFile(GetLogDirectory() + path, isAppend))
+        {
+            fprintf(file, "%s", msg.c_str());
+            fflush(file);
+            fclose(file);
+        }
     }
 }
 
@@ -572,10 +571,12 @@ void LogMgr::WriteFile(const std::string& path, bool isAppend, const char* fmt, 
 {
     if (!path.empty())
     {
-        FILE* file = fopen((GetLogDirectory() + path).c_str(), isAppend ? "a+b" : "w");
-        vfprintf(file, fmt, lst);
-        fflush(file);
-        fclose(file);
+        if (FILE* file = OpenFile(GetLogDirectory() + path, isAppend))
+        {
+            vfprintf(file, fmt, lst);
+            fflush(file);
+            fclose(file);
+        }
     }
 }
 
@@ -583,13 +584,15 @@ void LogMgr::WriteFile(const std::string& path, bool isAppend, const char* fmt, 
 {
     if (!path.empty())
     {
-        FILE* file = fopen((GetLogDirectory() + path).c_str(), isAppend ? "a+b" : "w");
-        va_list lst;
-        va_start(lst, fmt);
-        vfprintf(file, fmt, lst);
-        va_end(lst);
-        fflush(file);
-        fclose(file);
+        if (FILE* file = OpenFile(GetLogDirectory() + path, isAppend))
+        {
+            va_list lst;
+            va_start(lst, fmt);
+            vfprintf(file, fmt, lst);
+            va_end(lst);
+            fflush(file);
+            fclose(file);
+        }
     }
 }
 
@@ -932,6 +935,17 @@ uint32 LogMgr::WritePrefix(FILE* file, LogLevel level)
             break;
     }
     return 0;
+}
+
+// static
+FILE* LogMgr::OpenFile(const std::string& path, bool isAppend)
+{
+    FILE* file = NULL;
+    if (LogMgr::CreatePath(path))
+        file = fopen(path.c_str(), isAppend ? "a+b" : "w");
+    else
+        sLogMgr->WriteConsoleLn(LOGL_ERROR, "LogMgr: unable to create path '%s'", path.c_str());
+    return file;
 }
 
 void LogMgr::_InitColors(const std::string& colors)

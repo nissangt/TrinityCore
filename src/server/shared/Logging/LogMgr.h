@@ -155,6 +155,7 @@ public:
     static void SetConsoleColor(bool isError, LogColor color);
     static void ResetConsoleColor(bool isError);
     static uint32 WritePrefix(FILE* file, LogLevel level);
+    static FILE* OpenFile(const std::string& path, bool isAppend);
 
     void Initialize();
     void Clear();

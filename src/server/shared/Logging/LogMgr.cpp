@@ -224,7 +224,7 @@ void LogMgr::PhysicalLogFile::Write(LogLevel level, bool addNewLine, bool withTi
         // Time
         _writtenLength += LogMgr::OutTimestamp(_file, _timeStampFmt);
         // Message
-        _writtenLength += _WritePrefix(level);
+        _writtenLength += LogMgr::WritePrefix(_file, level);
         _writtenLength += vfprintf(_file, fmt, lst);
         if (addNewLine)
             _writtenLength += fprintf(_file, "\n");
@@ -245,7 +245,7 @@ void LogMgr::PhysicalLogFile::Write(LogLevel level, bool addNewLine, bool withTi
         // Time
         _writtenLength += LogMgr::OutTimestamp(_file, _timeStampFmt);
         // Message
-        _writtenLength += _WritePrefix(level);
+        _writtenLength += LogMgr::WritePrefix(_file, level);
         _writtenLength += fprintf(_file, "%s", msg.c_str());
         if (addNewLine)
             _writtenLength += fprintf(_file, "\n");
@@ -275,17 +275,6 @@ inline void LogMgr::PhysicalLogFile::_CheckDate()
             Open();
         }
     }
-}
-
-inline uint32 LogMgr::PhysicalLogFile::_WritePrefix(LogLevel level)
-{
-    switch (level) {
-        case LOGL_CRASH: return fprintf(_file, "CRASH ALERT: ");
-        case LOGL_ERROR: return fprintf(_file, "ERROR: ");
-        default:
-            break;
-    }
-    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -740,6 +729,7 @@ inline void LogMgr::_WriteConsole(LogLevel level, bool appendNewLine, const std:
             SetConsoleColor(isError, isError ? LOGC_ERROR : _colors[level]);
 
         FILE* f = isError ? stderr : stdout;
+        WritePrefix(f, level);
         utf8printf(f, msg.c_str());
         if (appendNewLine)
             fprintf(f, "\n");
@@ -760,6 +750,7 @@ inline void LogMgr::_WriteConsole(LogLevel level, bool appendNewLine, const char
             SetConsoleColor(isError, isError ? LOGC_ERROR : _colors[level]);
 
         FILE* f = isError ? stderr : stdout;
+        WritePrefix(f, level);
         vutf8printf(f, fmt, lst);
         if (appendNewLine)
             fprintf(f, "\n");
@@ -929,6 +920,18 @@ void LogMgr::ResetConsoleColor(bool isError)
 #else
     fprintf(isError ? stderr : stdout, "\x1b[0m");
 #endif
+}
+
+// static
+uint32 LogMgr::WritePrefix(FILE* file, LogLevel level)
+{
+    switch (level) {
+        case LOGL_CRASH: return fprintf(file, "CRASH ALERT: ");
+        case LOGL_ERROR: return fprintf(file, "ERROR: ");
+        default:
+            break;
+    }
+    return 0;
 }
 
 void LogMgr::_InitColors(const std::string& colors)

@@ -22,7 +22,7 @@
 #include <ace/Singleton.h>
 
 #define SERVER_LOG "Server"
-#define DBERROR_LOG "DbError"
+#define DBERROR_LOG "DbErrors"
 #define RA_LOG "RA"
 #define CHAR_LOG "Char"
 #define ARENA_LOG "Arena"
@@ -96,7 +96,6 @@ class LogMgr
         const std::string& GetFileName() const { return _fileName; }
     private:
         void _CheckDate();
-        uint32 _WritePrefix(LogLevel level);
 
         std::string _dir;
         std::string _fileName;
@@ -155,6 +154,7 @@ public:
     static bool CreatePath(const std::string& path);
     static void SetConsoleColor(bool isError, LogColor color);
     static void ResetConsoleColor(bool isError);
+    static uint32 WritePrefix(FILE* file, LogLevel level);
 
     void Initialize();
     void Clear();

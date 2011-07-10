@@ -78,7 +78,7 @@ class LogMgr
     class PhysicalLogFile
     {
     public:
-        PhysicalLogFile(const std::string& fileName, const std::string& timeStampFmt, bool dateSplit, bool isAppend, uint32 flushBytes);
+        PhysicalLogFile(const std::string& dir, const std::string& fileName, const std::string& timeStampFmt, bool dateSplit, bool isAppend, uint32 flushBytes);
         ~PhysicalLogFile();
 
         void Flush();
@@ -98,6 +98,7 @@ class LogMgr
         void _CheckDate();
         uint32 _WritePrefix(LogLevel level);
 
+        std::string _dir;
         std::string _fileName;
         std::string _timeStampFmt;
         bool _dateSplit;
@@ -156,6 +157,7 @@ public:
     static void ResetConsoleColor(bool isError);
 
     void Initialize();
+    void Clear();
 
     void WriteFile(const std::string& path, bool isAppend, const std::string& msg);
     void WriteFile(const std::string& path, bool isAppend, const char* fmt, va_list& lst);
@@ -183,7 +185,7 @@ public:
     void WriteConsole(LogLevel level, const std::string& msg) const;
     void WriteConsole(LogLevel level, const char* fmt, va_list& lst) const;
     void WriteConsole(LogLevel level, const char* fmt, ...) const                           ATTR_PRINTF(3, 4);
-    
+
     void Flush(const char* logName);
 
     void RegisterLogFile(const char* logName);
@@ -194,7 +196,7 @@ public:
     bool ToggleLogEnabled(const char* logName);
 
     const std::string& GetLogDirectory() const { return _dir; }
-    
+
     void SetRealmId(uint32 realmId) { _realmId = realmId; }
     uint32 GetRealmId() const { return _realmId; }
 
@@ -227,7 +229,7 @@ private:
 
     void _WriteConsole(LogLevel level, bool appendNewLine, const std::string& msg) const;
     void _WriteConsole(LogLevel level, bool appendNewLine, const char* fmt, va_list& lst) const;
-    
+
     LogFile* _GetLog(const char* logName)
     {
         LogsMap::iterator itr = _logsMap.find(logName);

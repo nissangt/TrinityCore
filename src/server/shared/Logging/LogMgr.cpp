@@ -57,7 +57,7 @@ LogMgr::LogFile::~LogFile()
 
 void LogMgr::LogFile::Close()
 {
-    sLogMgr->UnregisterLogFile(_name.c_str());
+    //sLogMgr->UnregisterLogFile(_name.c_str());
 }
 
 void LogMgr::LogFile::Write(LogLevel level, bool addNewLine, bool withTime, const std::string& msg)
@@ -114,7 +114,7 @@ void LogMgr::LogFile::WriteDb(LogLevel level, const std::string& msg)
         stmt->setUInt32(0, uint32(time(NULL)));
         stmt->setUInt32(1, sLogMgr->GetRealmId());
         stmt->setString(2, _name);
-        stmt->setInt8  (3, int8(level)); 
+        stmt->setInt8  (3, int8(level));
         stmt->setString(4, msg);
         LoginDatabase.Execute(stmt);
     }
@@ -139,8 +139,8 @@ void LogMgr::LogFile::Flush()
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Physical log
-LogMgr::PhysicalLogFile::PhysicalLogFile(const std::string& fileName, const std::string& timeStampFmt, bool dateSplit, bool isAppend, uint32 flushBytes) :
-    _fileName(fileName), _timeStampFmt(timeStampFmt), _dateSplit(dateSplit), _isAppend(isAppend), _flushBytes(flushBytes),
+LogMgr::PhysicalLogFile::PhysicalLogFile(const std::string& dir, const std::string& fileName, const std::string& timeStampFmt, bool dateSplit, bool isAppend, uint32 flushBytes) :
+    _dir(dir), _fileName(fileName), _timeStampFmt(timeStampFmt), _dateSplit(dateSplit), _isAppend(isAppend), _flushBytes(flushBytes),
     _file(NULL), _writtenLength(0), _refCount(1), _lastDay(0)
 {
     Open();
@@ -173,7 +173,7 @@ void LogMgr::PhysicalLogFile::Open()
     ACE_Guard<ACE_Thread_Mutex> guard(_lock);
     if (!_fileName.empty() && !_file)
     {
-        std::string path(sLogMgr->GetLogDirectory());
+        std::string path(_dir);
         time_t t = time(NULL);
         tm* aTm = localtime(&t);
         if (_dateSplit)
@@ -298,20 +298,27 @@ LogMgr::LogMgr() : _realmId(0), _logDb(false), _logDbLevel(LOGL_WARNING), _logCo
 
 LogMgr::~LogMgr()
 {
-    // Clear map
-    _physicalLogsMap.clear();
-    // Delete resources
-    for (PhysicalLogs::iterator itr = _physicalLogs.begin(); itr != _physicalLogs.end(); ++itr)
-        delete (*itr);
-    _physicalLogs.clear();
+    Clear();
+}
+
+void LogMgr::Clear()
+{
     // Delete logical logs
     for (LogsMap::iterator itr = _logsMap.begin(); itr != _logsMap.end(); ++itr)
         delete itr->second;
     _logsMap.clear();
+    // Delete resources
+    for (PhysicalLogs::iterator itr = _physicalLogs.begin(); itr != _physicalLogs.end(); ++itr)
+        delete (*itr);
+    _physicalLogs.clear();
+    // Clear map
+    _physicalLogsMap.clear();
 }
 
 void LogMgr::Initialize()
 {
+    Clear();
+
     _dir = sConfig->GetStringDefault("Log.Directory", "");
     appendPathSeparator(_dir);
     // Colors
@@ -358,7 +365,7 @@ void LogMgr::RegisterLogFile(const char* logName)
     std::string setting("Log.");
     setting.append(logName);
 
-    bool enabled = sConfig->GetBoolDefault(std::string(setting + ".Enabled").c_str(), true);
+    bool enabled = sConfig->GetBoolDefault(std::string(setting + ".Enabled").c_str(), false);
     std::string fileName = sConfig->GetStringDefault(std::string(setting + ".File").c_str(), "");
     LogLevel level = LogLevel(sConfig->GetIntDefault(std::string(setting + ".Level").c_str(), LOGL_WARNING));
     std::string timeStampFmt = sConfig->GetStringDefault(std::string(setting + ".TimestampFmt").c_str(), "%Y-%m-%d %H:%M:%S");
@@ -379,17 +386,23 @@ void LogMgr::RegisterLogFile(const char* logName)
             break;
         }
     }
-    // No, there is not
-    if (!log)
+    if (enabled)
     {
-        log = new PhysicalLogFile(timeStampFmt, fileName, dateSplit, isAppend, flushBytes);
-        _physicalLogs.push_back(log);
+        // No, there is not
+        if (!log)
+        {
+            log = new PhysicalLogFile(_dir, fileName, timeStampFmt, dateSplit, isAppend, flushBytes);
+            _physicalLogs.push_back(log);
+        }
+        _physicalLogsMap[logName] = log;
     }
-    _physicalLogsMap[logName] = log;
     // Create and save logical log file
     _logsMap[logName] = new LogFile(logName, log, enabled, level, consoleFlag, dbFlag);
 
-    WriteConsoleLn(LOGL_STRING, "LogMgr: log '%s' succesfully registered for file '%s'", logName, fileName.c_str());
+    if (enabled && !fileName.empty())
+        WriteConsoleLn(LOGL_STRING, "LogMgr: log '%s' succesfully registered for file '%s'", logName, fileName.c_str());
+    else
+        WriteConsoleLn(LOGL_STRING, "LogMgr: log '%s' is disabled", logName);
 }
 
 void LogMgr::UnregisterLogFile(const char* logName)
@@ -404,6 +417,8 @@ void LogMgr::UnregisterLogFile(const char* logName)
         _physicalLogsMap.erase(logName);
         _logsMap.erase(logName);
         delete log;
+
+        WriteConsoleLn(LOGL_STRING, "LogMgr: successfully unregistered log '%s'!", logName);
     }
     else
         WriteConsoleLn(LOGL_ERROR, "LogMgr: trying to unregister log '%s' which is not found!", logName);
@@ -538,7 +553,7 @@ void LogMgr::Write(const char* logName, LogLevel level, bool withTime, const cha
         }
     }
     else
-        WriteConsoleLn(LOGL_ERROR, "LogMgr: trying to write into log '%s' which is not found!", logName);    
+        WriteConsoleLn(LOGL_ERROR, "LogMgr: trying to write into log '%s' which is not found!", logName);
 }
 
 void LogMgr::Flush(const char* logName)
@@ -696,10 +711,10 @@ void LogMgr::SetLogLevel(const char* logName, uint32 level)
     if (LogFile* log = _GetLog(logName))
     {
         log->SetLogLevel((level >= MAX_LOGLEVEL) ? LOGL_WARNING : LogLevel(level));
-        WriteConsoleLn(LOGL_STRING, "Log level of log '%s' is set to %u", logName, log->GetLogLevel());        
+        WriteConsoleLn(LOGL_STRING, "Log level of log '%s' is set to %u", logName, log->GetLogLevel());
     }
     else
-        WriteConsoleLn(LOGL_ERROR, "LogMgr: trying to set log level of log '%s' which is not found!", logName);    
+        WriteConsoleLn(LOGL_ERROR, "LogMgr: trying to set log level of log '%s' which is not found!", logName);
 }
 
 void LogMgr::SetConsoleLogLevel(uint32 level)
@@ -723,13 +738,13 @@ inline void LogMgr::_WriteConsole(LogLevel level, bool appendNewLine, const std:
         // Change color only for messages with new line (not inline)
         if (_useColor && appendNewLine)
             SetConsoleColor(isError, isError ? LOGC_ERROR : _colors[level]);
-        
+
         FILE* f = isError ? stderr : stdout;
         utf8printf(f, msg.c_str());
         if (appendNewLine)
             fprintf(f, "\n");
         fflush(f);
-        
+
         if (_useColor && appendNewLine)
             ResetConsoleColor(isError);
     }
@@ -743,17 +758,17 @@ inline void LogMgr::_WriteConsole(LogLevel level, bool appendNewLine, const char
         // Change color only for messages with new line (not inline)
         if (_useColor && appendNewLine)
             SetConsoleColor(isError, isError ? LOGC_ERROR : _colors[level]);
-        
+
         FILE* f = isError ? stderr : stdout;
         vutf8printf(f, fmt, lst);
         if (appendNewLine)
             fprintf(f, "\n");
         fflush(f);
-        
+
         if (_useColor && appendNewLine)
             ResetConsoleColor(isError);
     }
-    
+
 }
 
 void LogMgr::WriteConsoleLn(LogLevel level, const std::string& msg) const
@@ -800,14 +815,14 @@ uint32 LogMgr::OutTimestamp(FILE* file, const std::string& timeStampFmt)
     char sz[TRINITY_PATH_MAX];
     strftime(sz, sizeof(sz), timeStampFmt.c_str(), aTm);
     return fprintf(file, "%s ", sz);
-} 
+}
 
 // static
 bool LogMgr::CreatePath(const std::string& path)
 {
     const mode_t mode = S_IRWXU;
     char* szPath = (char*)path.c_str();
-    char* sp;    
+    char* sp;
     int status = 0;
     char* pp = szPath;
     while (status == 0 && (sp = strchr(pp, '/')))
@@ -845,7 +860,7 @@ void LogMgr::SetConsoleColor(bool isError, LogColor color)
         FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY,  // CYAN_BOLD
         FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY  // WHITE_BOLD
     };
-    
+
     HANDLE hConsole = GetStdHandle(isError ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(hConsole, WinColorFG[color]);
 #else
@@ -856,7 +871,7 @@ void LogMgr::SetConsoleColor(bool isError, LogColor color)
         TA_BLINK    = 5,
         TA_REVERSE  = 7
     };
-    
+
     enum ANSIFgTextAttr
     {
         FG_BLACK = 30,
@@ -927,10 +942,10 @@ void LogMgr::_InitColors(const std::string& colors)
         ss >> color;
         if (!ss)
             return;
-        
+
         if (color < 0 || color >= MAX_LOGCOLOR)
             return;
-        
+
         _colors[i] = LogColor(color);
         // At least one color is read - enough to use colors
         _useColor = true;

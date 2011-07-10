@@ -560,7 +560,7 @@ void LogMgr::WriteFile(const std::string& path, bool isAppend, const std::string
     {
         if (FILE* file = OpenFile(GetLogDirectory() + path, isAppend))
         {
-            fprintf(file, "%s", msg.c_str());
+            fprintf(file, "%s\n", msg.c_str());
             fflush(file);
             fclose(file);
         }
@@ -574,6 +574,7 @@ void LogMgr::WriteFile(const std::string& path, bool isAppend, const char* fmt, 
         if (FILE* file = OpenFile(GetLogDirectory() + path, isAppend))
         {
             vfprintf(file, fmt, lst);
+            fprintf(file, "\n");
             fflush(file);
             fclose(file);
         }
@@ -590,6 +591,7 @@ void LogMgr::WriteFile(const std::string& path, bool isAppend, const char* fmt, 
             va_start(lst, fmt);
             vfprintf(file, fmt, lst);
             va_end(lst);
+            fprintf(file, "\n");
             fflush(file);
             fclose(file);
         }

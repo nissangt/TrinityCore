@@ -1,10 +1,10 @@
 DROP TABLE IF EXISTS `npc_areaguard_template`;
 CREATE TABLE `npc_areaguard_template` (
-  `entry` mediumint(8) unsigned NOT NULL,
+  `entry` int(10) unsigned NOT NULL,
   `type` tinyint(3) unsigned NOT NULL default '0' COMMENT '0=All,1=Team,2=SecLvl,3=PlrLvl,4=Guild,5=PlrGuid',
-  `value` tinyint(3) unsigned NOT NULL default '0',
+  `value` int(10) unsigned NOT NULL default '0',
   `distance` float NOT NULL default '65',
-  `teleId` float NOT NULL,
+  `teleId` mediumint(8) NOT NULL,
   `comment` varchar(255) NULL,
   PRIMARY KEY  (`entry`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='NPC Area Guard';
@@ -12,7 +12,7 @@ CREATE TABLE `npc_areaguard_template` (
 DROP TABLE IF EXISTS `npc_areaguard`;
 CREATE TABLE `npc_areaguard` (
   `guid` int(10) unsigned NOT NULL,
-  `guardEntry` mediumint(8) unsigned NOT NULL,
+  `guardEntry` int(10) unsigned NOT NULL,
   PRIMARY KEY (`guid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COMMENT='NPC Area Guard';
 

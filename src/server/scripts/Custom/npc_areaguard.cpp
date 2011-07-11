@@ -24,8 +24,14 @@
 
 void GuardInfo::SaveToDB() const
 {
-    WorldDatabase.PExecute("REPLACE INTO `npc_areaguard`(`entry`,`type`,`value`,`distance`,`teleId`) VALUES (%u, %u, %u, %f, %u)",
-                           _entry, _type, _value, _distance, _teleId);
+    PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_ADD_NPCGUARD_TEMPLATE);
+    stmt->setUInt32(0, _entry);
+    stmt->setUInt8 (1, uint8(_type));
+    stmt->setUInt32(2, _value);
+    stmt->setFloat (3, _distance);
+    stmt->setUInt32(4, _teleId);
+    stmt->setString(5, _comment);
+    WorldDatabase.Execute(stmt);
 }
 
 bool GuardInfo::LoadFromDB(Field* fields)
@@ -35,6 +41,7 @@ bool GuardInfo::LoadFromDB(Field* fields)
     _value      = fields[2].GetUInt32();
     _distance   = fields[3].GetFloat();
     _teleId     = fields[4].GetUInt32();
+    _comment    = fields[5].GetString();
     
     if (!sObjectMgr->GetGameTele(_teleId))
     {
@@ -143,7 +150,7 @@ void GuardMgr::LoadGuardTemplates()
     _maxEntry = 0;
     _guardMap.clear();
 
-    QueryResult result = WorldDatabase.Query("SELECT `entry`,`type`,`value`,`distance`,`teleId` FROM `npc_areaguard_template`");
+    PreparedQueryResult result = WorldDatabase.Query(WorldDatabase.GetPreparedStatement(WORLD_LOAD_NPCGUARD_TEMPLATES));
     if (!result)
     {
         sLog->outErrorDb(">> Loaded 0 area guard templates. DB table `npc_areaguard_template` is empty!");
@@ -180,7 +187,7 @@ void GuardMgr::LoadGuards()
 
     _guards.clear();
 
-    QueryResult result = WorldDatabase.Query("SELECT `guid`,`guardEntry` FROM `npc_areaguard`");
+    PreparedQueryResult result = WorldDatabase.Query(WorldDatabase.GetPreparedStatement(WORLD_LOAD_NPCGUARDS));
     if (!result)
     {
         sLog->outErrorDb(">> Loaded 0 area guards. DB table `npc_areaguard` is empty!");
@@ -222,7 +229,10 @@ GuardInfo* GuardMgr::GetInfoByEntry(uint32 entry)
 void GuardMgr::Link(GuardInfo const* info, uint32 lowGuid)
 {
     _guards[lowGuid] = info->GetEntry();
-    WorldDatabase.PExecute("REPLACE INTO `npc_areaguard`(`guid`,`guardEntry`) VALUES (%u, %u)", lowGuid, info->GetEntry());
+    PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_ADD_NPCGUARD_TEMPLATE);
+    stmt->setUInt32(0, lowGuid);
+    stmt->setUInt32(1, info->GetEntry());
+    WorldDatabase.Execute(stmt);
 }
 
 void GuardMgr::Unlink(uint32 lowGuid)
@@ -231,7 +241,9 @@ void GuardMgr::Unlink(uint32 lowGuid)
     if (itr != _guards.end())
     {
         _guards.erase(lowGuid);
-        WorldDatabase.PExecute("DELETE FROM `npc_areaguard` WHERE `guid` = %u", lowGuid);
+        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_NPCGUARD_BY_GUID);
+        stmt->setUInt32(0, lowGuid);
+        WorldDatabase.Execute(stmt);
     }
 }
 
@@ -245,15 +257,20 @@ void GuardMgr::Delete(GuardInfo const* info)
             _guards.erase(itr);
     _guardMap.erase(entry);
     // Clean DB
-    WorldDatabase.PExecute("DELETE FROM `npc_areaguard` WHERE `guardEntry` = %u", entry);
-    WorldDatabase.PExecute("DELETE FROM `npc_areaguard_template` WHERE `entry` = %u", entry);
+    PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_NPCGUARD);
+    stmt->setUInt32(0, entry);
+    WorldDatabase.Execute(stmt);
+    stmt = WorldDatabase.GetPreparedStatement(WORLD_DEL_NPCGUARD_TEMPLATE);
+    stmt->setUInt32(0, entry);
+    WorldDatabase.Execute(stmt);
 }
 
-void GuardMgr::Create(GuardType type, uint32 value, float distance, GameTele const* tele)
+uint32 GuardMgr::Create(GuardType type, uint32 value, float distance, GameTele const* tele, const std::string& comment)
 {
-    GuardInfo info(++_maxEntry, type, value, distance, tele->id);
+    GuardInfo info(++_maxEntry, type, value, distance, tele->id, comment);
     info.SaveToDB();
     _guardMap[info.GetEntry()] = info;
+    return info.GetEntry();
 }
 
 void GuardMgr::List(ChatHandler* handler, GuardType type) const
@@ -478,7 +495,7 @@ public:
     }
 
     // Create new guard template
-    // .guard add <type> <value> <distance> <tele>
+    // .guard add <type> <value> <distance> <tele> [<comment>]
     static bool HandleGuardAddCommand(ChatHandler* handler, const char* args)
     {
         // 1. Type
@@ -514,8 +531,12 @@ public:
             handler->SetSentErrorMessage(true);
             return false;            
         }
+        // 5. Comment
+        char* comment = strtok(NULL, "");
         // Create new info
-        sGuardMgr->Create(type, value, distance, tele);
+        uint32 entry = sGuardMgr->Create(type, value, distance, tele, comment);
+        if (GuardInfo* info = sGuardMgr->GetInfoByEntry(entry))
+            info->SendMessage(handler, true);
         return true;
     }
 
@@ -609,7 +630,7 @@ private:
     static GuardInfo* _ExtractGuardInfo(ChatHandler* handler, char* args)
     {
         GuardInfo* gi = NULL;
-        if (args)
+        if (args && strlen(args))
         {
             uint32 entry(atoi(args));
             gi = sGuardMgr->GetInfoByEntry(entry);
@@ -630,7 +651,7 @@ private:
     static uint32 _ExtractCreatureGuid(ChatHandler* handler, char* args)
     {
         uint32 lowGuid = 0;
-        if (args)
+        if (args && strlen(args))
         {
             lowGuid = uint32(atoi(args));
             if (!lowGuid)

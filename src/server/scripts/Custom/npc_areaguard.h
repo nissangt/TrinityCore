@@ -32,8 +32,8 @@ class GuardInfo
 {
 public:
     GuardInfo() : _entry(0), _type(NPCG_NONE), _value(0), _distance(0.0f), _teleId(0) { }
-    GuardInfo(uint32 entry, GuardType type, uint32 value, float distance, uint32 teleId) :
-        _entry(entry), _type(type), _value(value), _distance(distance), _teleId(teleId) { }
+    GuardInfo(uint32 entry, GuardType type, uint32 value, float distance, uint32 teleId, const std::string& comment) :
+        _entry(entry), _type(type), _value(value), _distance(distance), _teleId(teleId), _comment(comment) { }
 
     void SaveToDB() const;
     bool LoadFromDB(Field* fields);
@@ -56,6 +56,7 @@ private:
     uint32 _value;          // Parameter for type
     float _distance;        // Interaction distance
     uint32 _teleId;         // Teleport ID from game_tele table
+    std::string _comment;   // Comment
 };
 
 typedef UNORDERED_MAP <uint32, GuardInfo> GuardInfoMap;
@@ -77,7 +78,7 @@ public:
     void Link(GuardInfo const* info, uint32 lowGuid);
     void Unlink(uint32 lowGuid);
     void Delete(GuardInfo const* info);
-    void Create(GuardType type, uint32 value, float distance, GameTele const* tele);
+    uint32 Create(GuardType type, uint32 value, float distance, GameTele const* tele, const std::string& comment);
 
     void List(ChatHandler* handler, GuardType type) const;
 private:

@@ -36,7 +36,7 @@ INSERT INTO `trinity_string`(`entry`, `content_default`) VALUES
 (6707, 'Guard info for creature entry %u not found.'),
 (6708, 'There is no guard with entry %u.'),
 (6709, 'Given distance "%s" is invalid.'),
-(6710, 'There is no player with guid "%s" or guid is invalid.'),
+(6710, 'There is no guard with guid "%s" or guid is invalid.'),
 (6711, 'Team value %u cannot be more than %u.'),
 (6712, 'GM level %u cannot be more than %u'),
 (6713, 'Level %u cannot be more than %u'),

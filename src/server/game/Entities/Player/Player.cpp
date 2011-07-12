@@ -19826,7 +19826,7 @@ void Player::RestoreSpellMods(Spell* spell, uint32 ownerAuraId, Aura* aura)
             SpellModifier *mod = *itr;
 
             // spellmods without aura set cannot be charged
-            if (!mod->ownerAura || !mod->ownerAura->GetCharges())
+            if (!mod->ownerAura || !mod->ownerAura->IsUsingCharges())
                 continue;
 
             // Restore only specific owner aura mods
@@ -19884,7 +19884,7 @@ void Player::RemoveSpellMods(Spell* spell)
             ++itr;
 
             // spellmods without aura set cannot be charged
-            if (!mod->ownerAura || !mod->ownerAura->GetCharges())
+            if (!mod->ownerAura || !mod->ownerAura->IsUsingCharges())
                 continue;
 
             // check if mod affected this spell
@@ -23631,9 +23631,9 @@ void Player::UpdateAchievementCriteria(AchievementCriteriaTypes type, uint32 mis
     GetAchievementMgr().UpdateAchievementCriteria(type, miscValue1, miscValue2, unit);
 }
 
-void Player::CompletedAchievement(AchievementEntry const* entry)
+void Player::CompletedAchievement(AchievementEntry const* entry, bool ignoreGMAllowAchievementConfig)
 {
-    GetAchievementMgr().CompletedAchievement(entry);
+    GetAchievementMgr().CompletedAchievement(entry, ignoreGMAllowAchievementConfig);
 }
 
 void Player::LearnTalent(uint32 talentId, uint32 talentRank)

@@ -1,6 +1,7 @@
 -- ----------------------------
 -- Table structure for guildhouses
 -- ----------------------------
+DROP TABLE IF EXISTS `guildhouses`;
 CREATE TABLE `guildhouses` (
   `id` int(8) unsigned NOT NULL auto_increment,
   `guildId` bigint(20) NOT NULL default '0',

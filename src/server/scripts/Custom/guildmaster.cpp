@@ -303,7 +303,7 @@ private:
             if (gh->Buy(player))
             {
                 _guildHouseGuilds[gh->_guildId] = gh->_id;
-                player->ModifyMoney(-_buyPrice);
+                player->ModifyMoney(-int32(_buyPrice));
                 creature->MonsterSay(LANG_GH_BUY_SUCCESS, LANG_UNIVERSAL, player->GetGUID());
             }
             else

@@ -514,8 +514,10 @@ public:
             return false;
 
         // 3. Distance
+        float distance = 0.0f;
         char* sDistance = strtok(NULL, " ");
-        float distance(atoi(sDistance));
+        if (sDistance)
+            distance = float(atoi(sDistance));
         if (!distance || distance > MAX_RADIUS)
         {
             handler->PSendSysMessage(LANG_GUARD_WRONG_DISTANCE, sDistance);
@@ -524,6 +526,9 @@ public:
         }
         // 4. Tele
         char* sTele = strtok(NULL, " ");
+        // 5. Comment
+        char* comment = strtok(NULL, "");
+
         GameTele const* tele = handler->extractGameTeleFromLink(sTele);
         if (!tele)
         {
@@ -531,10 +536,8 @@ public:
             handler->SetSentErrorMessage(true);
             return false;            
         }
-        // 5. Comment
-        char* comment = strtok(NULL, "");
         // Create new info
-        uint32 entry = sGuardMgr->Create(type, value, distance, tele, comment);
+        uint32 entry = sGuardMgr->Create(type, value, distance, tele, comment ? comment : "");
         if (GuardInfo* info = sGuardMgr->GetInfoByEntry(entry))
             info->SendMessage(handler, true);
         return true;

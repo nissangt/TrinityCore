@@ -104,7 +104,7 @@ class LogMgr
         bool _isAppend;
         uint32 _flushBytes;
         FILE* _file;
-        ACE_Thread_Mutex _lock;
+        ACE_Recursive_Thread_Mutex _lock;
         uint32 _writtenLength;
         uint8 _refCount;
         uint8 _lastDay;
@@ -250,6 +250,7 @@ private:
     PhysicalLogsMap _physicalLogsMap;
     PhysicalLogs _physicalLogs;
     LogsMap _logsMap;
+    mutable ACE_Recursive_Thread_Mutex _consoleLock;
 
     std::string _dir;
     uint32 _realmId;

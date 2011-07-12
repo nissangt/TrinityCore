@@ -456,16 +456,16 @@ void MySQLConnection::PrepareStatement(uint32 index, const char* sql, Connection
     MYSQL_STMT * stmt = mysql_stmt_init(m_Mysql);
     if (!stmt)
     {
-        sLogMgr->WriteLn(SQLDRIVER_LOG, "[ERROR]: In mysql_stmt_init() id: %u, sql: \"%s\"", index, sql);
-        sLogMgr->WriteLn(SQLDRIVER_LOG, "[ERROR]: %s", mysql_error(m_Mysql));
+        sLogMgr->WriteLn(SQLDRIVER_LOG, LOGL_ERROR, "In mysql_stmt_init() id: %u, sql: \"%s\"", index, sql);
+        sLogMgr->WriteLn(SQLDRIVER_LOG, LOGL_ERROR, "%s", mysql_error(m_Mysql));
         m_prepareError = true;
     }
     else
     {
         if (mysql_stmt_prepare(stmt, sql, static_cast<unsigned long>(strlen(sql))))
         {
-            sLogMgr->WriteLn(SQLDRIVER_LOG, "[ERROR]: In mysql_stmt_prepare() id: %u, sql: \"%s\"", index, sql);
-            sLogMgr->WriteLn(SQLDRIVER_LOG, "[ERROR]: %s", mysql_stmt_error(stmt));
+            sLogMgr->WriteLn(SQLDRIVER_LOG, LOGL_ERROR, "In mysql_stmt_prepare() id: %u, sql: \"%s\"", index, sql);
+            sLogMgr->WriteLn(SQLDRIVER_LOG, LOGL_ERROR, "%s", mysql_stmt_error(stmt));
             mysql_stmt_close(stmt);
             m_prepareError = true;
         }

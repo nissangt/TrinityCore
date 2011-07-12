@@ -29,15 +29,22 @@ inline void appendPathSeparator(std::string& s)
 
 inline int makedir(const char *path, mode_t mode)
 {
-    struct stat st;
     int status = 0;
+    // Directory does not exist
+#if PLATFORM == PLATFORM_WINDOWS
+    struct _stat st;
+    if (_stat(path, &st) != 0)
+    {
+        if (mkdir(path) != 0)
+#else
+    struct stat st;
     if (stat(path, &st) != 0)
     {
-        // Directory does not exist
         if (mkdir(path, mode) != 0)
+#endif
             status = -1;
     }
-    else if (!S_ISDIR(st.st_mode))
+    else if ((st.st_mode & S_IFMT) != S_IFDIR)
     {
         errno = ENOTDIR;
         status = -1;
@@ -153,14 +160,14 @@ LogMgr::PhysicalLogFile::~PhysicalLogFile()
 
 uint8 LogMgr::PhysicalLogFile::IncreaseRefCount(uint8 amount)
 {
-    ACE_Guard<ACE_Thread_Mutex> guard(_lock);
+    ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_lock);
     _refCount += amount;
     return _refCount;
 }
 
 uint8 LogMgr::PhysicalLogFile::DecreaseRefCount(uint8 amount)
 {
-    ACE_Guard<ACE_Thread_Mutex> guard(_lock);
+    ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_lock);
     if (_refCount >= amount)
         _refCount -= amount;
     else
@@ -170,7 +177,7 @@ uint8 LogMgr::PhysicalLogFile::DecreaseRefCount(uint8 amount)
 
 void LogMgr::PhysicalLogFile::Open()
 {
-    ACE_Guard<ACE_Thread_Mutex> guard(_lock);
+    ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_lock);
     if (!_fileName.empty() && !_file)
     {
         std::string path(_dir);
@@ -191,7 +198,7 @@ void LogMgr::PhysicalLogFile::Open()
 
 void LogMgr::PhysicalLogFile::Close()
 {
-    ACE_Guard<ACE_Thread_Mutex> guard(_lock);
+    ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_lock);
     if (_file) {
         fclose(_file);
         _file = NULL;
@@ -215,7 +222,7 @@ void LogMgr::PhysicalLogFile::Write(LogLevel level, bool addNewLine, bool withTi
 {
     _CheckDate();
 
-    ACE_Guard<ACE_Thread_Mutex> guard(_lock);
+    ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_lock);
     if (_file)
     {
         // Time
@@ -236,7 +243,7 @@ void LogMgr::PhysicalLogFile::Write(LogLevel level, bool addNewLine, bool withTi
 {
     _CheckDate();
 
-    ACE_Guard<ACE_Thread_Mutex> guard(_lock);
+    ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_lock);
     if (_file)
     {
         // Time
@@ -728,6 +735,7 @@ inline void LogMgr::_WriteConsole(LogLevel level, bool appendNewLine, const std:
 {
     if (level <= _logConsoleLevel)
     {
+        ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_consoleLock);
         bool isError = level < LOGL_STRING;
         // Change color only for messages with new line (not inline)
         if (_useColor && appendNewLine)
@@ -749,6 +757,7 @@ inline void LogMgr::_WriteConsole(LogLevel level, bool appendNewLine, const char
 {
     if (level <= _logConsoleLevel)
     {
+        ACE_Guard<ACE_Recursive_Thread_Mutex> guard(_consoleLock);
         bool isError = level < LOGL_STRING;
         // Change color only for messages with new line (not inline)
         if (_useColor && appendNewLine)

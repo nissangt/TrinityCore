@@ -88,12 +88,12 @@ void AnticheatMgr::FlyHackDetection(Player* player, MovementInfo movementInfo)
     uint32 key = player->GetGUIDLow();
     if (!_data[key].GetLastMovementInfo().HasMovementFlag(MOVEMENTFLAG_FLYING))
         return;
-    
+
     if (player->HasAuraType(SPELL_AURA_FLY) ||
         player->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED) ||
         player->HasAuraType(SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED))
         return;
-    
+
     BuildReport(player, FLY_HACK_REPORT);
 }
 
@@ -128,21 +128,21 @@ void AnticheatMgr::ClimbHackDetection(Player* player, MovementInfo movementInfo,
 {
     if ((sWorld->getIntConfig(CONFIG_ANTICHEAT_DETECTIONS_ENABLED) & CLIMB_HACK_DETECTION) == 0)
         return;
-    
+
     uint32 key = player->GetGUIDLow();
     if (opcode != MSG_MOVE_HEARTBEAT ||
         _data[key].GetLastOpcode() != MSG_MOVE_HEARTBEAT)
         return;
-    
+
     // in this case we don't care if they are "legal" flags, they are handled in another parts of the Anticheat Manager.
     if (player->IsInWater() || 
         player->IsFlying() || 
         player->IsFalling())
         return;
-    
+
     Position playerPos;
     player->GetPosition(&playerPos);
-    
+
     float deltaZ = fabs(playerPos.GetPositionZ() - movementInfo.pos.GetPositionZ());
     float deltaXY = movementInfo.pos.GetExactDist2d(&playerPos);
     float angle = MapManager::NormalizeOrientation(tan(deltaZ / deltaXY));
@@ -154,15 +154,15 @@ void AnticheatMgr::SpeedHackDetection(Player* player,MovementInfo movementInfo)
 {
     if ((sWorld->getIntConfig(CONFIG_ANTICHEAT_DETECTIONS_ENABLED) & SPEED_HACK_DETECTION) == 0)
         return;
-    
+
     uint32 key = player->GetGUIDLow();
     // We also must check the map because the movementFlag can be modified by the client.
     // If we just check the flag, they could always add that flag and always skip the speed hacking detection.
     // 369 == DEEPRUN TRAM
     if (_data[key].GetLastMovementInfo().HasMovementFlag(MOVEMENTFLAG_ONTRANSPORT) && player->GetMapId() == 369)
         return;
-    
-    uint32 distance2D(movementInfo.pos.GetExactDist2d(&_data[key].GetLastMovementInfo().pos));
+
+    uint32 distance2D = uint32(movementInfo.pos.GetExactDist2d(&_data[key].GetLastMovementInfo().pos));
     uint8 moveType = 0;
     // we need to know HOW is the player moving
     // TO-DO: Should we check the incoming movement flags?
@@ -174,7 +174,7 @@ void AnticheatMgr::SpeedHackDetection(Player* player,MovementInfo movementInfo)
         moveType = MOVE_WALK;
     else
         moveType = MOVE_RUN;
-    
+
     // how many yards the player can do in one sec.
     uint32 speedRate = uint32(player->GetSpeed(UnitMoveType(moveType)) + movementInfo.j_xyspeed);
     
@@ -182,10 +182,10 @@ void AnticheatMgr::SpeedHackDetection(Player* player,MovementInfo movementInfo)
     uint32 timeDiff = getMSTimeDiff(_data[key].GetLastMovementInfo().time, movementInfo.time);
     if (!timeDiff)
         timeDiff = 1;
-    
+
     // this is the distance doable by the player in 1 sec, using the time done to move to this point.
     uint32 clientSpeedRate = distance2D * 1000 / timeDiff;
-    
+
     // we did the (uint32) cast to accept a margin of tolerance
     if (clientSpeedRate > speedRate)
         BuildReport(player, SPEED_HACK_REPORT);
@@ -295,7 +295,7 @@ void AnticheatMgr::BuildReport(Player* player, ReportTypes reportType)
     // generating creationTime for average calculation
     if (!data.GetTotalReports())
         data.SetCreationTime(actualTime);
-    
+
     // increasing total_reports
     data.SetTotalReports(data.GetTotalReports() + 1);
     // increasing specific cheat report
@@ -372,7 +372,7 @@ void AnticheatMgr::AnticheatGlobalCommand(ChatHandler* handler)
             do
             {
                 Field *fields = result->Fetch();
-         
+
                 uint32 guid = fields[0].GetUInt32();
                 float average = fields[1].GetFloat();
                 uint32 total_reports = fields[2].GetUInt32();

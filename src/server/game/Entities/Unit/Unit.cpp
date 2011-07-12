@@ -10850,7 +10850,7 @@ uint32 Unit::SpellDamageBonus(Unit *pVictim, SpellEntry const *spellProto, uint3
     if (HasUnitTypeMask(UNIT_MASK_GUARDIAN))
         if (!(GetSpellSchoolMask(spellProto) & SPELL_SCHOOL_MASK_NORMAL)) // Do not add Spellpower to melee abilities
             DoneAdvertisedBenefit += ((Guardian*)this)->GetBonusDamage(); 
-        else if (((Guardian*)this)->GetBonusDamage())                     // Instead add a fixed amount of AP                    
+        else if (((Guardian*)this)->GetBonusDamage())                     // Instead add a fixed amount of AP
             DoneAdvertisedBenefit += GetTotalAttackPowerValue(BASE_ATTACK) * 0.2f;
 
     // Check for table values

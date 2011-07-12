@@ -229,7 +229,7 @@ GuardInfo* GuardMgr::GetInfoByEntry(uint32 entry)
 void GuardMgr::Link(GuardInfo const* info, uint32 lowGuid)
 {
     _guards[lowGuid] = info->GetEntry();
-    PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_ADD_NPCGUARD_TEMPLATE);
+    PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_ADD_NPCGUARD);
     stmt->setUInt32(0, lowGuid);
     stmt->setUInt32(1, info->GetEntry());
     WorldDatabase.Execute(stmt);

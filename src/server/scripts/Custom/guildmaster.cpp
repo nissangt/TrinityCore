@@ -27,10 +27,10 @@ enum eGuildHouse
 
     GH_OFFSET_ACTION_ID     = 1500,
     GH_OFFSET_NEXT          = 10000,
-    
+
     GH_BUY_PRICE_DEFAULT    = 500000000, // 50000 g.
     GH_SELL_PRICE_DEFAULT   = 250000000, // 25000 g.
-    
+
     GH_MAX_GOSSIP_COUNT     = 10,
 };
 
@@ -46,7 +46,7 @@ class guildmaster : public CreatureScript
         uint32 _guildId;
         std::string _comment;
         WorldLocation _loc;
-        
+
         explicit GuildHouseEntry(Field* fields)
         {
             _id             = fields[0].GetUInt32();
@@ -64,11 +64,14 @@ class guildmaster : public CreatureScript
             WorldDatabase.DirectPExecute("UPDATE `guildhouses` SET `guildId` = %u WHERE `id` = %u", _guildId, _id);
         }
 
-        uint32 AddToBuyList(uint32 startId, Player* player) const
+        uint32 AddToBuyList(uint32 startId, Player* player, uint32 price, const char* buyWord) const
         {
             if (!_guildId && _id > startId)
             {
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_TABARD, _comment, GOSSIP_SENDER_MAIN, _id + GH_OFFSET_ACTION_ID);
+                char buyMsg[255];
+                sprintf(buyMsg, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_BUY_PROMPT), buyWord, _comment.c_str(), uint32(price / 10000));
+
+                player->ADD_GOSSIP_ITEM_EXTENDED(GOSSIP_ICON_TABARD, _comment, GOSSIP_SENDER_MAIN, _id + GH_OFFSET_ACTION_ID, buyMsg, 0, true);
                 return _id;
             }
             return 0;
@@ -103,10 +106,11 @@ class guildmaster : public CreatureScript
     uint32 _buyPrice;
     uint32 _sellPrice;
     const char* _sellWord;
-    
+    const char* _buyWord;
+
 public:
     guildmaster() : CreatureScript("guildmaster") { _Load(); }
-    
+
     ~guildmaster() { _Clear(); }
 
     bool OnGossipSelectCode(Player* player, Creature* creature, uint32 sender, uint32 action, const char* code)
@@ -122,16 +126,25 @@ public:
                 player->PlayerTalkClass->SendCloseGossip();
                 return true;
             }
+            else if (action > GH_OFFSET_ACTION_ID)
+            {
+                // Check if code was entered correctly
+                if (stricmp(code, _buyWord) == 0)
+                    _BuyGuildHouse(player, creature, action - GH_OFFSET_ACTION_ID);
+
+                player->PlayerTalkClass->SendCloseGossip();
+                return true;
+            }
         }
         return false;
     }
-    
+
     bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action)
     {
         player->PlayerTalkClass->ClearMenus();
         if (sender != GOSSIP_SENDER_MAIN)
             return false;
-        
+
         switch (action)
         {
             case GH_ACTION_TELEPORT:
@@ -149,26 +162,30 @@ public:
                 {
                     // Player clicked on buy list
                     player->PlayerTalkClass->SendCloseGossip();
-                    
+
                     // Get guildhouseId from action
                     // guildhouseId = action - GH_OFFSET_ACTION_ID
                     _BuyGuildHouse(player, creature, action - GH_OFFSET_ACTION_ID);
                 }
-        }        
+        }
         return true;
     }
 
     bool OnGossipHello(Player* player, Creature* creature)
     {
-        player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_TELEPORT), GOSSIP_SENDER_MAIN, GH_ACTION_TELEPORT);
+        bool hasGuildHouse = _GetPlayerGuildHouse(player);
+        // Add teleport option only if player has guildhouse
+        if (hasGuildHouse)
+            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_TELEPORT), GOSSIP_SENDER_MAIN, GH_ACTION_TELEPORT);
+
         // Only guild master can buy or sell GH
         if (_IsPlayerGuildLeader(player))
         {
-            if (_GetPlayerGuildHouse(player))
+            if (hasGuildHouse)
             {
                 // If there is already a GH assigned to GM, then add sell option
                 char msg[255];
-                sprintf(msg, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_SELL), _sellPrice);
+                sprintf(msg, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_SELL), uint32(_sellPrice / 10000));
 
                 char sellMsg[255];
                 sprintf(sellMsg, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_SELL_PROMPT), _sellWord);
@@ -179,7 +196,7 @@ public:
             {
                 // Otherwise, add buy option
                 char msg[255];
-                sprintf(msg, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_BUY), _buyPrice);
+                sprintf(msg, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_BUY), uint32(_buyPrice / 10000));
                 player->ADD_GOSSIP_ITEM(GOSSIP_ICON_MONEY_BAG, msg, GOSSIP_SENDER_MAIN, GH_ACTION_LIST);
             }
         }
@@ -187,12 +204,12 @@ public:
         return true;
     }
 
-private:                        
+private:
     inline bool _IsPlayerGuildLeader(Player* player) const
     {
         return (player->GetGuildId() != 0) && (player->GetRank() == 0);
     }
-    
+
     inline void _AddGuildHouse(GuildHouseEntry* gh)
     {
         // Make sure vector is large enough to hold new guild house
@@ -203,12 +220,12 @@ private:
         if (gh->_guildId)
             _guildHouseGuilds[gh->_guildId] = gh->_id;
     }
-    
+
     inline GuildHouseEntry* _GetGuildHouse(uint32 guildHouseId)
     {
         return _guildHouses[guildHouseId];
     }
-    
+
     inline GuildHouseEntry const* _GetGuildHouse(uint32 guildHouseId) const
     {
         return _guildHouses[guildHouseId];
@@ -221,7 +238,7 @@ private:
             return _GetGuildHouse(itr->second);
         return NULL;
     }
-    
+
     inline GuildHouseEntry const* _GetPlayerGuildHouse(Player* player) const
     {
         GuildHouseGuilds::const_iterator itr = _guildHouseGuilds.find(player->GetGuildId());
@@ -229,7 +246,7 @@ private:
             return _GetGuildHouse(itr->second);
         return NULL;
     }
-    
+
     void _TeleportPlayerToGuildHouse(Player* player, Creature* creature) const
     {
         // If player has no guild
@@ -237,36 +254,35 @@ private:
         {
             creature->MonsterWhisper(LANG_GH_NO_GUILD, player->GetGUID());
             return;
-        } 
-        
+        }
+
         // If player is in combat
         if (player->isInCombat())
         {
             creature->MonsterSay(LANG_GH_IN_COMBAT, LANG_UNIVERSAL, player->GetGUID());
             return;
         }
-        
+
         if (GuildHouseEntry const* gh = _GetPlayerGuildHouse(player))
             gh->Teleport(player);
         else
             creature->MonsterWhisper(LANG_GH_NO_GUILDHOUSE, player->GetGUID());
     }
-    
+
     bool _ShowBuyList(Player* player, Creature* creature, uint32 showFromId = 0) const
     {
         uint32 lastId = 0;
         uint32 count = 0;
         for (GuildHouses::const_iterator itr = _guildHouses.begin(); itr != _guildHouses.end(); ++itr)
-            if (lastId = (*itr)->AddToBuyList(showFromId, player))
-                if (++count >= GH_MAX_GOSSIP_COUNT)
-                    break;
+            if (GuildHouseEntry const* gh = (*itr))
+                if (lastId = gh->AddToBuyList(showFromId, player, _buyPrice, _buyWord))
+                    if (++count >= GH_MAX_GOSSIP_COUNT)
+                        break;
+
         if (count)
         {
-            // Assume that we have additional page
-            // Add link to next GH_MAX_GOSSIP_COUNT items
-            if (count == GH_MAX_GOSSIP_COUNT)
-                player->ADD_GOSSIP_ITEM(GOSSIP_ICON_TALK, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_NEXT), GOSSIP_SENDER_MAIN, lastId + GH_OFFSET_NEXT + 1);
-            
+            // Add link to next page (from last page it will lead to the first)
+            player->ADD_GOSSIP_ITEM(GOSSIP_ICON_TALK, sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_GOSSIP_NEXT), GOSSIP_SENDER_MAIN, lastId + GH_OFFSET_NEXT + 1);
             player->PlayerTalkClass->SendGossipMenu(DEFAULT_GOSSIP_MESSAGE, creature->GetGUID());
             return true;
         }
@@ -310,7 +326,7 @@ private:
                 creature->MonsterWhisper(LANG_GH_GUILDHOUSE_IN_USE, player->GetGUID());
         }
     }
-    
+
     void _SellGuildHouse(Player* player, Creature* creature)
     {
         if (GuildHouseEntry* gh = _GetPlayerGuildHouse(player))
@@ -336,6 +352,7 @@ private:
         _buyPrice = sConfig->GetIntDefault("GuildHouse.BuyPrice", GH_BUY_PRICE_DEFAULT);
         _sellPrice = sConfig->GetIntDefault("GuildHouse.SellPrice", GH_SELL_PRICE_DEFAULT);
         _sellWord = sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_SELL_WORD);
+        _buyWord = sObjectMgr->GetTrinityStringForDBCLocale(LANG_GH_BUY_WORD);
 
         uint32 oldMSTime = getMSTime();
 
@@ -355,7 +372,7 @@ private:
         {
             GuildHouseEntry* gh = new GuildHouseEntry(result->Fetch());
             // Validation
-            if (!sGuildMgr->GetGuildById(gh->_guildId))
+            if (gh->_guildId && !sGuildMgr->GetGuildById(gh->_guildId))
             {
                 sLog->outError("GUILDHOUSE: guild house (id: %u) has non-existent guild (id: %u) assigned to it", gh->_id, gh->_guildId);
                 delete gh;
@@ -365,7 +382,7 @@ private:
             ++count;
         }
         while (result->NextRow());
-        
+
         sLog->outString(">> Loaded %u guild houses in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
         sLog->outString();
     }

@@ -42,7 +42,7 @@ bool GuardInfo::LoadFromDB(Field* fields)
     _distance   = fields[3].GetFloat();
     _teleId     = fields[4].GetUInt32();
     _comment    = fields[5].GetString();
-    
+
     if (!sObjectMgr->GetGameTele(_teleId))
     {
         sLog->outError("GUARD: area guard (entry: %u) has invalid teleport id (%u)", _entry, _teleId);
@@ -205,7 +205,7 @@ void GuardMgr::LoadGuards()
         ++count;
     }
     while (result->NextRow());
-    
+
     sLog->outString(">> Loaded %u area guards in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
     sLog->outString();
 }
@@ -223,7 +223,7 @@ GuardInfo* GuardMgr::GetInfoByEntry(uint32 entry)
     GuardInfoMap::iterator itr = _guardMap.find(entry);
     if (itr != _guardMap.end())
         return &itr->second;
-    return NULL;    
+    return NULL;
 }
 
 void GuardMgr::Link(GuardInfo const* info, uint32 lowGuid)
@@ -396,7 +396,7 @@ class GuardCommandScript : public CommandScript
 {
 public:
     GuardCommandScript() : CommandScript("GuardCommandScript") { }
-    
+
     ChatCommand* GetCommands() const
     {
         static ChatCommand modCommandTable[] =
@@ -424,7 +424,7 @@ public:
         };
         return commandTable;
     }
-    
+
     // .guard info <guid>/<selected creature>
     static bool HandleGuardInfoCommand(ChatHandler* handler, const char* args)
     {
@@ -456,7 +456,7 @@ public:
             handler->SetSentErrorMessage(true);
             return false;
         }
-        
+
         // Extract creature entry (2 param or selected creature)
         char* sGuid = strtok(NULL, " ");
         uint32 lowGuid = _ExtractCreatureGuid(handler, sGuid);
@@ -506,7 +506,7 @@ public:
         {
             handler->SendSysMessage(LANG_CMD_SYNTAX);
             handler->SetSentErrorMessage(true);
-            return false;            
+            return false;
         }
         GuardType type = GuardType(atoi(sType));
         uint32 value(atoi(sValue));
@@ -522,7 +522,7 @@ public:
         {
             handler->PSendSysMessage(LANG_GUARD_WRONG_DISTANCE, sDistance);
             handler->SetSentErrorMessage(true);
-            return false;            
+            return false;
         }
         // 4. Tele
         char* sTele = strtok(NULL, " ");
@@ -534,7 +534,7 @@ public:
         {
             handler->PSendSysMessage(LANG_COMMAND_TELE_NOTFOUND);
             handler->SetSentErrorMessage(true);
-            return false;            
+            return false;
         }
         // Create new info
         uint32 entry = sGuardMgr->Create(type, value, distance, tele, comment ? comment : "");
@@ -559,15 +559,17 @@ public:
             return false;
 
         // 1 param: distance
+        float distance = 0.0f;
         char* sDistance = strtok((char*)args, " ");
-        float distance(atoi(sDistance));
+        if (sDistance)
+            distance = float(atoi(sDistance));
         if (!distance || distance > MAX_RADIUS)
         {
             handler->PSendSysMessage(LANG_GUARD_WRONG_DISTANCE, sDistance);
             handler->SetSentErrorMessage(true);
-            return false;            
+            return false;
         }
-        
+
         // 2 param (optional): guard template entry
         char* sEntry = strtok(NULL, " ");
         if (GuardInfo* gi = _ExtractGuardInfo(handler, sEntry))
@@ -589,8 +591,8 @@ public:
         {
             handler->PSendSysMessage(LANG_COMMAND_TELE_NOTFOUND);
             handler->SetSentErrorMessage(true);
-            return false;            
-        }        
+            return false;
+        }
         // 2 param (optional): guard template entry
         char* sEntry = strtok(NULL, " ");
         if (GuardInfo* gi = _ExtractGuardInfo(handler, sEntry))
@@ -613,7 +615,7 @@ public:
         {
             handler->SendSysMessage(LANG_CMD_SYNTAX);
             handler->SetSentErrorMessage(true);
-            return false;            
+            return false;
         }
         GuardType type = GuardType(atoi(sType));
         uint32 value(atoi(sValue));

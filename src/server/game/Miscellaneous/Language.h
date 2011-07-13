@@ -996,6 +996,8 @@ enum TrinityStrings
     LANG_GH_GOSSIP_BUY                  = 6672,
     LANG_GH_GOSSIP_SELL                 = 6673,
     LANG_GH_GOSSIP_NEXT                 = 6674,
+    LANG_GH_BUY_WORD                    = 6675,
+    LANG_GH_BUY_PROMPT                  = 6676, // 3 params - buy word (%s), gh name (%s), price (%u)
 
     // Area guard
     LANG_GUARD_INFO_ALL                 = 6700,

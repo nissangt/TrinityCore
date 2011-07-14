@@ -39,7 +39,7 @@ ChatLogInfo::ChatLogInfo(ChatLogType type, bool chat, bool lexics) : _cutFlag(fa
         sLogMgr->WriteLn(_strType.c_str(), "[SYSTEM] %s Log Initialized", ChatLog::GetChatDescByType(_type));
     }
     if (lexics)
-        _cutFlag = sConfig->GetBoolDefault(std::string("ChatLog.Lexics." + _strType + ".Cut").c_str(), true);
+        _cutFlag = sConfig->GetBoolDefault(std::string("Log.Lexics." + _strType + ".Cut").c_str(), true);
 }
 
 void ChatLogInfo::Write(const std::string& msg)
@@ -142,7 +142,7 @@ void ChatLog::_Initialize()
 bool ChatLog::_ChatCommon(ChatLogType type, Player* player, std::string& msg)
 {
     // Check message for innormative lexics and punish if necessary.
-    if (_lexicsEnable && _lexics && _logs[type]->IsCut() && _lexics->CheckLexics(msg)) 
+    if (_lexicsEnable && _lexics && _logs[type]->IsCut() && _lexics->CheckLexics(msg))
         _Punish(player, msg);
 
     if (!_enable)

@@ -999,10 +999,6 @@ bool SpellMgr::_isPositiveEffect(uint32 spellId, uint32 effIndex, bool deep) con
     if (!IsPositiveTarget(spellproto->EffectImplicitTargetA[effIndex], spellproto->EffectImplicitTargetB[effIndex]))
         return false;
 
-    // AttributesEx check
-    if (spellproto->AttributesEx & SPELL_ATTR1_NEGATIVE)
-        return false;
-
     if (!deep && spellproto->EffectTriggerSpell[effIndex]
         && !spellproto->EffectApplyAuraName[effIndex]
         && IsPositiveTarget(spellproto->EffectImplicitTargetA[effIndex], spellproto->EffectImplicitTargetB[effIndex])
@@ -3994,7 +3990,7 @@ void SpellMgr::LoadSpellCustomAttr()
         case 20337:
         case 63320: // Glyph of Life Tap
         // Entries were not updated after spell effect change, we have to do that manually :/
-            spellInfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_TRIGGERED;
+            spellInfo->AttributesEx3 |= SPELL_ATTR3_CAN_PROC_WITH_TRIGGERED;
             ++count;
             break;
         case 31117: // Unstable Affliction
@@ -4073,11 +4069,6 @@ void SpellMgr::LoadSpellCustomAttr()
         case 71483: // Bloodbolt Splash
         case 71390: // Pact of the Darkfallen
             mSpellCustomAttr[i] |= SPELL_ATTR0_CU_EXCLUDE_SELF;
-            ++count;
-            break;
-        case 64844: // Divine Hymn 
-        case 64904: // Hymn of Hope
-            spellInfo->AttributesEx &= ~SPELL_ATTR1_NEGATIVE;
             ++count;
             break;
         case 44978: case 45001: case 45002: // Wild Magic
@@ -4188,7 +4179,7 @@ void SpellMgr::LoadSpellCustomAttr()
         case 35098: // Rapid Killing
         case 35099:
             // just a temp solution to make Rapid Recuperation proc from this
-            spellInfo->AttributesEx2 |= SPELL_ATTR2_TRIGGERED_CAN_TRIGGER;
+            spellInfo->AttributesEx2 |= SPELL_ATTR2_TRIGGERED_CAN_TRIGGER_PROC;
             ++count;
             break;
         case 28200: // Ascendance (Talisman of Ascendance trinket)

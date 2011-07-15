@@ -725,27 +725,17 @@ uint32 Unit::DealDamage(Unit* victim, uint32 damage, CleanDamage const* cleanDam
         Player* killer = ToPlayer();
 
         // in bg, count dmg if victim is also a player
-<<<<<<< HEAD
-        if (pVictim->GetTypeId() == TYPEID_PLAYER)
-        {
-=======
         if (victim->GetTypeId() == TYPEID_PLAYER)
->>>>>>> 180480e0467a089129ad4fd08c36326954e26457
             if (Battleground *bg = killer->GetBattleground())
             {
                 bg->UpdatePlayerScore(killer, SCORE_DAMAGE_DONE, damage);
-<<<<<<< HEAD
                 /** World of Warcraft Armory **/
-                if (Battleground *bgV = ((Player*)pVictim)->GetBattleground())
-                    bgV->UpdatePlayerScore(((Player*)pVictim), SCORE_DAMAGE_TAKEN, damage);
+                if (Battleground *bgV = victim->ToPlayer()->GetBattleground())
+                    bgV->UpdatePlayerScore(victim->ToPlayer(), SCORE_DAMAGE_TAKEN, damage);
                 /** World of Warcraft Armory **/
             }
         }
-        killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_DAMAGE_DONE, damage, 0, pVictim);
-=======
-
         killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_DAMAGE_DONE, damage, 0, victim);
->>>>>>> 180480e0467a089129ad4fd08c36326954e26457
         killer->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HIT_DEALT, damage);
     }
 
@@ -10266,17 +10256,12 @@ int32 Unit::DealHeal(Unit* victim, uint32 addhealth)
 
     if (Player* player = victim->ToPlayer())
     {
-<<<<<<< HEAD
-        pVictim->ToPlayer()->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_TOTAL_HEALING_RECEIVED, gain);
-        pVictim->ToPlayer()->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEALING_RECEIVED, addhealth);
-        /** World of Warcraft Armory **/
-        if (Battleground *bgV = pVictim->ToPlayer()->GetBattleground())
-            bgV->UpdatePlayerScore((Player*)pVictim, SCORE_HEALING_TAKEN, gain);
-        /** World of Warcraft Armory **/
-=======
         player->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_TOTAL_HEALING_RECEIVED, gain);
         player->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_HIGHEST_HEALING_RECEIVED, addhealth);
->>>>>>> 180480e0467a089129ad4fd08c36326954e26457
+        /** World of Warcraft Armory **/
+        if (Battleground *bgV = player->GetBattleground())
+            bgV->UpdatePlayerScore(player, SCORE_HEALING_TAKEN, gain);
+        /** World of Warcraft Armory **/
     }
 
     return gain;

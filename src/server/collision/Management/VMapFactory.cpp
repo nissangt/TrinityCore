@@ -17,6 +17,7 @@
  */
 
 #include <sys/types.h>
+#include "G3D/Table.h"
 #include "VMapFactory.h"
 #include "VMapManager2.h"
 

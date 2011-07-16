@@ -3981,10 +3981,6 @@ void SpellMgr::LoadSpellCustomAttr()
             spellInfo->excludeCasterAuraSpell = 57724; // Sated
             ++count;
             break;
-        case 44440: case 44441: // Fiery Payback hack
-            spellInfo->CasterAuraStateNot = AURA_STATE_NONE;
-            ++count;
-            break;
         case 20335: // Heart of the Crusader
         case 20336:
         case 20337:
@@ -3994,8 +3990,7 @@ void SpellMgr::LoadSpellCustomAttr()
             ++count;
             break;
         case 31117: // Unstable Affliction
-            // we need this because spell implemented wrong
-            // it should be done through aura proc with new procEx for dispel
+            // this attribute currently makes spell to ignore resilience and absorbs
             spellInfo->AttributesEx4 &= ~SPELL_ATTR4_FIXED_DAMAGE;
             ++count;
             break;
@@ -4371,6 +4366,11 @@ void SpellMgr::LoadSpellCustomAttr()
         case 27010: // Entangling Roots (Rank 7) -- Nature's Grasp Proc
         case 53313: // Entangling Roots (Rank 8) -- Nature's Grasp Proc
             spellInfo->CastingTimeIndex = 1;
+            ++count;
+            break;
+        case 53651: // Light's Beacon
+            // aura casted on a whole raid and shouldn't put caster in combat
+            spellInfo->AttributesEx3 |= SPELL_ATTR3_NO_INITIAL_AGGRO;
             ++count;
             break;
         case 61719: // Easter Lay Noblegarden Egg Aura - Interrupt flags copied from aura which this aura is linked with

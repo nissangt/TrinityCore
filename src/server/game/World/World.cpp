@@ -76,6 +76,8 @@
 #include "SmartAI.h"
 #include "Channel.h"
 #include "AnticheatMgr.h"
+#include "WardenCheckMgr.h"
+#include "Warden.h"
 
 volatile bool World::m_stopEvent = false;
 uint8 World::m_ExitCode = SHUTDOWN_EXIT_CODE;
@@ -1171,7 +1173,14 @@ void World::LoadConfigSettings(bool reload)
     m_int_configs[CONFIG_MIN_LOG_UPDATE] = sConfig->GetIntDefault("MinRecordUpdateTimeDiff", 100);
     m_int_configs[CONFIG_NUMTHREADS] = sConfig->GetIntDefault("MapUpdate.Threads", 1);
     m_int_configs[CONFIG_MAX_RESULTS_LOOKUP_COMMANDS] = sConfig->GetIntDefault("Command.LookupMaxResults", 0);
-
+    
+    // Warden
+    m_bool_configs[CONFIG_BOOL_WARDEN_ENABLED]         = sConfig->GetBoolDefault("Warden.Enabled", false);
+    m_int_configs[CONFIG_WARDEN_CLIENT_BAN_DURATION]   = sConfig->GetIntDefault("Warden.BanDuration", 86400);
+    m_int_configs[CONFIG_WARDEN_CLIENT_CHECK_PERIOD]   = sConfig->GetIntDefault("Warden.ClientCheckPeriod", 30);
+    m_int_configs[CONFIG_WARDEN_CLIENT_FAIL_ACTION]    = sConfig->GetIntDefault("Warden.ClientCheckFailAction", 0);
+    m_int_configs[CONFIG_WARDEN_CLIENT_RESPONSE_DELAY] = sConfig->GetIntDefault("Warden.ClientResponseDelay", 90);
+    
     // Dungeon finder
     m_bool_configs[CONFIG_DUNGEON_FINDER_ENABLE] = sConfig->GetBoolDefault("DungeonFinder.Enable", false);
 
@@ -1730,6 +1739,10 @@ void World::SetInitialWorldSettings()
 
     sLog->outString("Loading Transport NPCs...");
     sMapMgr->LoadTransportNPCs();
+
+    ///- Initialize Warden
+    sLog->outString("Loading Warden Checks..." );
+    sWardenCheckMgr->LoadWardenChecks();
 
     sLog->outString("Deleting expired bans...");
     LoginDatabase.Execute("DELETE FROM ip_banned WHERE unbandate <= UNIX_TIMESTAMP() AND unbandate<>bandate");

@@ -43,6 +43,8 @@
 #include "zlib.h"
 #include "ScriptMgr.h"
 #include "Transport.h"
+#include "WardenWin.h"
+#include "WardenMac.h"
 
 bool MapSessionFilter::Process(WorldPacket* packet)
 {
@@ -89,7 +91,7 @@ bool WorldSessionFilter::Process(WorldPacket* packet)
 /// WorldSession constructor
 WorldSession::WorldSession(uint32 id, WorldSocket *sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, uint32 recruiter):
 m_muteTime(mute_time), m_timeOutTime(0), _player(NULL), m_Socket(sock),
-_security(sec), _accountId(id), m_expansion(expansion), _logoutTime(0),
+_security(sec), _accountId(id), m_expansion(expansion), _warden(NULL), _logoutTime(0),
 m_inQueue(false), m_playerLoading(false), m_playerLogout(false),
 m_playerRecentlyLogout(false), m_playerSave(false),
 m_sessionDbcLocale(sWorld->GetAvailableDbcLocale(locale)),
@@ -122,6 +124,9 @@ WorldSession::~WorldSession()
         m_Socket = NULL;
     }
 
+    if (_warden)
+        delete _warden;
+
     ///- empty incoming packet queue
     WorldPacket* packet = NULL;
     while (_recvQueue.next(packet))
@@ -140,6 +145,12 @@ void WorldSession::SizeError(WorldPacket const &packet, uint32 size) const
 char const *WorldSession::GetPlayerName() const
 {
     return GetPlayer() ? GetPlayer()->GetName() : "<none>";
+}
+
+/// Get player guid if available. Use for logging purposes only
+uint32 WorldSession::GetGuidLow() const
+{
+    return GetPlayer() ? GetPlayer()->GetGUIDLow() : 0;
 }
 
 /// Send a packet to the client
@@ -323,6 +334,9 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
         delete packet;
     }
 
+    if (m_Socket && !m_Socket->IsClosed() && _warden)
+        _warden->Update();
+
     ProcessQueryCallbacks();
 
     //check if we are safe to proceed with logout
@@ -333,6 +347,9 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
         ///- If necessary, log the player out
         if (ShouldLogOut(currTime) && !m_playerLoading)
             LogoutPlayer(true);
+
+        if (m_Socket && GetPlayer() && _warden)
+            _warden->Update();
 
         ///- Cleanup socket pointer if need
         if (m_Socket && m_Socket->IsClosed())
@@ -1083,5 +1100,20 @@ void WorldSession::ProcessQueryCallbacks()
         _stableSwapCallback.GetResult(result);
         HandleStableSwapPetCallback(result, param);
         _stableSwapCallback.FreeResult();
+    }
+}
+
+void WorldSession::InitWarden(BigNumber* k, std::string os)
+{
+    if (os == "Win")
+    {
+        _warden = (Warden*)new WardenWin();
+        _warden->Init(this, k);
+    }
+    else if (os == "OSX")
+    {
+        // Disabled as it is causing the client to crash
+        // _warden = (Warden*)new WardenMac();
+        // _warden->Init(this, k);
     }
 }

@@ -49,13 +49,12 @@ void WardenWin::Init(WorldSession* session, BigNumber* k)
     SHA1Randx WK(k->AsByteArray(), k->GetNumBytes());
     WK.generate(_inputKey, 16);
     WK.generate(_outputKey, 16);
-    /*
-    Seed: 4D808D2C77D905C41A6380EC08586AFE (0x05 packet)
-    Hash: 568C054C781A972A6037A2290C22B52571A06F4E (0x04 packet)
-    Module MD5: 79C0768D657977D697E10BAD956CCED1
-    New Client Key: 7F 96 EE FD A5 B6 3D 20 A4 DF 8E 00 CB F4 83 04
-    New Cerver Key: C2 B7 AD ED FC CC A9 C2 BF B3 F8 56 02 BA 80 9B
-    */
+
+    // Seed: 4D808D2C77D905C41A6380EC08586AFE (0x05 packet)
+    // Hash: 568C054C781A972A6037A2290C22B52571A06F4E (0x04 packet)
+    // Module MD5: 79C0768D657977D697E10BAD956CCED1
+    // New Client Key: 7F 96 EE FD A5 B6 3D 20 A4 DF 8E 00 CB F4 83 04
+    // New Cerver Key: C2 B7 AD ED FC CC A9 C2 BF B3 F8 56 02 BA 80 9B
     uint8 mod_seed[16] = { 0x4D, 0x80, 0x8D, 0x2C, 0x77, 0xD9, 0x05, 0xC4, 0x1A, 0x63, 0x80, 0xEC, 0x08, 0x58, 0x6A, 0xFE };
 
     memcpy(_seed, mod_seed, 16);
@@ -306,7 +305,8 @@ void WardenWin::RequestData()
                 buff.append(hmac.GetDigest(), hmac.GetLength());
                 break;
             }
-            /*case PROC_CHECK:
+            /*
+            case PROC_CHECK:
             {
                 buff.append(wd->i.AsByteArray(0, false), wd->i.GetNumBytes());
                 buff << uint8(index++);
@@ -314,7 +314,8 @@ void WardenWin::RequestData()
                 buff << uint32(wd->Address);
                 buff << uint8(wd->Length);
                 break;
-            }*/
+            }
+            //*/
             default:
                 break;                                      // Should never happen
         }
@@ -383,17 +384,13 @@ void WardenWin::HandleData(ByteBuffer &buff)
                          ourTicks - newClientTicks);
     }
 
-    WardenCheckResult* rs;
-    WardenCheck* rd;
-    uint8 type;
     uint32 checkFailed = 0;
-
     for (std::list<uint32>::iterator itr = _currentChecks.begin(); itr != _currentChecks.end(); ++itr)
     {
-        rd = sWardenCheckMgr->GetWardenDataById(*itr);
-        rs = sWardenCheckMgr->GetWardenResultById(*itr);
+        WardenCheck* rd = sWardenCheckMgr->GetWardenDataById(*itr);
+        WardenCheckResult* rs = sWardenCheckMgr->GetWardenResultById(*itr);
 
-        type = rd->Type;
+        uint8 type = rd->Type;
         switch (type)
         {
             case MEM_CHECK:
@@ -504,7 +501,7 @@ void WardenWin::HandleData(ByteBuffer &buff)
         }
     }
 
-    if (checkFailed > 0)
+    if (checkFailed)
     {
         sLogMgr->WriteLn(WARDEN_LOG, LOGL_ERROR, "WARDEN: Player %s (guid: %u, account: %u) failed Warden check %u. Action: %s",
             _session->GetPlayerName(), _session->GetGuidLow(), _session->GetAccountId(), checkFailed, Penalty().c_str());

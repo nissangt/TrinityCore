@@ -55,10 +55,9 @@ void Warden::SendModuleToClient()
 
     uint32 sizeLeft = _module->CompressedSize;
     uint32 pos = 0;
-    uint16 burstSize;
     while (sizeLeft > 0)
     {
-        burstSize = std::min(sizeLeft, 500U);
+        uint16 burstSize = std::min(sizeLeft, 500U);
         packet.Command = WARDEN_SMSG_MODULE_CACHE;
         packet.DataSize = burstSize;
         memcpy(packet.Data, &_module->CompressedData[pos], burstSize);
@@ -107,7 +106,7 @@ void Warden::Update()
             if (maxClientResponseDelay > 0)
             {
                 // Kick player if client response delays more than set in config
-                if ((_clientResponseTimer > maxClientResponseDelay * IN_MILLISECONDS))
+                if (_clientResponseTimer > maxClientResponseDelay * IN_MILLISECONDS)
                 {
                     sLogMgr->WriteLn(WARDEN_LOG, LOGL_ERROR,
                                      "WARDEN: Player %s (guid: %u, account: %u) exceeded Warden module response delay. Action: %s (Latency: %u, IP: %s)",
@@ -116,9 +115,7 @@ void Warden::Update()
 
                     // If action is set to "none" we reset the client response timer to prevent this condition from triggering repeatedly
                     if (sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_FAIL_ACTION) == 0)
-                    {
                         _clientResponseTimer = 0;
-                    }
                 }
                 else
                     _clientResponseTimer += diff;
@@ -152,17 +149,9 @@ void Warden::EncryptData(uint8* buffer, uint32 length)
 bool Warden::IsValidCheckSum(uint32 checksum, const uint8* data, const uint16 length)
 {
     uint32 newChecksum = BuildChecksum(data, length);
-
-    if (checksum != newChecksum)
-    {
-        sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "CHECKSUM IS NOT VALID");
-        return false;
-    }
-    else
-    {
-        sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "CHECKSUM IS VALID");
-        return true;
-    }
+    bool isValid = (checksum == newChecksum);
+    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, isValid ? "CHECKSUM IS VALID" : "CHECKSUM IS NOT VALID");
+    return isValid;
 }
 
 uint32 Warden::BuildChecksum(const uint8* data, uint32 length)
@@ -179,25 +168,24 @@ uint32 Warden::BuildChecksum(const uint8* data, uint32 length)
 std::string Warden::Penalty()
 {
     uint32 action = sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_FAIL_ACTION);
-
     switch (action)
     {
-    case 0:
-        return "None";
-    case 1:
-        _session->KickPlayer();
-        return "Kick";
-    case 2:
-        {
-            std::stringstream duration;
-            duration << sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_BAN_DURATION) << "s";
-            std::string accountName;
-            sAccountMgr->GetName(_session->GetAccountId(), accountName);
-            sWorld->BanAccount(BAN_ACCOUNT, accountName, duration.str(), "Warden Anticheat violation", "Server");
-        }
-        return "Ban";
-    default:
-        return "Undefined";
+        case 0:
+            return "None";
+        case 1:
+            _session->KickPlayer();
+            return "Kick";
+        case 2:
+            {
+                std::stringstream duration;
+                duration << sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_BAN_DURATION) << "s";
+                std::string accountName;
+                sAccountMgr->GetName(_session->GetAccountId(), accountName);
+                sWorld->BanAccount(BAN_ACCOUNT, accountName, duration.str(), "Warden Anticheat violation", "Server");
+            }
+            return "Ban";
+        default:
+            return "Undefined";
     }
 }
 

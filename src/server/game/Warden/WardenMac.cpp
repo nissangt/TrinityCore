@@ -45,13 +45,12 @@ void WardenMac::Init(WorldSession* session, BigNumber* K)
     SHA1Randx WK(K->AsByteArray(), K->GetNumBytes());
     WK.generate(_inputKey, 16);
     WK.generate(_outputKey, 16);
-    /*
-    Seed: 4D808D2C77D905C41A6380EC08586AFE (0x05 packet)
-    Hash: <?> (0x04 packet)
-    Module MD5: 0DBBF209A27B1E279A9FEC5C168A15F7
-    New Client Key: <?>
-    New Cerver Key: <?>
-    */
+
+    // Seed: 4D808D2C77D905C41A6380EC08586AFE (0x05 packet)
+    // Hash: <?> (0x04 packet)
+    // Module MD5: 0DBBF209A27B1E279A9FEC5C168A15F7
+    // New Client Key: <?>
+    // New Cerver Key: <?>
     uint8 mod_seed[16] = { 0x4D, 0x80, 0x8D, 0x2C, 0x77, 0xD9, 0x05, 0xC4, 0x1A, 0x63, 0x80, 0xEC, 0x08, 0x58, 0x6A, 0xFE };
 
     memcpy(_seed, mod_seed, 16);
@@ -116,16 +115,13 @@ void WardenMac::RequestHash()
 
 void WardenMac::HandleHashResult(ByteBuffer &buff)
 {
-
     // test
     int keyIn[4];
 
     uint8 mod_seed[16] = { 0x4D, 0x80, 0x8D, 0x2C, 0x77, 0xD9, 0x05, 0xC4, 0x1A, 0x63, 0x80, 0xEC, 0x08, 0x58, 0x6A, 0xFE };
 
-    for(int i = 0; i < 4; ++i)
-    {
+    for (uint8 i = 0; i < 4; ++i)
         keyIn[i] = *(int*)(&mod_seed[0] + i * 4);
-    }
 
     int keyOut[4];
     int keyIn1, keyIn2;

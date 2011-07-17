@@ -62,13 +62,13 @@ void WardenCheckMgr::LoadWardenChecks()
 
     CheckStore.resize(fields[0].GetUInt32() + 1);
 
-    //                                               0     1     2      3       4        5      6
+    //                                   0   1     2     3       4        5       6
     result = WorldDatabase.Query("SELECT id, type, data, result, address, length, str FROM warden_checks ORDER BY id ASC");
 
     uint32 count = 0;
     do
     {
-        Field *fields = result->Fetch();
+        Field* fields = result->Fetch();
 
         uint32 id               = fields[0].GetUInt32();
         uint8 checkType         = fields[1].GetUInt8();
@@ -78,14 +78,13 @@ void WardenCheckMgr::LoadWardenChecks()
         uint8 length            = fields[5].GetUInt8();
         std::string str         = fields[6].GetString();
 
-        WardenCheck *wardenCheck = new WardenCheck();
+        WardenCheck* wardenCheck = new WardenCheck();
         wardenCheck->Type = checkType;
 
         if (checkType == PAGE_CHECK_A || checkType == PAGE_CHECK_B || checkType == DRIVER_CHECK)
         {
             wardenCheck->Data.SetHexStr(data.c_str());
             int len = data.size() / 2;
-
             if (wardenCheck->Data.GetNumBytes() < len)
             {
                 uint8 temp[24];
@@ -142,13 +141,12 @@ WardenCheck* WardenCheckMgr::GetWardenDataById(uint32 Id)
 {
     if (Id < CheckStore.size())
         return CheckStore[Id];
-
     return NULL;
 }
 
 WardenCheckResult* WardenCheckMgr::GetWardenResultById(uint32 Id)
 {
-    std::map<uint32, WardenCheckResult*>::const_iterator itr = CheckResultStore.find(Id);
+    CheckResultContainer::const_iterator itr = CheckResultStore.find(Id);
     if (itr != CheckResultStore.end())
         return itr->second;
     return NULL;

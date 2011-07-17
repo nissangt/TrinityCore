@@ -1554,16 +1554,6 @@ AccountInstancesPerHour = 5
 Warden.Enabled = 0
 
 #
-#    Warden.DebugLogFile
-#        Description: Debug log file for Warden, ClientCheckFailAction will be sent to regular
-#                     server log.
-#        Default:     ""           - (Disabled)
-#                     "Warden.log" - (Enabled)
-#
-
-Warden.DebugLogFile = ""
-
-#
 #    Warden.ClientResponseDelay
 #        Description: Time (in seconds) before client is getting disconnecting for not responding.
 #        Default:     90 - (90 Seconds)
@@ -1596,6 +1586,17 @@ Warden.ClientCheckFailAction = 0
 #                     0     - (Permanent ban)
 
 Warden.BanDuration = 86400
+
+# Warden Log
+
+Log.Warden.Enabled = 1
+Log.Warden.File = Warden_%Y-%m-%d.log
+Log.Warden.Level = 0
+Log.Warden.TimestampStr = "%H:%M:%S"
+Log.Warden.SplitDate = 1
+Log.Warden.Append = 1
+Log.Warden.Console = 1
+Log.Warden.FlushBytes = 0
 
 #
 ###################################################################################################

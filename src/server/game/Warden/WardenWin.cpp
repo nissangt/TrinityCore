@@ -384,9 +384,12 @@ void WardenWin::HandleData(ByteBuffer &buff)
                          ourTicks - newClientTicks);
     }
 
-    uint32 checkFailed = 0;
+    WardenCheck* checkFailed = NULL;
     for (std::list<uint32>::iterator itr = _currentChecks.begin(); itr != _currentChecks.end(); ++itr)
     {
+        if (checkFailed)
+            break;
+
         WardenCheck* rd = sWardenCheckMgr->GetWardenDataById(*itr);
         WardenCheckResult* rs = sWardenCheckMgr->GetWardenResultById(*itr);
 
@@ -401,14 +404,14 @@ void WardenWin::HandleData(ByteBuffer &buff)
                 if (Mem_Result != 0)
                 {
                     sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "RESULT MEM_CHECK not 0x00, CheckId %u account Id %u", *itr, _session->GetAccountId());
-                    checkFailed = *itr;
+                    checkFailed = rd;
                     continue;
                 }
 
                 if (memcmp(buff.contents() + buff.rpos(), rs->Result.AsByteArray(0, false), rd->Length) != 0)
                 {
                     sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "RESULT MEM_CHECK fail CheckId %u account Id %u", *itr, _session->GetAccountId());
-                    checkFailed = *itr;
+                    checkFailed = rd;
                     buff.rpos(buff.rpos() + rd->Length);
                     continue;
                 }
@@ -431,7 +434,7 @@ void WardenWin::HandleData(ByteBuffer &buff)
                         sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "RESULT MODULE_CHECK fail, CheckId %u account Id %u", *itr, _session->GetAccountId());
                     if (type == DRIVER_CHECK)
                         sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "RESULT DRIVER_CHECK fail, CheckId %u account Id %u", *itr, _session->GetAccountId());
-                    checkFailed = *itr;
+                    checkFailed = rd;
                     buff.rpos(buff.rpos() + 1);
                     continue;
                 }
@@ -453,7 +456,7 @@ void WardenWin::HandleData(ByteBuffer &buff)
                 if (Lua_Result != 0)
                 {
                     sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "RESULT LUA_STR_CHECK fail, CheckId %u account Id %u", *itr, _session->GetAccountId());
-                    checkFailed = *itr;
+                    checkFailed = rd;
                     continue;
                 }
 
@@ -480,14 +483,14 @@ void WardenWin::HandleData(ByteBuffer &buff)
                 if (Mpq_Result != 0)
                 {
                     sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "RESULT MPQ_CHECK not 0x00 account id %u", _session->GetAccountId());
-                    checkFailed = *itr;
+                    checkFailed = rd;
                     continue;
                 }
 
                 if (memcmp(buff.contents() + buff.rpos(), rs->Result.AsByteArray(0, false), 20) != 0) // SHA1
                 {
                     sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "RESULT MPQ_CHECK fail, CheckId %u account Id %u", *itr, _session->GetAccountId());
-                    checkFailed = *itr;
+                    checkFailed = rd;
                     buff.rpos(buff.rpos() + 20);            // 20 bytes SHA1
                     continue;
                 }
@@ -503,7 +506,7 @@ void WardenWin::HandleData(ByteBuffer &buff)
 
     if (checkFailed)
     {
-        sLogMgr->WriteLn(WARDEN_LOG, LOGL_ERROR, "WARDEN: Player %s (guid: %u, account: %u) failed Warden check %u. Action: %s",
-            _session->GetPlayerName(), _session->GetGuidLow(), _session->GetAccountId(), checkFailed, Penalty().c_str());
+        sLogMgr->WriteLn(WARDEN_LOG, LOGL_ERROR, "WARDEN: Player %s (guid: %u, account: %u) failed Warden check (id: %u, type; %u). Action: %s",
+            _session->GetPlayerName(), _session->GetGuidLow(), _session->GetAccountId(), checkFailed->id, checkFailed->Type, Penalty().c_str());
     }
 }

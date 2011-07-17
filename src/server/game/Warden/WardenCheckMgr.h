@@ -24,6 +24,7 @@
 
 struct WardenCheck
 {
+    uint32 id;
     uint8 Type;
     BigNumber Data;
     uint32 Address;                                         // PROC_CHECK, MEM_CHECK, PAGE_CHECK
@@ -47,8 +48,8 @@ class WardenCheckMgr
         typedef std::vector<WardenCheck*> CheckContainer;
         typedef std::map<uint32, WardenCheckResult*> CheckResultContainer;
 
-        WardenCheck* GetWardenDataById(uint32 Id);
-        WardenCheckResult* GetWardenResultById(uint32 Id);
+        WardenCheck* GetWardenDataById(uint32 id);
+        WardenCheckResult* GetWardenResultById(uint32 id);
 
         uint32 InternalDataID;
         std::vector<uint32> MemChecksIdPool;

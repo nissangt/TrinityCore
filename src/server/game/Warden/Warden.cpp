@@ -95,13 +95,12 @@ void Warden::Update()
     if (_initialized)
     {
         uint32 ticks = getMSTime();
-        uint32 diff = ticks - _previousTimestamp;
+        uint32 diff = abs(int32(ticks) - int32(_previousTimestamp));
         _previousTimestamp = ticks;
 
         if (_dataSent)
         {
             uint32 maxClientResponseDelay = sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_RESPONSE_DELAY);
-
             if (maxClientResponseDelay > 0)
             {
                 // Kick player if client response delays more than set in config

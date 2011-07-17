@@ -80,6 +80,7 @@ void WardenCheckMgr::LoadWardenChecks()
         std::string str         = fields[6].GetString();
 
         WardenCheck* wardenCheck = new WardenCheck();
+        wardenCheck->id = id;
         wardenCheck->Type = checkType;
 
         if (checkType == PAGE_CHECK_A || checkType == PAGE_CHECK_B || checkType == DRIVER_CHECK)
@@ -138,16 +139,16 @@ void WardenCheckMgr::LoadWardenChecks()
     sLog->outString();
 }
 
-WardenCheck* WardenCheckMgr::GetWardenDataById(uint32 Id)
+WardenCheck* WardenCheckMgr::GetWardenDataById(uint32 id)
 {
-    if (Id < CheckStore.size())
-        return CheckStore[Id];
+    if (id < CheckStore.size())
+        return CheckStore[id];
     return NULL;
 }
 
-WardenCheckResult* WardenCheckMgr::GetWardenResultById(uint32 Id)
+WardenCheckResult* WardenCheckMgr::GetWardenResultById(uint32 id)
 {
-    CheckResultContainer::const_iterator itr = CheckResultStore.find(Id);
+    CheckResultContainer::const_iterator itr = CheckResultStore.find(id);
     if (itr != CheckResultStore.end())
         return itr->second;
     return NULL;

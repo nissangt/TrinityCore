@@ -210,7 +210,7 @@ bool LexicsCutter::_CompareWord(const std::string& str, unsigned int pos, LC_Wor
         }
         else
             // Next word letter
-            i++;
+            ++i;
 
         // Set previous string letter to compare if needed (this check can really conserve time)
         if (_ignoreLetterRepeat)

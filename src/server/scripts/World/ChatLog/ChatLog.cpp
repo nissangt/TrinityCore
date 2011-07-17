@@ -39,7 +39,7 @@ ChatLogInfo::ChatLogInfo(ChatLogType type, bool chat, bool lexics) : _cutFlag(fa
         sLogMgr->WriteLn(_strType.c_str(), "[SYSTEM] %s Log Initialized", ChatLog::GetChatDescByType(_type));
     }
     if (lexics)
-        _cutFlag = sConfig->GetBoolDefault(std::string("Log.Lexics." + _strType + ".Cut").c_str(), true);
+        _cutFlag = sConfig->GetBoolDefault(std::string("Log." + _strType + ".Lexics.Cut").c_str(), true);
 }
 
 void ChatLogInfo::Write(const std::string& msg)
@@ -105,14 +105,14 @@ ChatLog::~ChatLog()
 void ChatLog::_Initialize()
 {
     // Load config settings
-    _enable = sConfig->GetBoolDefault("ChatLog.Enable", true);
-    _ignoreUnprintable = sConfig->GetBoolDefault("ChatLog.Ignore.Unprintable", true);
+    _enable = sConfig->GetBoolDefault("Log.Chat.Enable", true);
+    _ignoreUnprintable = sConfig->GetBoolDefault("Log.Chat.Ignore.Unprintable", true);
 
-    _lexicsEnable = sConfig->GetBoolDefault("ChatLog.Lexics.Enable", true);
+    _lexicsEnable = sConfig->GetBoolDefault("Log.Chat.Lexics.Enable", true);
     if (_lexicsEnable)
     {
-        std::string analogsFileName = sConfig->GetStringDefault("ChatLog.Lexics.AnalogsFile", "");
-        std::string innormativeWordsFileName = sConfig->GetStringDefault("ChatLog.Lexics.WordsFile", "");
+        std::string analogsFileName = sConfig->GetStringDefault("Log.Chat.Lexics.AnalogsFile", "");
+        std::string innormativeWordsFileName = sConfig->GetStringDefault("Log.Chat.Lexics.WordsFile", "");
 
         _innormativeLog = new ChatLogInfo(CHAT_LOG_INNORMATIVE, true, false);
         if (analogsFileName.empty() || innormativeWordsFileName.empty())
@@ -120,18 +120,18 @@ void ChatLog::_Initialize()
         else
         {
             // Initialize lexics cutter parameters
-            _lexicsInnormativeCut = sConfig->GetBoolDefault("ChatLog.Lexics.Cut.Enable", true);
-            _lexicsCutReplacement = sConfig->GetStringDefault("ChatLog.Lexics.Cut.Replacement", "&!@^%!^&*!!!");
-            _lexicsAction = LexicsActions(sConfig->GetIntDefault("ChatLog.Lexics.Action", LEXICS_ACTION_LOG));
-            _lexicsActionDuration = sConfig->GetIntDefault("ChatLog.Lexics.Action.Duration", 0);
+            _lexicsInnormativeCut = sConfig->GetBoolDefault("Log.Chat.Lexics.Cut.Enable", true);
+            _lexicsCutReplacement = sConfig->GetStringDefault("Log.Chat.Lexics.Cut.Replacement", "&!@^%!^&*!!!");
+            _lexicsAction = LexicsActions(sConfig->GetIntDefault("Log.Chat.Lexics.Action", LEXICS_ACTION_LOG));
+            _lexicsActionDuration = sConfig->GetIntDefault("Log.Chat.Lexics.Action.Duration", 0);
 
             // Initialize lexics cutter object
             _lexics = new LexicsCutter(analogsFileName, innormativeWordsFileName,
-                sConfig->GetBoolDefault("ChatLog.Lexics.Ignore.Spaces", true),
-                sConfig->GetBoolDefault("ChatLog.Lexics.Ignore.Repeats", true));
+                sConfig->GetBoolDefault("Log.Chat.Lexics.Ignore.Spaces", true),
+                sConfig->GetBoolDefault("Log.Chat.Lexics.Ignore.Repeats", true));
 
             // Read additional parameters
-            _lexicsIgnoreGm = sConfig->GetBoolDefault("ChatLog.Lexics.Ignore.GM", true);
+            _lexicsIgnoreGm = sConfig->GetBoolDefault("Log.Chat.Lexics.Ignore.GM", true);
         }
     }
 

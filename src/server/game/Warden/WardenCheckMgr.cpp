@@ -27,6 +27,7 @@
 
 WardenCheckMgr::WardenCheckMgr()
 {
+    sLogMgr->RegisterLogFile(WARDEN_LOG);
     InternalDataID = 1;
 }
 

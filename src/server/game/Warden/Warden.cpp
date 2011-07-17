@@ -33,7 +33,6 @@
 Warden::Warden() : _session(NULL), _inputCrypto(16), _outputCrypto(16), _checkTimer(10000/*10 sec*/), 
 _dataSent(false), _clientResponseTimer(0), _previousTimestamp(0), _module(NULL), _initialized(false)
 {
-    sLogMgr->RegisterLogFile(WARDEN_LOG);
 }
 
 Warden::~Warden()

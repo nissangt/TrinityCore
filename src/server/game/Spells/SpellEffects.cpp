@@ -4326,6 +4326,7 @@ void Spell::EffectSummonObjectWild(SpellEffIndex effIndex)
         {
             linkedGO->SetRespawnTime(duration > 0 ? duration/IN_MILLISECONDS : 0);
             linkedGO->SetSpellId(m_spellInfo->Id);
+            linkedGO->IsTemporary = true;
 
             ExecuteLogEffectSummonObject(effIndex, linkedGO);
 

@@ -57,15 +57,15 @@ inline bool ReadInt32(std::istringstream& iss, int32& res)
 
 inline std::string ReadSkip(std::istringstream& iss, char term)
 {
-    std::string res;
+    std::ostringstream ss;
     char c = iss.peek();
     while (c != term && c != '\0')
     {
-        res += c;
+        ss << c;
         iss.ignore(1);
         c = iss.peek();
     }
-    return res;
+    return ss.str();
 }
 
 inline bool CheckDelimiter(std::istringstream& iss, char delimiter, const char* context)

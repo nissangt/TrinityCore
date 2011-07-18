@@ -16,22 +16,61 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <openssl/md5.h>
+#include <openssl/sha.h>
+
 #include "Common.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
 #include "LogMgr.h"
 #include "Opcodes.h"
 #include "ByteBuffer.h"
-#include <openssl/md5.h>
-#include <openssl/sha.h>
 #include "World.h"
 #include "Player.h"
 #include "Util.h"
 #include "Warden.h"
 #include "AccountMgr.h"
+#include "WardenWin.h"
+#include "WardenMac.h"
 
-Warden::Warden() : _session(NULL), _inputCrypto(16), _outputCrypto(16), _checkTimer(10000/*10 sec*/), 
-_dataSent(false), _clientResponseTimer(0), _previousTimestamp(0), _module(NULL), _initialized(false)
+// static
+Warden* Warden::GetWarden(const std::string& os, WorldSession* session, BigNumber* k)
+{
+    Warden* res = NULL;
+    if (os == "Win")
+        res = new WardenWin();
+    // Disabled as it is causing the client to crash
+    // else if (os == "OSX")
+    //     res = new WardenMac();
+    if (res)
+        res->Init(session, k);
+    return res;
+}
+
+// static
+bool Warden::IsValidCheckSum(uint32 checksum, const uint8* data, const uint16 length)
+{
+    uint32 newChecksum = BuildChecksum(data, length);
+    bool isValid = (checksum == newChecksum);
+    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, isValid ? "CHECKSUM IS VALID" : "CHECKSUM IS NOT VALID");
+    return isValid;
+}
+
+// static
+uint32 Warden::BuildChecksum(const uint8* data, uint32 length)
+{
+    uint8 hash[20];
+    SHA1(data, length, hash);
+    uint32 checkSum = 0;
+    for (uint8 i = 0; i < 5; ++i)
+        checkSum ^= *(uint32*)(&hash[0] + i * 4);
+    
+    return checkSum;
+}
+
+Warden::Warden() : _session(NULL), _inputCrypto(16), _outputCrypto(16), _checkTimer(10000), 
+_dataSent(false), _clientResponseTimer(0), _previousTimestamp(0), _module(NULL), _initialized(false),
+_maxClientResponse(sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_RESPONSE_DELAY))
 {
 }
 
@@ -100,20 +139,16 @@ void Warden::Update()
 
         if (_dataSent)
         {
-            uint32 maxClientResponseDelay = sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_RESPONSE_DELAY);
-            if (maxClientResponseDelay > 0)
+            if (_maxClientResponse)
             {
-                // Kick player if client response delays more than set in config
-                if (_clientResponseTimer > maxClientResponseDelay * IN_MILLISECONDS)
+                // Punish player if client response delays more than set in config
+                if (_clientResponseTimer > _maxClientResponse * IN_MILLISECONDS)
                 {
                     sLogMgr->WriteLn(WARDEN_LOG, LOGL_ERROR,
-                                     "WARDEN: Player %s (guid: %u, account: %u) exceeded Warden module response delay. Action: %s (Latency: %u, IP: %s)",
-                                     _session->GetPlayerName(), _session->GetGuidLow(), _session->GetAccountId(), Penalty().c_str(), _session->GetLatency(),
-                                     _session->GetRemoteAddress().c_str());
-
-                    // If action is set to "none" we reset the client response timer to prevent this condition from triggering repeatedly
-                    if (sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_FAIL_ACTION) == 0)
-                        _clientResponseTimer = 0;
+                                     "Player %s (guid: %u, account: %u, IP: %s) exceeded module response delay (%u ms, latency: %u). Action: %s",
+                                     _session->GetPlayerName(), _session->GetGuidLow(), _session->GetAccountId(), _session->GetRemoteAddress().c_str(),
+                                     _clientResponseTimer, _session->GetLatency(), Punish().c_str());
+                    _clientResponseTimer = 0;
                 }
                 else
                     _clientResponseTimer += diff;
@@ -144,26 +179,7 @@ void Warden::EncryptData(uint8* buffer, uint32 length)
     _outputCrypto.UpdateData(length, buffer);
 }
 
-bool Warden::IsValidCheckSum(uint32 checksum, const uint8* data, const uint16 length)
-{
-    uint32 newChecksum = BuildChecksum(data, length);
-    bool isValid = (checksum == newChecksum);
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, isValid ? "CHECKSUM IS VALID" : "CHECKSUM IS NOT VALID");
-    return isValid;
-}
-
-uint32 Warden::BuildChecksum(const uint8* data, uint32 length)
-{
-    uint8 hash[20];
-    SHA1(data, length, hash);
-    uint32 checkSum = 0;
-    for (uint8 i = 0; i < 5; ++i)
-        checkSum = checkSum ^ *(uint32*)(&hash[0] + i * 4);
-
-    return checkSum;
-}
-
-std::string Warden::Penalty()
+std::string Warden::Punish() const
 {
     uint32 action = sWorld->getIntConfig(CONFIG_WARDEN_CLIENT_FAIL_ACTION);
     switch (action)
@@ -190,12 +206,13 @@ std::string Warden::Penalty()
 void WorldSession::HandleWardenDataOpcode(WorldPacket& recvData)
 {
     _warden->DecryptData(const_cast<uint8*>(recvData.contents()), recvData.size());
+
     uint8 opcode;
     recvData >> opcode;
     sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "Got packet, opcode %02X, size %u", opcode, uint32(recvData.size()));
     recvData.hexlike();
 
-    switch(opcode)
+    switch (opcode)
     {
         case WARDEN_CMSG_MODULE_MISSING:
             _warden->SendModuleToClient();
@@ -207,14 +224,14 @@ void WorldSession::HandleWardenDataOpcode(WorldPacket& recvData)
             _warden->HandleData(recvData);
             break;
         case WARDEN_CMSG_MEM_CHECKS_RESULT:
-            sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "NYI WARDEN_CMSG_MEM_CHECKS_RESULT received!");
+            sLogMgr->WriteLn(WARDEN_LOG, LOGL_WARNING, "NYI WARDEN_CMSG_MEM_CHECKS_RESULT received!");
             break;
         case WARDEN_CMSG_HASH_RESULT:
             _warden->HandleHashResult(recvData);
             _warden->InitializeModule();
             break;
         case WARDEN_CMSG_MODULE_FAILED:
-            sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "NYI WARDEN_CMSG_MODULE_FAILED received!");
+            sLogMgr->WriteLn(WARDEN_LOG, LOGL_WARNING, "NYI WARDEN_CMSG_MODULE_FAILED received!");
             break;
         default:
             sLogMgr->WriteLn(WARDEN_LOG, LOGL_WARNING, "Got unknown warden opcode %02X of size %u.", opcode, uint32(recvData.size() - 1));

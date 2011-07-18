@@ -253,7 +253,7 @@ class WorldSession
         void SetPlayer(Player *plr);
         uint8 Expansion() const { return m_expansion; }
 
-        void InitWarden(BigNumber* k, std::string os);
+        void InitWarden(BigNumber* k, const std::string& os);
 
         /// Session in auth.queue currently
         void SetInQueue(bool state) { m_inQueue = state; }

@@ -98,7 +98,7 @@ class Warden
 {
 public:
     Warden();
-    ~Warden();
+    virtual ~Warden();
 
     virtual void Init(WorldSession* session, BigNumber* k) = 0;
     virtual ClientWardenModule* GetModuleForClient(WorldSession* session) = 0;
@@ -116,8 +116,9 @@ public:
 
     static bool IsValidCheckSum(uint32 checksum, const uint8 *data, const uint16 length);
     static uint32 BuildChecksum(const uint8 *data, uint32 length);
+    static Warden* GetWarden(const std::string& os, WorldSession* session, BigNumber* k);
 
-    std::string Penalty();
+    std::string Punish() const;
 
 protected:
     WorldSession* _session;
@@ -132,6 +133,7 @@ protected:
     uint32 _previousTimestamp;
     ClientWardenModule* _module;
     bool _initialized;
+    uint32 _maxClientResponse;
 };
 
 #endif

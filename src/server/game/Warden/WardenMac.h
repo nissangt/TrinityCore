@@ -29,8 +29,8 @@ class WorldSession;
 class WardenMac : public Warden
 {
 public:
-    WardenMac();
-    ~WardenMac();
+    WardenMac() { }
+    virtual ~WardenMac() { }
 
     void Init(WorldSession* session, BigNumber* k);
     ClientWardenModule* GetModuleForClient(WorldSession* session);

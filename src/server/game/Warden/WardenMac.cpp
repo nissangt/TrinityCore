@@ -16,6 +16,7 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <openssl/md5.h>
 #include "Cryptography/WardenKeyGeneration.h"
 #include "Common.h"
 #include "WorldPacket.h"
@@ -23,20 +24,11 @@
 #include "Log.h"
 #include "Opcodes.h"
 #include "ByteBuffer.h"
-#include <openssl/md5.h>
 #include "World.h"
 #include "Player.h"
 #include "Util.h"
 #include "WardenMac.h"
 #include "WardenModuleMac.h"
-
-WardenMac::WardenMac()
-{
-}
-
-WardenMac::~WardenMac()
-{
-}
 
 void WardenMac::Init(WorldSession* session, BigNumber* K)
 {
@@ -57,16 +49,17 @@ void WardenMac::Init(WorldSession* session, BigNumber* K)
 
     _inputCrypto.Init(_inputKey);
     _outputCrypto.Init(_outputKey);
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "Server side warden for client %u initializing...", session->GetAccountId());
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "C->S Key: %s", ByteArrayToHexStr(_inputKey, 16).c_str());
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "S->C Key: %s", ByteArrayToHexStr(_outputKey, 16).c_str());
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "Seed: %s", ByteArrayToHexStr(_seed, 16).c_str());
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "Loading Module...");
+
+    sLogMgr->Write(WARDEN_LOG, LOGL_FULL, true, "Server side warden for client %u initializing...\n", session->GetAccountId());
+    sLogMgr->Write(WARDEN_LOG, LOGL_FULL, false, "C->S Key: %s\n", ByteArrayToHexStr(_inputKey, 16).c_str());
+    sLogMgr->Write(WARDEN_LOG, LOGL_FULL, false, "S->C Key: %s\n", ByteArrayToHexStr(_outputKey, 16).c_str());
+    sLogMgr->Write(WARDEN_LOG, LOGL_FULL, false, "Seed: %s\n", ByteArrayToHexStr(_seed, 16).c_str());
+    sLogMgr->Write(WARDEN_LOG, LOGL_FULL, false, "Loading Module...\n");
 
     _module = GetModuleForClient(_session);
 
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "Module Key: %s", ByteArrayToHexStr(_module->Key, 16).c_str());
-    sLogMgr->WriteLn(WARDEN_LOG, LOGL_FULL, "Module ID: %s", ByteArrayToHexStr(_module->Id, 16).c_str());
+    sLogMgr->Write(WARDEN_LOG, LOGL_FULL, false, "Module Key: %s\n", ByteArrayToHexStr(_module->Key, 16).c_str());
+    sLogMgr->Write(WARDEN_LOG, LOGL_FULL, false, "Module ID: %s\n", ByteArrayToHexStr(_module->Id, 16).c_str());
     RequestModule();
 }
 
@@ -148,8 +141,8 @@ void WardenMac::HandleHashResult(ByteBuffer &buff)
     // Verify key
     if (memcmp(buff.contents() + 1, sha1.GetDigest(), 20) != 0)
     {
-        sLogMgr->WriteLn(WARDEN_LOG, LOGL_ERROR, "WARDEN: Player %s (guid: %u, account: %u) failed hash reply. Action: %s",
-            _session->GetPlayerName(), _session->GetGuidLow(), _session->GetAccountId(), Penalty().c_str());
+        sLogMgr->WriteLn(WARDEN_LOG, LOGL_ERROR, "WARDEN: Player %s (guid: %u, account: %u, IP: %s) failed hash reply. Action: %s",
+            _session->GetPlayerName(), _session->GetGuidLow(), _session->GetAccountId(), _session->GetRemoteAddress().c_str(), Punish().c_str());
         return;
     }
 

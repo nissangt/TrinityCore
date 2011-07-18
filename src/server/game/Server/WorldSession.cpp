@@ -43,8 +43,7 @@
 #include "zlib.h"
 #include "ScriptMgr.h"
 #include "Transport.h"
-#include "WardenWin.h"
-#include "WardenMac.h"
+#include "Warden.h"
 
 bool MapSessionFilter::Process(WorldPacket* packet)
 {
@@ -1103,17 +1102,7 @@ void WorldSession::ProcessQueryCallbacks()
     }
 }
 
-void WorldSession::InitWarden(BigNumber* k, std::string os)
+void WorldSession::InitWarden(BigNumber* k, const std::string& os)
 {
-    if (os == "Win")
-    {
-        _warden = (Warden*)new WardenWin();
-        _warden->Init(this, k);
-    }
-    else if (os == "OSX")
-    {
-        // Disabled as it is causing the client to crash
-        // _warden = (Warden*)new WardenMac();
-        // _warden->Init(this, k);
-    }
+    _warden = Warden::GetWarden(os, this, k);
 }

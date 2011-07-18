@@ -23,19 +23,7 @@
 #include "Cryptography/BigNumber.h"
 #include "ByteBuffer.h"
 #include "Warden.h"
-
-enum WardenCheckType
-{
-    MEM_CHECK               = 0xF3, // 243: byte moduleNameIndex + uint Offset + byte Len (check to ensure memory isn't modified)
-    PAGE_CHECK_A            = 0xB2, // 178: uint Seed + byte[20] SHA1 + uint Addr + byte Len (scans all pages for specified hash)
-    PAGE_CHECK_B            = 0xBF, // 191: uint Seed + byte[20] SHA1 + uint Addr + byte Len (scans only pages starts with MZ+PE headers for specified hash)
-    MPQ_CHECK               = 0x98, // 152: byte fileNameIndex (check to ensure MPQ file isn't modified)
-    LUA_STR_CHECK           = 0x8B, // 139: byte luaNameIndex (check to ensure LUA string isn't used)
-    DRIVER_CHECK            = 0x71, // 113: uint Seed + byte[20] SHA1 + byte driverNameIndex (check to ensure driver isn't loaded)
-    TIMING_CHECK            = 0x57, //  87: empty (check to ensure GetTickCount() isn't detoured)
-    PROC_CHECK              = 0x7E, // 126: uint Seed + byte[20] SHA1 + byte moluleNameIndex + byte procNameIndex + uint Offset + byte Len (check to ensure proc isn't detoured)
-    MODULE_CHECK            = 0xD9, // 217: uint Seed + byte[20] SHA1 (check to ensure module isn't injected)
-};
+#include "WardenCheckMgr.h"
 
 #if defined(__GNUC__)
 #pragma pack(1)
@@ -84,8 +72,8 @@ class WorldSession;
 class WardenWin : public Warden
 {
 public:
-    WardenWin();
-    ~WardenWin();
+    WardenWin() { }
+    virtual ~WardenWin() { }
 
     void Init(WorldSession* session, BigNumber* K);
     ClientWardenModule* GetModuleForClient(WorldSession* session);
@@ -97,9 +85,9 @@ public:
 
 private:
     uint32 _serverTicks;
-    std::list<uint32> _otherChecksTodo;
-    std::list<uint32> _memChecksTodo;
-    std::list<uint32> _currentChecks;
+    CheckIds _otherChecksTodo;
+    CheckIds _memChecksTodo;
+    CheckIds _currentChecks;
 };
 
 #endif

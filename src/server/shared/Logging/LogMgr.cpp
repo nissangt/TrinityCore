@@ -343,7 +343,10 @@ void LogMgr::Initialize()
         std::string setting("Log.");
         setting.append(GM_LOG);
         if (sConfig->GetBoolDefault(std::string(setting + ".Enabled").c_str(), false))
+        {
             _gmFilePath = sConfig->GetStringDefault(std::string(setting + ".File").c_str(), "");
+            _gmTimestampFmt = sConfig->GetStringDefault(std::string(setting + ".TimestampFmt").c_str(), "%Y-%m-%d %H:%M:%S");
+        }
     }
 }
 
@@ -687,9 +690,11 @@ void LogMgr::WriteGmCommand(uint32 accountId, const char* fmt, ...)
                 path.replace(pos, 2, szAccount);
             }
 
+            LogMgr::OutTimestamp(path, _gmTimestampFmt);
+
             va_list lst;
             va_start(lst, fmt);
-            WriteFile(path.c_str(), true, fmt, lst);
+            WriteFile(path, true, fmt, lst);
             va_end(lst);
 
             va_start(lst, fmt);
@@ -812,6 +817,16 @@ void LogMgr::WriteConsole(LogLevel level, const char* fmt, ...) const
     va_end(lst);
 }
 
+// static
+uint32 LogMgr::OutTimestamp(const std::string& path, const std::string& timeStampFmt)
+{
+    uint32 res = 0;
+    if (FILE* file = OpenFile(path, true))
+        res = OutTimestamp(file, timeStampFmt);
+    return res;
+}
+
+    
 // static
 uint32 LogMgr::OutTimestamp(FILE* file, const std::string& timeStampFmt)
 {

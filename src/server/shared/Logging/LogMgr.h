@@ -94,6 +94,7 @@ class LogMgr
         uint8 DecreaseRefCount(uint8 amount = 1);
 
         const std::string& GetFileName() const { return _fileName; }
+        const std::string& GetTimestampFmt() const { return _timeStampFmt; }
     private:
         void _CheckDate();
 
@@ -151,6 +152,7 @@ class LogMgr
 
 public:
     static uint32 OutTimestamp(FILE* file, const std::string& timeStampFmt);
+    static uint32 OutTimestamp(const std::string& path, const std::string& timeStampFmt);
     static bool CreatePath(const std::string& path);
     static void SetConsoleColor(bool isError, LogColor color);
     static void ResetConsoleColor(bool isError);
@@ -267,6 +269,7 @@ private:
 
     bool _logGmPerAccount;
     std::string _gmFilePath;
+    std::string _gmTimestampFmt;
 };
 
 #define sLogMgr ACE_Singleton<LogMgr, ACE_Thread_Mutex>::instance()

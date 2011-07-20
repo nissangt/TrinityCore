@@ -142,8 +142,19 @@ void ChatLog::_Initialize()
 bool ChatLog::_ChatCommon(ChatLogType type, Player* player, std::string& msg)
 {
     // Check message for innormative lexics and punish if necessary.
-    if (_lexicsEnable && _lexics && _logs[type]->IsCut() && _lexics->CheckLexics(msg))
-        _Punish(player, msg);
+    if (_lexicsEnable && _lexics)
+        switch (_lexics->CheckLexics(msg))
+        {
+            case LCR_INVALID_LINK:
+                msg = "";
+                return false;   // If we show this message, client may crash
+            case LCR_BAD:
+                if (_logs[type]->IsCut())
+                    _Punish(player, msg);
+                // no break
+            case LCR_GOOD:
+                break;
+        }
 
     if (!_enable)
         return false;

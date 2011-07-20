@@ -219,18 +219,19 @@ bool LexicsCutter::_CompareWord(const std::string& str, unsigned int pos, LC_Wor
     return true;
 }
 
-bool LexicsCutter::CheckLexics(const std::string& msg)
+// Return true if message contains bad lexics
+LexicsCheckResult LexicsCutter::CheckLexics(const std::string& msg)
 {
     LC_WordMap::iterator i;
     std::pair<LC_WordMap::iterator, LC_WordMap::iterator> ii;
 
     if (msg.size() == 0)
-        return false;
+        return LCR_GOOD;
 
-    // Remove links
+    // Remove links - invalid link is a subject to punish
     LinkExtractor extractor(msg);
     if (!extractor.IsValidMessage())
-        return false;
+        return LCR_INVALID_LINK;
     // Remove links from message
     std::string s = extractor.RemoveLinks();
     // First, convert the string, adding spaces and removing invalid characters.
@@ -253,9 +254,9 @@ bool LexicsCutter::CheckLexics(const std::string& msg)
         for (i = ii.first; i != ii.second; i++)
             // Compare word at initial position
             if (_CompareWord(str, prevPos, _wordList[i->second]))
-                return true;
+                return LCR_BAD;
         // Set initial position to the current position
         prevPos = pos;
     }
-    return false;
+    return LCR_GOOD;
 }

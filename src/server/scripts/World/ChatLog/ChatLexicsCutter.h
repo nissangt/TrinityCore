@@ -28,6 +28,13 @@ typedef std::vector <LC_LetterSet> LC_WordVector;
 typedef std::vector <LC_WordVector> LC_WordList;
 typedef std::multimap <std::string, uint32> LC_WordMap;
 
+enum LexicsCheckResult
+{
+    LCR_GOOD = 0,
+    LCR_INVALID_LINK = 1,
+    LCR_BAD = 2
+};
+
 class LexicsCutter
 {
 protected:
@@ -52,7 +59,7 @@ public:
 
     static bool ReadUTF8(const std::string& in, std::string& out, unsigned int& pos);
 
-    bool CheckLexics(const std::string& phrase);
+    LexicsCheckResult CheckLexics(const std::string& phrase);
 };
 
 #endif

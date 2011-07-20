@@ -690,7 +690,7 @@ void LogMgr::WriteGmCommand(uint32 accountId, const char* fmt, ...)
                 path.replace(pos, 2, szAccount);
             }
 
-            LogMgr::OutTimestamp(path, _gmTimestampFmt);
+            LogMgr::OutTimestamp(GetLogDirectory() + path, _gmTimestampFmt);
 
             va_list lst;
             va_start(lst, fmt);
@@ -822,11 +822,14 @@ uint32 LogMgr::OutTimestamp(const std::string& path, const std::string& timeStam
 {
     uint32 res = 0;
     if (FILE* file = OpenFile(path, true))
+    {
         res = OutTimestamp(file, timeStampFmt);
+        fflush(file);
+        fclose(file);
+    }
     return res;
 }
 
-    
 // static
 uint32 LogMgr::OutTimestamp(FILE* file, const std::string& timeStampFmt)
 {

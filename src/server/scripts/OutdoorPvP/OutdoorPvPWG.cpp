@@ -884,12 +884,12 @@ void OutdoorPvPWG::OnGameObjectCreate(GameObject *go)
                 itr->second->type = BUILDING_TOWER;
             if (itr->second->damageState == DAMAGE_INTACT && !itr->second->health)
             {
-                itr->second->health = go->GetGOValue()->building.health;
+                itr->second->health = go->GetGOValue()->Building.Health;
                 go->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DESTROYED);
             }
             else
             {
-                go->GetGOValue()->building.health = itr->second->health;
+                go->GetGOValue()->Building.Health = itr->second->health;
                 if (itr->second->damageState == DAMAGE_DAMAGED)
                     go->SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED);
                 else if (itr->second->damageState == DAMAGE_DESTROYED)
@@ -940,8 +940,8 @@ void OutdoorPvPWG::RebuildAllBuildings()
         if (itr->second->building && itr->second->building->GetGoType() == GAMEOBJECT_TYPE_DESTRUCTIBLE_BUILDING)
         {
             UpdateGameObjectInfo(itr->second->building);
-            itr->second->building->Rebuild();
-            itr->second->health = itr->second->building->GetGOValue()->building.health;
+            itr->second->building->SetDestructibleState(GO_DESTRUCTIBLE_INTACT);
+            itr->second->health = itr->second->building->GetGOValue()->Building.MaxHealth;
             itr->second->damageState = DAMAGE_INTACT;
         }
         else
@@ -1006,7 +1006,7 @@ bool OutdoorPvPWG::UpdateCreatureInfo(Creature *creature)
             {
                 if (!creature->isAlive())
                     creature->Respawn(true);
-                creature->setFaction(WintergraspFaction[getDefenderTeam()]);
+                creature->setFaction(creature->GetPositionX() > POS_X_CENTER ? WintergraspFaction[getDefenderTeam()] : WintergraspFaction[getAttackerTeam()]);
             }
             else
             {

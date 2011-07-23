@@ -20,6 +20,7 @@
 #include "G3D/Table.h"
 #include "VMapFactory.h"
 #include "VMapManager2.h"
+#include "G3D/Table.h"
 
 using namespace G3D;
 

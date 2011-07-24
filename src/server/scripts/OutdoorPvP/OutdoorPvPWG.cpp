@@ -464,8 +464,12 @@ bool OutdoorPvPWG::SetupOutdoorPvP()
     return true;
 }
 
-void OutdoorPvPWG::ProcessEvent(GameObject *obj, uint32 eventId)
+void OutdoorPvPWG::ProcessEvent(WorldObject *o, uint32 eventId)
 {
+    GameObject* obj = o->ToGameObject();
+    if (!obj)
+        return;
+
     if (obj->GetEntry() == 192829) // Titan Relic
     {
         if (obj->GetGOInfo()->goober.eventId == eventId && isWarTime() && MaingateDestroyed)

@@ -1757,6 +1757,10 @@ void GameObject::ModifyHealth(int32 change, Unit* attackerOrHealer /*= NULL*/, u
     if (!GetGOValue()->Building.MaxHealth || !change)
         return;
 
+    // prevent double destructions of the same object
+    if (change < 0 && !GetGOValue()->Building.Health)
+        return;
+
     if (int32(GetGOValue()->Building.Health) + change <= 0)
         GetGOValue()->Building.Health = 0;
     else if (int32(GetGOValue()->Building.Health) + change >= int32(GetGOValue()->Building.MaxHealth))
@@ -1764,6 +1768,7 @@ void GameObject::ModifyHealth(int32 change, Unit* attackerOrHealer /*= NULL*/, u
     else
         GetGOValue()->Building.Health += change;
 
+    // Set the health bar, value = 255 * healthPct;
     SetGoAnimProgress(GetGOValue()->Building.Health * 255 / GetGOValue()->Building.MaxHealth);
 
     Player* player = attackerOrHealer->GetCharmerOrOwnerPlayerOrPlayerItself();
@@ -1781,12 +1786,19 @@ void GameObject::ModifyHealth(int32 change, Unit* attackerOrHealer /*= NULL*/, u
         player->GetSession()->SendPacket(&data);
     }
 
+    GameObjectDestructibleState newState = GetDestructibleState();
+
     if (!GetGOValue()->Building.Health)
-        SetDestructibleState(GO_DESTRUCTIBLE_DESTROYED, player, false);
+        newState = GO_DESTRUCTIBLE_DESTROYED;
     else if (GetGOValue()->Building.Health <= GetGOInfo()->building.damagedNumHits)
-        SetDestructibleState(GO_DESTRUCTIBLE_DAMAGED, player, false);
+        newState = GO_DESTRUCTIBLE_DAMAGED;
     else if (GetGOValue()->Building.Health == GetGOValue()->Building.MaxHealth)
-        SetDestructibleState(GO_DESTRUCTIBLE_INTACT, player, false);
+        newState = GO_DESTRUCTIBLE_INTACT;
+
+    if (newState == GetDestructibleState())
+        return;
+
+    SetDestructibleState(newState, player, false);
 }
 
 void GameObject::SetDestructibleState(GameObjectDestructibleState state, Player* eventInvoker /*= NULL*/, bool setHealth /*= false*/)
@@ -1863,9 +1875,16 @@ void GameObject::SetDestructibleState(GameObjectDestructibleState state, Player*
             break;
         }
         case GO_DESTRUCTIBLE_REBUILDING:
-            RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED | GO_FLAG_DESTROYED);
-            SetUInt32Value(GAMEOBJECT_DISPLAYID, m_goInfo->displayId);
+        {
             EventInform(m_goInfo->building.rebuildingEvent);
+            RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_DAMAGED | GO_FLAG_DESTROYED);
+
+            uint32 modelId = m_goInfo->displayId;
+            if (DestructibleModelDataEntry const* modelData = sDestructibleModelDataStore.LookupEntry(m_goInfo->building.destructibleData))
+                if (modelData->RebuildingDisplayId)
+                    modelId = modelData->RebuildingDisplayId;
+            SetUInt32Value(GAMEOBJECT_DISPLAYID, modelId);
+
             // restores to full health
             if (setHealth)
             {
@@ -1873,5 +1892,6 @@ void GameObject::SetDestructibleState(GameObjectDestructibleState state, Player*
                 SetGoAnimProgress(255);
             }
             break;
+        }
     }
 }

@@ -733,6 +733,48 @@ Log.AntiCheat.FlushBytes = 1024
 ###################################################################################################
 
 ###################################################################################################
+# MONEY LOG
+
+Log.Money.Enabled = 1
+Log.Money.File = Money_%Y-%m-%d.log
+Log.Money.TimestampFmt = "%H:%M:%S"
+
+#
+#    Log.Money.Money.MinAmountPositive
+#        Description: Minimum number of received money to log
+#        Default: 10000 - 1 gold
+
+Log.Money.Money.MinAmountPositive = 10000
+
+#
+#    Log.Money.Money.MinAmountNegative
+#        Description: Minimum number of given money to log
+#        Default: 10000 - 1 gold
+
+Log.Money.Money.MinAmountNegative = 10000
+
+#
+#    Log.Money.Money.EventMask
+#        Description: Bitmask that determines which events to log
+#        Possible flags:
+#                   1 - mail events
+#                   2 - trade with other player
+#                   4 - interaction with NPCs
+#                   8 - GM commands
+#                  16 - quest events
+#                  32 - loot events
+#                  64 - guild bank events
+#                 128 - deleting of item (not used with money)
+#                 256 - spell events
+#                 512 - other events
+#        Default: 2047 - all events
+
+Log.Money.Money.EventMask = 2047
+
+#
+###################################################################################################
+
+###################################################################################################
 # CHAT LOGGING AND LEXICS CUTTER
 #
 #    Log.Chat.Enable

@@ -43,6 +43,7 @@
 #include "Util.h"
 #include "ScriptMgr.h"
 #include "Battleground.h"
+#include "MoneyLog.h"
 
 #include "OutdoorPvPWG.h"
 #include "OutdoorPvPMgr.h"
@@ -1348,7 +1349,7 @@ void WorldSession::HandleAlterAppearance(WorldPacket & recv_data)
         SendPacket(&data);
     }
 
-    _player->ModifyMoney(-int32(Cost));                     // it isn't free
+    sMoneyLog->LogMoney(_player, MLE_OTHER, -int32(Cost), "change appearance (hair: %u, color: %u, facial hair: %u, skin color: %u)", Hair, Color, FacialHair, SkinColor);
     _player->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GOLD_SPENT_AT_BARBER, Cost);
 
     _player->SetByteValue(PLAYER_BYTES, 2, uint8(bs_hair->hair_id));

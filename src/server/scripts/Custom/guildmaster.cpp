@@ -18,6 +18,7 @@
 #include "ScriptPCH.h"
 #include "Config.h"
 #include "GuildMgr.h"
+#include "MoneyLog.h"
 
 enum eGuildHouse
 {
@@ -319,7 +320,7 @@ private:
             if (gh->Buy(player))
             {
                 _guildHouseGuilds[gh->_guildId] = gh->_id;
-                player->ModifyMoney(-int32(_buyPrice));
+                sMoneyLog->LogMoney(player, MLE_NPC, -int32(_buyPrice), "buy guildhouse (id: %u, guild id: %u)", gh->_id, gh->_guildId);
                 creature->MonsterSay(LANG_GH_BUY_SUCCESS, LANG_UNIVERSAL, player->GetGUID());
             }
             else
@@ -333,7 +334,7 @@ private:
         {
             _guildHouseGuilds[gh->_guildId] = 0;
             gh->Sell();
-            player->ModifyMoney(_sellPrice);
+            sMoneyLog->LogMoney(player, MLE_NPC, _sellPrice, "sell guildhouse (id: %u, guild id: %u)", gh->_id, gh->_guildId);
             creature->MonsterWhisper(LANG_GH_SELL_SUCCESS, player->GetGUID());
         }
     }

@@ -74,6 +74,7 @@
 #include "CharacterDatabaseCleaner.h"
 #include "InstanceScript.h"
 #include <cmath>
+#include "MoneyLog.h"
 
 #define ZONE_UPDATE_INTERVAL (1*IN_MILLISECONDS)
 
@@ -4424,7 +4425,7 @@ bool Player::resetTalents(bool no_cost)
 
     if (!no_cost)
     {
-        ModifyMoney(-(int32)cost);
+        sMoneyLog->LogMoney(this, MLE_OTHER, -int32(cost), "reset talents");
         GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GOLD_SPENT_FOR_TALENTS, cost);
         GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_NUMBER_OF_TALENT_RESETS, 1);
 
@@ -5455,7 +5456,7 @@ uint32 Player::DurabilityRepair(uint16 pos, bool cost, float discountMod, bool g
                 return TotalCost;
             }
             else
-                ModifyMoney(-int32(costs));
+                sMoneyLog->LogMoney(this, MLE_NPC, -int32(costs), "durability repair");
         }
     }
 
@@ -7109,7 +7110,7 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, int32 honor, bool pvpt
 
     uint64 victim_guid = 0;
     uint32 victim_rank = 0;
-	uint32 rank_diff = 0;
+    uint32 rank_diff = 0;
 
     // need call before fields update to have chance move yesterday data to appropriate fields before today data change.
     UpdateHonorFields();
@@ -7201,7 +7202,7 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, int32 honor, bool pvpt
 
 
             honor_f = ceil(Trinity::Honor::hk_honor_at_level_f(k_level) * (v_level - k_grey) / (k_level - k_grey));
-            honor *= 1 + sWorld->getRate(RATE_PVP_RANK_EXTRA_HONOR)*(((float)rank_diff) / 10.0f);
+            honor *= 1 + sWorld->getRate(RATE_PVP_RANK_EXTRA_HONOR) * float(rank_diff) / 10.0f;
             // count the number of playerkills in one day
             ApplyModUInt32Value(PLAYER_FIELD_KILLS, 1, true);
             // and those in a lifetime
@@ -7302,7 +7303,7 @@ void Player::SetArenaPoints(uint32 value)
     if (value)
         AddKnownCurrency(ITEM_ARENA_POINTS_ID);
 }
- 
+
 void Player::UpdateKnownTitles()
 {
     uint32 new_title = 0;
@@ -14356,7 +14357,7 @@ void Player::OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 men
         }
     }
 
-    ModifyMoney(-cost);
+    sMoneyLog->LogMoney(this, MLE_NPC, -cost, "gossip price (source: %u, %u, menu: %u, item: %u)", source->GetGUIDHigh(), source->GetGUIDLow(), menuId, gossipListId);
 }
 
 uint32 Player::GetGossipTextId(WorldObject* source)
@@ -15007,8 +15008,7 @@ void Player::RewardQuest(Quest const *pQuest, uint32 reward, Object* questGiver,
 
     if (moneyRew)
     {
-        ModifyMoney(moneyRew);
-
+        sMoneyLog->LogMoney(this, MLE_QUEST, moneyRew, "quest reward (id: %u)", quest_id);
         if (moneyRew > 0)
             GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_QUEST_REWARD, uint32(moneyRew));
     }
@@ -16336,7 +16336,7 @@ void Player::_LoadDeclinedNames(PreparedQueryResult result)
 }
 
 void Player::_LoadExpRates(PreparedQueryResult result)
-{     
+{
     if (result)
     {
         Field* fields = result->Fetch();
@@ -16348,7 +16348,7 @@ void Player::_LoadExpRates(PreparedQueryResult result)
         explore_xp_rate     = fields[4].GetUInt32();
 
         time_t currenttime = time(NULL);
-        if( start_time < currenttime && currenttime < end_time ) 
+        if( start_time < currenttime && currenttime < end_time )
         {
             // bonus is legal, player gets db values even if they are 1 1 1 !
             kill_xp_rate            = fields[2].GetUInt32();
@@ -16362,7 +16362,7 @@ void Player::_LoadExpRates(PreparedQueryResult result)
             kill_xp_rate = 1;
             quest_xp_rate = 1;
             explore_xp_rate = 1;
-        } 
+        }
     }
     else
     {
@@ -20203,7 +20203,7 @@ bool Player::ActivateTaxiPathTo(std::vector<uint32> const& nodes, Creature* npc 
     }
 
     //Checks and preparations done, DO FLIGHT
-    ModifyMoney(-(int32)totalcost);
+    sMoneyLog->LogMoney(this, MLE_NPC, -int32(totalcost), "pay for taxi");
     GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GOLD_SPENT_FOR_TRAVELLING, totalcost);
     GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_FLIGHT_PATHS_TAKEN, 1);
 
@@ -20426,7 +20426,7 @@ inline bool Player::_StoreOrEquipNewItem(uint32 vendorslot, uint32 item, uint8 c
         return false;
     }
 
-    ModifyMoney(-price);
+    sMoneyLog->LogMoney(this, MLE_NPC, -price, "buy item (item: %u, count: %u, npc: %u)", pProto->ItemId, count, pVendor->GetGUIDLow());
 
     if (crItem->ExtendedCost)                            // case for new honor system
     {
@@ -24746,7 +24746,7 @@ void Player::RefundItem(Item *item)
 
     // Grant back money
     if (moneyRefund)
-        ModifyMoney(moneyRefund);
+        sMoneyLog->LogMoney(this, MLE_NPC, moneyRefund, "refund item (item: %u, count: %u)", item->GetEntry(), item->GetCount());
 
     // Grant back Honor points
     if (uint32 honorRefund = iece->reqhonorpoints)

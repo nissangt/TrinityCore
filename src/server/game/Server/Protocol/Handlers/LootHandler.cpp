@@ -29,6 +29,7 @@
 #include "Group.h"
 #include "World.h"
 #include "Util.h"
+#include "MoneyLog.h"
 
 void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket & recv_data)
 {
@@ -182,7 +183,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket & /*recv_data*/)
                 data << uint8(0);                       // Controls the text displayed 0 is "Your share is...", 1 "You loot..."
                 (*i)->GetSession()->SendPacket(&data);
 
-                (*i)->ModifyMoney(goldPerPlayer);
+                sMoneyLog->LogMoney((*i), MLE_LOOT, goldPerPlayer, "group loot (source: %u, %u)", GUID_HIPART(guid), GUID_LOPART(guid));
                 (*i)->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, goldPerPlayer);
             }
         }
@@ -193,7 +194,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket & /*recv_data*/)
             data << uint8(1);
             SendPacket(&data);
 
-            player->ModifyMoney(loot->gold);
+            sMoneyLog->LogMoney(player, MLE_LOOT, loot->gold, "personal loot (source: %u, %u)", GUID_HIPART(guid), GUID_LOPART(guid));
             player->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, loot->gold);
         }
 

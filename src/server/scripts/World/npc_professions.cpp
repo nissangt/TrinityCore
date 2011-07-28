@@ -24,6 +24,7 @@ SDCategory: NPCs
 EndScriptData */
 
 #include "ScriptPCH.h"
+#include "MoneyLog.h"
 
 /*
 A few notes for future developement:
@@ -211,6 +212,18 @@ int32 DoLowUnlearnCost(Player* player)                     //blacksmith
         return 100000;
 }
 
+void ProcessCastAction(Player* player, Creature* creature, uint32 spellId, uint32 triggeredSpellId, int32 cost)
+{
+    if (!(spellId && player->HasSpell(spellId)) && player->HasEnoughMoney(cost))
+    {
+        player->CastSpell(player, triggeredSpellId, true);
+        sMoneyLog->LogMoney(player, MLE_NPC, -cost, "pay for profession (npc: %u, spell: %u)", creature->GetGUIDLow(), triggeredSpellId);
+    }
+    else
+        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
+    player->CLOSE_GOSSIP_MENU();
+}
+
 /*###
 # unlearning related profession spells
 ###*/
@@ -248,12 +261,12 @@ void ProfessionUnlearnSpells(Player* player, uint32 type)
 {
     switch (type)
     {
-        case 36436:                                         // S_UNLEARN_WEAPON
+        case S_UNLEARN_WEAPON:                              // S_UNLEARN_WEAPON
             player->removeSpell(36125);                     // Light Earthforged Blade
             player->removeSpell(36128);                     // Light Emberforged Hammer
             player->removeSpell(36126);                     // Light Skyforged Axe
             break;
-        case 36435:                                         // S_UNLEARN_ARMOR
+        case S_UNLEARN_ARMOR:                               // S_UNLEARN_ARMOR
             player->removeSpell(36122);                     // Earthforged Leggings
             player->removeSpell(36129);                     // Heavy Earthforged Breastplate
             player->removeSpell(36130);                     // Stormforged Hauberk
@@ -265,7 +278,7 @@ void ProfessionUnlearnSpells(Player* player, uint32 type)
             player->removeSpell(34530);                     // Twisting Nether Chain Shirt
             player->removeSpell(36124);                     // Windforged Leggings
             break;
-        case 36441:                                         // S_UNLEARN_HAMMER
+        case S_UNLEARN_HAMMER:                              // S_UNLEARN_HAMMER
             player->removeSpell(36262);                     // Dragonstrike
             player->removeSpell(34546);                     // Dragonmaw
             player->removeSpell(34545);                     // Drakefist Hammer
@@ -275,7 +288,7 @@ void ProfessionUnlearnSpells(Player* player, uint32 type)
             player->removeSpell(36263);                     // Stormherald
             player->removeSpell(36137);                     // Great Earthforged Hammer
             break;
-        case 36439:                                         // S_UNLEARN_AXE
+        case S_UNLEARN_AXE:                                 // S_UNLEARN_AXE
             player->removeSpell(36260);                     // Wicked Edge of the Planes
             player->removeSpell(34562);                     // Black Planar Edge
             player->removeSpell(34541);                     // The Planar Edge
@@ -285,7 +298,7 @@ void ProfessionUnlearnSpells(Player* player, uint32 type)
             player->removeSpell(34543);                     // Lunar Crescent
             player->removeSpell(34544);                     // Mooncleaver
             break;
-        case 36438:                                         // S_UNLEARN_SWORD
+        case S_UNLEARN_SWORD:                               // S_UNLEARN_SWORD
             player->removeSpell(36258);                     // Blazefury
             player->removeSpell(34537);                     // Blazeguard
             player->removeSpell(34535);                     // Fireguard
@@ -295,7 +308,7 @@ void ProfessionUnlearnSpells(Player* player, uint32 type)
             player->removeSpell(34540);                     // Lionheart Champion
             player->removeSpell(36259);                     // Lionheart Executioner
             break;
-        case 36434:                                         // S_UNLEARN_DRAGON
+        case S_UNLEARN_DRAGON:                              // S_UNLEARN_DRAGON
             player->removeSpell(36076);                     // Dragonstrike Leggings
             player->removeSpell(36079);                     // Golden Dragonstrike Breastplate
             player->removeSpell(35576);                     // Ebon Netherscale Belt
@@ -305,36 +318,56 @@ void ProfessionUnlearnSpells(Player* player, uint32 type)
             player->removeSpell(35584);                     // Netherstrike Bracers
             player->removeSpell(35580);                     // Netherstrike Breastplate
             break;
-        case 36328:                                         // S_UNLEARN_ELEMENTAL
+        case S_UNLEARN_ELEMENTAL:                           // S_UNLEARN_ELEMENTAL
             player->removeSpell(36074);                     // Blackstorm Leggings
             player->removeSpell(36077);                     // Primalstorm Breastplate
             player->removeSpell(35590);                     // Primalstrike Belt
             player->removeSpell(35591);                     // Primalstrike Bracers
             player->removeSpell(35589);                     // Primalstrike Vest
             break;
-        case 36433:                                         // S_UNLEARN_TRIBAL
+        case S_UNLEARN_TRIBAL:                              // S_UNLEARN_TRIBAL
             player->removeSpell(35585);                     // Windhawk Hauberk
             player->removeSpell(35587);                     // Windhawk Belt
             player->removeSpell(35588);                     // Windhawk Bracers
             player->removeSpell(36075);                     // Wildfeather Leggings
             player->removeSpell(36078);                     // Living Crystal Breastplate
             break;
-        case 41299:                                         // S_UNLEARN_SPELLFIRE
+        case S_UNLEARN_SPELLFIRE:                           // S_UNLEARN_SPELLFIRE
             player->removeSpell(26752);                     // Spellfire Belt
             player->removeSpell(26753);                     // Spellfire Gloves
             player->removeSpell(26754);                     // Spellfire Robe
             break;
-        case 41558:                                         // S_UNLEARN_MOONCLOTH
+        case S_UNLEARN_MOONCLOTH:                           // S_UNLEARN_MOONCLOTH
             player->removeSpell(26760);                     // Primal Mooncloth Belt
             player->removeSpell(26761);                     // Primal Mooncloth Shoulders
             player->removeSpell(26762);                     // Primal Mooncloth Robe
             break;
-        case 41559:                                         // S_UNLEARN_SHADOWEAVE
+        case S_UNLEARN_SHADOWEAVE:                          // S_UNLEARN_SHADOWEAVE
             player->removeSpell(26756);                     // Frozen Shadoweave Shoulders
             player->removeSpell(26757);                     // Frozen Shadoweave Boots
             player->removeSpell(26758);                     // Frozen Shadoweave Robe
             break;
     }
+}
+
+void ProcessUnlearnAction(Player* player, Creature* creature, uint32 spellId, uint32 alternativeSpellId, int32 cost)
+{
+    if (EquippedOk(player, spellId))
+    {
+        if (player->HasEnoughMoney(cost))
+        {
+            player->CastSpell(player, spellId, true);
+            ProfessionUnlearnSpells(player, spellId);
+            sMoneyLog->LogMoney(player, MLE_NPC, -cost, "pay for unlearning profession (npc: %u, spell: %u)", creature->GetGUIDLow(), spellId);
+            if (alternativeSpellId)
+                creature->CastSpell(player, alternativeSpellId, true);
+        }
+        else
+            player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
+    }
+    else
+        player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
+    player->CLOSE_GOSSIP_MENU();
 }
 
 /*###
@@ -408,59 +441,23 @@ public:
                 break;
                 //Learn Alchemy
             case GOSSIP_ACTION_INFO_DEF + 1:
-                if (!player->HasSpell(S_TRANSMUTE) && player->HasEnoughMoney(DoLearnCost(player)))
-                {
-                    player->CastSpell(player, S_LEARN_TRANSMUTE, true);
-                    player->ModifyMoney(-DoLearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, S_TRANSMUTE, S_LEARN_TRANSMUTE, DoLearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 2:
-                if (!player->HasSpell(S_ELIXIR) && player->HasEnoughMoney(DoLearnCost(player)))
-                {
-                    player->CastSpell(player, S_LEARN_ELIXIR, true);
-                    player->ModifyMoney(-DoLearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, S_ELIXIR, S_LEARN_ELIXIR, DoLearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 3:
-                if (!player->HasSpell(S_POTION) && player->HasEnoughMoney(DoLearnCost(player)))
-                {
-                    player->CastSpell(player, S_LEARN_POTION, true);
-                    player->ModifyMoney(-DoLearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, S_POTION, S_LEARN_POTION, DoLearnCost(player));
                 break;
                 //Unlearn Alchemy
             case GOSSIP_ACTION_INFO_DEF + 4:
-                if (player->HasEnoughMoney(DoHighUnlearnCost(player)))
-                {
-                    creature->CastSpell(player, S_UNLEARN_TRANSMUTE, true);
-                    player->ModifyMoney(-DoHighUnlearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, 0, S_UNLEARN_TRANSMUTE, DoHighUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 5:
-                if (player->HasEnoughMoney(DoHighUnlearnCost(player)))
-                {
-                    creature->CastSpell(player, S_UNLEARN_ELIXIR, true);
-                    player->ModifyMoney(-DoHighUnlearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, 0, S_UNLEARN_ELIXIR, DoHighUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 6:
-                if (player->HasEnoughMoney(DoHighUnlearnCost(player)))
-                {
-                    creature->CastSpell(player, S_UNLEARN_POTION, true);
-                    player->ModifyMoney(-DoHighUnlearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, 0, S_UNLEARN_POTION, DoHighUnlearnCost(player));
                 break;
         }
     }
@@ -645,38 +642,11 @@ public:
                                                                 //unknown textID (TALK_MUST_UNLEARN_WEAPON)
                     player->SEND_GOSSIP_MENU(player->GetGossipTextId(creature), creature->GetGUID());
                 }
-                else if (EquippedOk(player, S_UNLEARN_WEAPON))
-                {
-                    if (player->HasEnoughMoney(DoLowUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_WEAPON, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_WEAPON);
-                        player->ModifyMoney(-DoLowUnlearnCost(player));
-                        creature->CastSpell(player, S_REP_ARMOR, true);
-                        player->CLOSE_GOSSIP_MENU();
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                }
                 else
-                {
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                    player->CLOSE_GOSSIP_MENU();
-                }
+                    ProcessUnlearnAction(player, creature, S_UNLEARN_WEAPON, S_REP_ARMOR, DoLowUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 4:
-                if (EquippedOk(player, S_UNLEARN_ARMOR))
-                {
-                    if (player->HasEnoughMoney(DoLowUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_ARMOR, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_ARMOR);
-                        player->ModifyMoney(-DoLowUnlearnCost(player));
-                        creature->CastSpell(player, S_REP_WEAPON, true);
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_ARMOR, S_REP_WEAPON, DoLowUnlearnCost(player));
                 break;
                 //Learn Hammer/Axe/Sword
             case GOSSIP_ACTION_INFO_DEF + 5:
@@ -693,46 +663,13 @@ public:
                 break;
                 //Unlearn Hammer/Axe/Sword
             case GOSSIP_ACTION_INFO_DEF + 8:
-                if (EquippedOk(player, S_UNLEARN_HAMMER))
-                {
-                    if (player->HasEnoughMoney(DoMedUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_HAMMER, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_HAMMER);
-                        player->ModifyMoney(-DoMedUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_HAMMER, 0, DoMedUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 9:
-                if (EquippedOk(player, S_UNLEARN_AXE))
-                {
-                    if (player->HasEnoughMoney(DoMedUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_AXE, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_AXE);
-                        player->ModifyMoney(-DoMedUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_AXE, 0, DoMedUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 10:
-                if (EquippedOk(player, S_UNLEARN_SWORD))
-                {
-                    if (player->HasEnoughMoney(DoMedUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_SWORD, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_SWORD);
-                        player->ModifyMoney(-DoMedUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_SWORD, 0, DoMedUnlearnCost(player));
                 break;
         }
     }
@@ -1003,46 +940,13 @@ public:
                 break;
                 //Unlearn Leather
             case GOSSIP_ACTION_INFO_DEF + 1:
-                if (EquippedOk(player, S_UNLEARN_DRAGON))
-                {
-                    if (player->HasEnoughMoney(DoMedUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_DRAGON, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_DRAGON);
-                        player->ModifyMoney(-DoMedUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_DRAGON, 0, DoMedUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 2:
-                if (EquippedOk(player, S_UNLEARN_ELEMENTAL))
-                {
-                    if (player->HasEnoughMoney(DoMedUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_ELEMENTAL, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_ELEMENTAL);
-                        player->ModifyMoney(-DoMedUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_ELEMENTAL, 0, DoMedUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 3:
-                if (EquippedOk(player, S_UNLEARN_TRIBAL))
-                {
-                    if (player->HasEnoughMoney(DoMedUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_TRIBAL, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_TRIBAL);
-                        player->ModifyMoney(-DoMedUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_TRIBAL, 0, DoMedUnlearnCost(player));
                 break;
         }
     }
@@ -1160,74 +1064,23 @@ public:
                 break;
                 //Learn Tailor
             case GOSSIP_ACTION_INFO_DEF + 1:
-                if (!player->HasSpell(S_SPELLFIRE) && player->HasEnoughMoney(DoLearnCost(player)))
-                {
-                    player->CastSpell(player, S_LEARN_SPELLFIRE, true);
-                    player->ModifyMoney(-DoLearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, S_SPELLFIRE, S_LEARN_SPELLFIRE, DoLearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 2:
-                if (!player->HasSpell(S_MOONCLOTH) && player->HasEnoughMoney(DoLearnCost(player)))
-                {
-                    player->CastSpell(player, S_LEARN_MOONCLOTH, true);
-                    player->ModifyMoney(-DoLearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, S_MOONCLOTH, S_LEARN_MOONCLOTH, DoLearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 3:
-                if (!player->HasSpell(S_SHADOWEAVE) && player->HasEnoughMoney(DoLearnCost(player)))
-                {
-                    player->CastSpell(player, S_LEARN_SHADOWEAVE, true);
-                    player->ModifyMoney(-DoLearnCost(player));
-                } else
-                    player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessCastAction(player, creature, S_SHADOWEAVE, S_LEARN_SHADOWEAVE, DoLearnCost(player));
                 break;
                 //Unlearn Tailor
             case GOSSIP_ACTION_INFO_DEF + 4:
-                if (EquippedOk(player, S_UNLEARN_SPELLFIRE))
-                {
-                    if (player->HasEnoughMoney(DoHighUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_SPELLFIRE, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_SPELLFIRE);
-                        player->ModifyMoney(-DoHighUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_SPELLFIRE, 0, DoHighUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 5:
-                if (EquippedOk(player, S_UNLEARN_MOONCLOTH))
-                {
-                    if (player->HasEnoughMoney(DoHighUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_MOONCLOTH, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_MOONCLOTH);
-                        player->ModifyMoney(-DoHighUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_MOONCLOTH, 0, DoHighUnlearnCost(player));
                 break;
             case GOSSIP_ACTION_INFO_DEF + 6:
-                if (EquippedOk(player, S_UNLEARN_SHADOWEAVE))
-                {
-                    if (player->HasEnoughMoney(DoHighUnlearnCost(player)))
-                    {
-                        player->CastSpell(player, S_UNLEARN_SHADOWEAVE, true);
-                        ProfessionUnlearnSpells(player, S_UNLEARN_SHADOWEAVE);
-                        player->ModifyMoney(-DoHighUnlearnCost(player));
-                    } else
-                        player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
-                } else
-                    player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, NULL, NULL);
-                player->CLOSE_GOSSIP_MENU();
+                ProcessUnlearnAction(player, creature, S_UNLEARN_SHADOWEAVE, 0, DoHighUnlearnCost(player));
                 break;
         }
     }

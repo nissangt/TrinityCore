@@ -47,6 +47,7 @@ EndContentData */
 #include "ObjectMgr.h"
 #include "ScriptMgr.h"
 #include "World.h"
+#include "MoneyLog.h"
 
 /*########
 # npc_air_force_bots
@@ -1320,7 +1321,7 @@ public:
                     }
                     else
                     {
-                        player->ModifyMoney(-10000000);
+                        sMoneyLog->LogMoney(player, MLE_NPC, -10000000, "buy dualspec (npc: %u)", creature->GetGUIDLow());
 
                         // Cast spells that teach dual spec
                         // Both are also ImplicitTarget self and must be cast by player
@@ -1894,7 +1895,7 @@ public:
                         }
                     }
                 }
-  
+
                 DoCast(me, SPELL_SPRING_RABBIT_JUMP);
 
                 uiCheckTimer = urand(5000, 8000);
@@ -2612,7 +2613,7 @@ public:
         return true;
     }
 
-    bool OnGossipSelect(Player* player, Creature* /*creature*/, uint32 /*uiSender*/, uint32 uiAction)
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*uiSender*/, uint32 uiAction)
     {
         player->PlayerTalkClass->ClearMenus();
         bool noXPGain = player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_NO_XP_GAIN);
@@ -2639,12 +2640,12 @@ public:
                 player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, 0, 0, 0);
             else if (noXPGain)
             {
-                player->ModifyMoney(-EXP_COST);
+                sMoneyLog->LogMoney(player, MLE_NPC, -EXP_COST, "enable xp gain (npc: %u)", creature->GetGUIDLow());
                 player->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAGS_NO_XP_GAIN);
             }
             else if (!noXPGain)
             {
-                player->ModifyMoney(-EXP_COST);
+                sMoneyLog->LogMoney(player, MLE_NPC, -EXP_COST, "disable xp gain (npc: %u)", creature->GetGUIDLow());
                 player->SetFlag(PLAYER_FLAGS, PLAYER_FLAGS_NO_XP_GAIN);
             }
         }

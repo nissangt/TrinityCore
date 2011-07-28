@@ -24,6 +24,7 @@
 #include "Config.h"
 #include "SocialMgr.h"
 #include "Log.h"
+#include "MoneyLog.h"
 
 #define MAX_GUILD_BANK_TAB_TEXT_LEN 500
 #define EMBLEM_PRICE 10 * GOLD
@@ -1299,7 +1300,7 @@ void Guild::HandleSetEmblem(WorldSession* session, const EmblemInfo& emblemInfo)
         SendSaveEmblemResult(session, ERR_GUILDEMBLEM_NOTENOUGHMONEY);
     else
     {
-        player->ModifyMoney(-int32(EMBLEM_PRICE));
+        sMoneyLog->LogMoney(player, MLE_NPC, -int32(EMBLEM_PRICE), "buy guild emblem (guild id: %u)", player->GetGuildId());
 
         m_emblemInfo = emblemInfo;
         m_emblemInfo.SaveToDB(m_id);
@@ -1396,7 +1397,8 @@ void Guild::HandleBuyBankTab(WorldSession* session, uint8 tabId)
     if (!_CreateNewBankTab())
         return;
 
-    player->ModifyMoney(-int32(tabCost));
+    sMoneyLog->LogMoney(player, MLE_NPC, -int32(tabCost), "buy guild bank tab (guild id: %u, tab: %u)", m_id, tabId);
+
     _SetRankBankMoneyPerDay(player->GetRank(), uint32(GUILD_WITHDRAW_MONEY_UNLIMITED));
     _SetRankBankTabRightsAndSlots(player->GetRank(), tabId, GuildBankRightsAndSlots(GUILD_BANK_RIGHT_FULL, uint32(GUILD_WITHDRAW_SLOT_UNLIMITED)));
     HandleRoster();                                         // Broadcast for tab rights update
@@ -1627,7 +1629,7 @@ void Guild::HandleMemberDepositMoney(WorldSession* session, uint32 amount)
     // Add money to bank
     _ModifyBankMoney(trans, amount, true);
     // Remove money from player
-    player->ModifyMoney(-int32(amount));
+    sMoneyLog->LogMoney(player, MLE_GUILDBANK, -int32(amount), "deposit (guild id: %u)", m_id);
     player->SaveGoldToDB(trans);
     // Log GM action (TODO: move to scripts)
     if (player->GetSession()->GetSecurity() > SEC_PLAYER && sWorld->getBoolConfig(CONFIG_GM_LOG_TRADE))
@@ -1678,7 +1680,7 @@ bool Guild::HandleMemberWithdrawMoney(WorldSession* session, uint32 amount, bool
     // Add money to player (if required)
     if (!repair)
     {
-        player->ModifyMoney(amount);
+        sMoneyLog->LogMoney(player, MLE_GUILDBANK, amount, "withdraw (guild id: %u)", m_id);
         player->SaveGoldToDB(trans);
     }
     // Log guild bank event

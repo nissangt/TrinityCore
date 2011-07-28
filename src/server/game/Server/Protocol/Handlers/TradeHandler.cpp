@@ -28,6 +28,7 @@
 #include "Spell.h"
 #include "SocialMgr.h"
 #include "Language.h"
+#include "MoneyLog.h"
 
 void WorldSession::SendTradeStatus(TradeStatus status)
 {
@@ -476,10 +477,9 @@ void WorldSession::HandleAcceptTradeOpcode(WorldPacket& /*recvPacket*/)
         }
 
         // update money
-        _player->ModifyMoney(-int32(my_trade->GetMoney()));
-        _player->ModifyMoney(his_trade->GetMoney());
-        trader->ModifyMoney(-int32(his_trade->GetMoney()));
-        trader->ModifyMoney(my_trade->GetMoney());
+        int32 diff = int32(my_trade->GetMoney()) - int32(his_trade->GetMoney());
+        sMoneyLog->LogMoney(_player, MLE_TRADE, -diff, "trade (trader: %u)",  trader->GetGUIDLow());
+        sMoneyLog->LogMoney( trader, MLE_TRADE,  diff, "trade (trader: %u)", _player->GetGUIDLow());
 
         if (my_spell)
             my_spell->prepare(&my_targets);

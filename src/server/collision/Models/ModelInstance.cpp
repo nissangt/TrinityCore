@@ -21,53 +21,48 @@
 #include "MapTree.h"
 #include "VMapDefinitions.h"
 
-using G3D::Vector3;
-using G3D::Ray;
-
 namespace VMAP
 {
-    ModelInstance::ModelInstance(const ModelSpawn &spawn, WorldModel *model): ModelSpawn(spawn), iModel(model)
+    ModelInstance::ModelInstance(const ModelSpawn& spawn, WorldModel* model): ModelSpawn(spawn), _model(model)
     {
-        iInvRot = G3D::Matrix3::fromEulerAnglesZYX(G3D::pi()*iRot.y/180.f, G3D::pi()*iRot.x/180.f, G3D::pi()*iRot.z/180.f).inverse();
-        iInvScale = 1.f/iScale;
+        _invRotation = G3D::Matrix3::fromEulerAnglesZYX(G3D::pi() * _rotation.y / 180.f,
+                                                        G3D::pi() * _rotation.x / 180.f,
+                                                        G3D::pi() * _rotation.z / 180.f).inverse();
+        _invScale = 1.0f / _scale;
     }
 
-    bool ModelInstance::intersectRay(const G3D::Ray& pRay, float& pMaxDist, bool pStopAtFirstHit) const
+    bool ModelInstance::IntersectRay(const G3D::Ray& ray, float& maxDist, bool stopAtFirstHit) const
     {
-        if (!iModel)
-        {
-            //std::cout << "<object not loaded>\n";
+        if (!_model)
             return false;
-        }
-        float time = pRay.intersectionTime(iBound);
-        if (time == G3D::inf())
-        {
-//            std::cout << "Ray does not hit '" << name << "'\n";
 
+        float time = ray.intersectionTime(_bounds);
+        if (time == G3D::inf())
             return false;
-        }
+
 //        std::cout << "Ray crosses bound of '" << name << "'\n";
 /*        std::cout << "ray from:" << pRay.origin().x << ", " << pRay.origin().y << ", " << pRay.origin().z
                   << " dir:" << pRay.direction().x << ", " << pRay.direction().y << ", " << pRay.direction().z
                   << " t/tmax:" << time << "/" << pMaxDist;
         std::cout << "\nBound lo:" << iBound.low().x << ", " << iBound.low().y << ", " << iBound.low().z << " hi: "
                   << iBound.high().x << ", " << iBound.high().y << ", " << iBound.high().z << std::endl; */
+
         // child bounds are defined in object space:
-        Vector3 p = iInvRot * (pRay.origin() - iPos) * iInvScale;
-        Ray modRay(p, iInvRot * pRay.direction());
-        float distance = pMaxDist * iInvScale;
-        bool hit = iModel->IntersectRay(modRay, distance, pStopAtFirstHit);
-        if(hit)
+        G3D::Vector3 p = _invRotation * (ray.origin() - _pos) * _invScale;
+        G3D::Ray modRay(p, _invRotation * ray.direction());
+        float distance = maxDist * _invScale;
+        bool hit = _model->IntersectRay(modRay, distance, stopAtFirstHit);
+        if (hit)
         {
-            distance *= iScale;
-            pMaxDist = distance;
+            distance *= _scale;
+            maxDist = distance;
         }
         return hit;
     }
 
-    void ModelInstance::intersectPoint(const G3D::Vector3& p, AreaInfo &info) const
+    void ModelInstance::IntersectPoint(const G3D::Vector3& p, AreaInfo& info) const
     {
-        if (!iModel)
+        if (!_model)
         {
 #ifdef VMAP_DEBUG
             std::cout << "<object not loaded>\n";
@@ -76,32 +71,33 @@ namespace VMAP
         }
 
         // M2 files don't contain area info, only WMO files
-        if (flags & MOD_M2)
+        if (_flags & MOD_M2)
             return;
-        if (!iBound.contains(p))
+        if (!_bounds.contains(p))
             return;
+
         // child bounds are defined in object space:
-        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
+        G3D::Vector3 posModel = _invRotation * (p - _pos) * _invScale;
+        G3D::Vector3 zDirModel = _invRotation * G3D::Vector3(0.f, 0.f, -1.f);
         float zDist;
-        if (iModel->IntersectPoint(pModel, zDirModel, zDist, info))
+        if (_model->IntersectPoint(posModel, zDirModel, zDist, info))
         {
-            Vector3 modelGround = pModel + zDist * zDirModel;
+            G3D::Vector3 modelGround = posModel + zDist * zDirModel;
             // Transform back to world space. Note that:
             // Mat * vec == vec * Mat.transpose()
             // and for rotation matrices: Mat.inverse() == Mat.transpose()
-            float world_Z = ((modelGround * iInvRot) * iScale + iPos).z;
-            if (info.ground_Z < world_Z)
+            float worldZ = ((modelGround * _invRotation) * _scale + _pos).z;
+            if (info._groundZ < worldZ)
             {
-                info.ground_Z = world_Z;
-                info.adtId = adtId;
+                info._groundZ = worldZ;
+                info._adtId = _adtId;
             }
         }
     }
 
-    bool ModelInstance::GetLocationInfo(const G3D::Vector3& p, LocationInfo &info) const
+    bool ModelInstance::GetLocationInfo(const G3D::Vector3& p, LocationInfo& info) const
     {
-        if (!iModel)
+        if (!_model)
         {
 #ifdef VMAP_DEBUG
             std::cout << "<object not loaded>\n";
@@ -110,51 +106,51 @@ namespace VMAP
         }
 
         // M2 files don't contain area info, only WMO files
-        if (flags & MOD_M2)
+        if (_flags & MOD_M2)
             return false;
-        if (!iBound.contains(p))
+        if (!_bounds.contains(p))
             return false;
         // child bounds are defined in object space:
-        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
+        G3D::Vector3 posModel = _invRotation * (p - _pos) * _invScale;
+        G3D::Vector3 zDirModel = _invRotation * G3D::Vector3(0.0f, 0.0f, -1.0f);
         float zDist;
-        if (iModel->GetLocationInfo(pModel, zDirModel, zDist, info))
+        if (_model->GetLocationInfo(posModel, zDirModel, zDist, info))
         {
-            Vector3 modelGround = pModel + zDist * zDirModel;
+            G3D::Vector3 modelGround = posModel + zDist * zDirModel;
             // Transform back to world space. Note that:
             // Mat * vec == vec * Mat.transpose()
             // and for rotation matrices: Mat.inverse() == Mat.transpose()
-            float world_Z = ((modelGround * iInvRot) * iScale + iPos).z;
-            if (info.ground_Z < world_Z) // hm...could it be handled automatically with zDist at intersection?
+            float worldZ = ((modelGround * _invRotation) * _scale + _pos).z;
+            if (info._groundZ < worldZ) // hm...could it be handled automatically with zDist at intersection?
             {
-                info.ground_Z = world_Z;
-                info.hitInstance = this;
+                info._groundZ = worldZ;
+                info._hitInstance = this;
                 return true;
             }
         }
         return false;
     }
 
-    bool ModelInstance::GetLiquidLevel(const G3D::Vector3& p, LocationInfo &info, float &liqHeight) const
+    bool ModelInstance::GetLiquidLevel(const G3D::Vector3& p, LocationInfo& info, float& liqHeight) const
     {
         // child bounds are defined in object space:
-        Vector3 pModel = iInvRot * (p - iPos) * iInvScale;
-        //Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
+        G3D::Vector3 posModel = _invRotation * (p - _pos) * _invScale;
+        // G3D::Vector3 zDirModel = iInvRot * Vector3(0.f, 0.f, -1.f);
         float zDist;
-        if (info.hitModel->GetLiquidLevel(pModel, zDist))
+        if (info._hitModel->GetLiquidLevel(posModel, zDist))
         {
             // calculate world height (zDist in model coords):
             // assume WMO not tilted (wouldn't make much sense anyway)
-            liqHeight = zDist * iScale + iPos.z;
+            liqHeight = zDist * _scale + _pos.z;
             return true;
         }
         return false;
     }
 
-    bool ModelSpawn::readFromFile(FILE *rf, ModelSpawn &spawn)
+    bool ModelSpawn::ReadFromFile(FILE* rf, ModelSpawn& spawn)
     {
-        uint32 check = 0, nameLen;
-        check += fread(&spawn.flags, sizeof(uint32), 1, rf);
+        uint32 check = 0;
+        check += fread(&spawn._flags, sizeof(uint32), 1, rf);
         // EoF?
         if (!check)
         {
@@ -162,21 +158,23 @@ namespace VMAP
                 std::cout << "Error reading ModelSpawn!\n";
             return false;
         }
-        check += fread(&spawn.adtId, sizeof(uint16), 1, rf);
-        check += fread(&spawn.ID, sizeof(uint32), 1, rf);
-        check += fread(&spawn.iPos, sizeof(float), 3, rf);
-        check += fread(&spawn.iRot, sizeof(float), 3, rf);
-        check += fread(&spawn.iScale, sizeof(float), 1, rf);
-        bool has_bound = (spawn.flags & MOD_HAS_BOUND);
-        if (has_bound) // only WMOs have bound in MPQ, only available after computation
+        check += fread(&spawn._adtId, sizeof(uint16), 1, rf);
+        check += fread(&spawn._id, sizeof(uint32), 1, rf);
+        check += fread(&spawn._pos, sizeof(float), 3, rf);
+        check += fread(&spawn._rotation, sizeof(float), 3, rf);
+        check += fread(&spawn._scale, sizeof(float), 1, rf);
+        bool hasBounds = (spawn._flags & MOD_HAS_BOUND);
+        if (hasBounds) // only WMOs have bound in MPQ, only available after computation
         {
-            Vector3 bLow, bHigh;
-            check += fread(&bLow, sizeof(float), 3, rf);
-            check += fread(&bHigh, sizeof(float), 3, rf);
-            spawn.iBound = G3D::AABox(bLow, bHigh);
+            G3D::Vector3 low;
+            check += fread(&low, sizeof(float), 3, rf);
+            G3D::Vector3 high;
+            check += fread(&high, sizeof(float), 3, rf);
+            spawn._bounds = G3D::AABox(low, high);
         }
+        uint32 nameLen;
         check += fread(&nameLen, sizeof(uint32), 1, rf);
-        if (check != uint32(has_bound ? 17 : 11))
+        if (check != uint32(hasBounds ? 17 : 11))
         {
             std::cout << "Error reading ModelSpawn!\n";
             return false;
@@ -193,31 +191,32 @@ namespace VMAP
             std::cout << "Error reading ModelSpawn!\n";
             return false;
         }
-        spawn.name = std::string(nameBuff, nameLen);
+        spawn._name = std::string(nameBuff, nameLen);
         return true;
     }
 
-    bool ModelSpawn::writeToFile(FILE *wf, const ModelSpawn &spawn)
+    bool ModelSpawn::WriteToFile(FILE* wf, const ModelSpawn& spawn)
     {
-        uint32 check=0;
-        check += fwrite(&spawn.flags, sizeof(uint32), 1, wf);
-        check += fwrite(&spawn.adtId, sizeof(uint16), 1, wf);
-        check += fwrite(&spawn.ID, sizeof(uint32), 1, wf);
-        check += fwrite(&spawn.iPos, sizeof(float), 3, wf);
-        check += fwrite(&spawn.iRot, sizeof(float), 3, wf);
-        check += fwrite(&spawn.iScale, sizeof(float), 1, wf);
-        bool has_bound = (spawn.flags & MOD_HAS_BOUND);
-        if (has_bound) // only WMOs have bound in MPQ, only available after computation
+        uint32 check = 0;
+        check += fwrite(&spawn._flags, sizeof(uint32), 1, wf);
+        check += fwrite(&spawn._adtId, sizeof(uint16), 1, wf);
+        check += fwrite(&spawn._id, sizeof(uint32), 1, wf);
+        check += fwrite(&spawn._pos, sizeof(float), 3, wf);
+        check += fwrite(&spawn._rotation, sizeof(float), 3, wf);
+        check += fwrite(&spawn._scale, sizeof(float), 1, wf);
+        bool hasBounds = (spawn._flags & MOD_HAS_BOUND);
+        if (hasBounds) // only WMOs have bound in MPQ, only available after computation
         {
-            check += fwrite(&spawn.iBound.low(), sizeof(float), 3, wf);
-            check += fwrite(&spawn.iBound.high(), sizeof(float), 3, wf);
+            check += fwrite(&spawn._bounds.low(), sizeof(float), 3, wf);
+            check += fwrite(&spawn._bounds.high(), sizeof(float), 3, wf);
         }
-        uint32 nameLen = spawn.name.length();
+        uint32 nameLen = spawn._name.length();
         check += fwrite(&nameLen, sizeof(uint32), 1, wf);
-        if (check != uint32(has_bound ? 17 : 11)) return false;
-        check = fwrite(spawn.name.c_str(), sizeof(char), nameLen, wf);
-        if (check != nameLen) return false;
+        if (check != uint32(hasBounds ? 17 : 11))
+            return false;
+        check = fwrite(spawn._name.c_str(), sizeof(char), nameLen, wf);
+        if (check != nameLen)
+            return false;
         return true;
     }
-
 }

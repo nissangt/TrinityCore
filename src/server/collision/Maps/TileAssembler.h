@@ -31,58 +31,60 @@ namespace VMAP
     This Class is used to convert raw vector data into balanced BSP-Trees.
     To start the conversion call convertWorld().
     */
-    //===============================================
-
     class ModelPosition
     {
-        private:
-            G3D::Matrix3 iRotation;
-        public:
-            G3D::Vector3 iPos;
-            G3D::Vector3 iDir;
-            float iScale;
-            void init()
-            {
-                iRotation = G3D::Matrix3::fromEulerAnglesZYX(G3D::pi()*iDir.y/180.f, G3D::pi()*iDir.x/180.f, G3D::pi()*iDir.z/180.f);
-            }
-            G3D::Vector3 transform(const G3D::Vector3& pIn) const;
-            void moveToBasePos(const G3D::Vector3& pBasePos) { iPos -= pBasePos; }
+    private:
+        G3D::Matrix3 _rotation;
+
+    public:
+        G3D::Vector3 _pos;
+        G3D::Vector3 _dir;
+        float _scale;
+
+        void Init()
+        {
+            _rotation = G3D::Matrix3::fromEulerAnglesZYX(G3D::pi() * _dir.y / 180.f,
+                                                         G3D::pi() * _dir.x / 180.f,
+                                                         G3D::pi() * _dir.z / 180.f);
+        }
+        G3D::Vector3 Transform(const G3D::Vector3& v) const;
+        void MoveToBasePos(const G3D::Vector3& basePos) { _pos -= basePos; }
     };
 
     typedef std::map<uint32, ModelSpawn> UniqueEntryMap;
     typedef std::multimap<uint32, uint32> TileMap;
+    typedef bool (*FilterMethod)(char*);
 
     struct MapSpawns
     {
-        UniqueEntryMap UniqueEntries;
-        TileMap TileEntries;
+        UniqueEntryMap _entries;
+        TileMap _tiles;
     };
 
     typedef std::map<uint32, MapSpawns*> MapData;
-    //===============================================
 
     class TileAssembler
     {
-        private:
-            std::string iDestDir;
-            std::string iSrcDir;
-            bool (*iFilterMethod)(char *pName);
-            G3D::Table<std::string, unsigned int > iUniqueNameIds;
-            unsigned int iCurrentUniqueNameId;
-            MapData mapData;
+    private:
+        std::string _destDir;
+        std::string _srcDir;
+        FilterMethod* _filterMethod;
+        G3D::Table<std::string, uint32> _uniqueIds;
+        uint32 _currentId;
+        MapData _mapData;
 
-        public:
-            TileAssembler(const std::string& pSrcDirName, const std::string& pDestDirName);
-            virtual ~TileAssembler();
+    public:
+        TileAssembler(const std::string& srcDir, const std::string& destDir);
+        virtual ~TileAssembler();
 
-            bool convertWorld2();
-            bool readMapSpawns();
-            bool calculateTransformedBound(ModelSpawn &spawn);
+        bool ConvertWorld2();
+        bool ReadMapSpawns();
+        bool CalculateTransformedBound(ModelSpawn& spawn);
+        bool ConvertRawFile(const std::string& fileName);
 
-            bool convertRawFile(const std::string& pModelFilename);
-            void setModelNameFilterMethod(bool (*pFilterMethod)(char *pName)) { iFilterMethod = pFilterMethod; }
-            std::string getDirEntryNameFromModName(unsigned int pMapId, const std::string& pModPosName);
+        void SetModelNameFilterMethod(FilterMethod* filterMethod) { _filterMethod = filterMethod; }
+        std::string GetDirEntryNameFromModName(uint32 mapId, const std::string& modName);
     };
-
 }                                                           // VMAP
+
 #endif                                                      /*_TILEASSEMBLER_H_*/

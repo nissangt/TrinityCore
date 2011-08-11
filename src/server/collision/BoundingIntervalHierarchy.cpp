@@ -18,108 +18,112 @@
 
 #include "BoundingIntervalHierarchy.h"
 
-void BIH::buildHierarchy(std::vector<uint32> &tempTree, buildData &dat, BuildStats &stats)
+void BIH::_BuildHierarchy(std::vector<uint32>& tree, BuildData& data, BuildStats& stats)
 {
     // create space for the first node
-    tempTree.push_back(uint32(3 << 30)); // dummy leaf
-    tempTree.insert(tempTree.end(), 2, 0);
+    tree.push_back(uint32(3 << 30)); // dummy leaf
+    tree.insert(tree.end(), 2, 0);
     //tempTree.add(0);
 
     // seed bbox
-    AABound gridBox = { bounds.low(), bounds.high() };
+    AABound gridBox = { _bounds.low(), _bounds.high() };
     AABound nodeBox = gridBox;
     // seed subdivide function
-    subdivide(0, dat.numPrims - 1, tempTree, dat, gridBox, nodeBox, 0, 1, stats);
+    _SubDivide(0, data._count - 1, tree, data, gridBox, nodeBox, 0, 1, stats);
 }
 
-void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildData &dat, AABound &gridBox, AABound &nodeBox, int nodeIndex, int depth, BuildStats &stats)
+void BIH::_SubDivide(uint32 left, uint32 right, std::vector<uint32>& tree, BuildData& data, AABound& gridBox, AABound& nodeBox, uint32 nodeIndex, uint32 depth, BuildStats& stats)
 {
-    if ((right - left + 1) <= dat.maxPrims || depth >= MAX_STACK_SIZE)
+    if ((right - left + 1) <= data._maxPrims || depth >= MAX_STACK_SIZE)
     {
         // write leaf node
-        stats.updateLeaf(depth, right - left + 1);
-        createNode(tempTree, nodeIndex, left, right);
+        stats.UpdateLeaf(depth, right - left + 1);
+        _CreateNode(tree, nodeIndex, left, right);
         return;
     }
     // calculate extents
-    int axis = -1, prevAxis, rightOrig;
-    float clipL = G3D::fnan(), clipR = G3D::fnan(), prevClip = G3D::fnan();
-    float split = G3D::fnan(), prevSplit;
+    int axis = -1;
+    int prevAxis;
+    uint32 rightOrig;
+    float clipLeft = G3D::fnan();
+    float clipRight = G3D::fnan();
+    float prevClip = G3D::fnan();
+    float split = G3D::fnan();
+    float prevSplit;
+
     bool wasLeft = true;
     while (true)
     {
         prevAxis = axis;
         prevSplit = split;
         // perform quick consistency checks
-        Vector3 d( gridBox.hi - gridBox.lo );
+        G3D::Vector3 d(gridBox.hi - gridBox.lo);
         if (d.x < 0 || d.y < 0 || d.z < 0)
             throw std::logic_error("negative node extents");
-        for (int i = 0; i < 3; i++)
-        {
+
+        for (uint8 i = 0; i < 3; ++i)
             if (nodeBox.hi[i] < gridBox.lo[i] || nodeBox.lo[i] > gridBox.hi[i])
-            {
-                //UI.printError(Module.ACCEL, "Reached tree area in error - discarding node with: %d objects", right - left + 1);
                 throw std::logic_error("invalid node overlap");
-            }
-        }
+
         // find longest axis
         axis = d.primaryAxis();
         split = 0.5f * (gridBox.lo[axis] + gridBox.hi[axis]);
         // partition L/R subsets
-        clipL = -G3D::inf();
-        clipR = G3D::inf();
+        clipLeft = -G3D::inf();
+        clipRight = G3D::inf();
         rightOrig = right; // save this for later
-        float nodeL = G3D::inf();
-        float nodeR = -G3D::inf();
-        for (int i = left; i <= right;)
+
+        float nodeLeft = G3D::inf();
+        float nodeRight = -G3D::inf();
+        for (uint32 i = left; i <= right; )
         {
-            int obj = dat.indices[i];
-            float minb = dat.primBound[obj].low()[axis];
-            float maxb = dat.primBound[obj].high()[axis];
-            float center = (minb + maxb) * 0.5f;
+            uint32 obj = data._indices[i];
+            float minBound = data._bounds[obj].low() [axis];
+            float maxBound = data._bounds[obj].high()[axis];
+            float center = (minBound + maxBound) * 0.5f;
             if (center <= split)
             {
                 // stay left
-                i++;
-                if (clipL < maxb)
-                    clipL = maxb;
+                ++i;
+                if (clipLeft < maxBound)
+                    clipLeft = maxBound;
             }
             else
             {
                 // move to the right most
-                int t = dat.indices[i];
-                dat.indices[i] = dat.indices[right];
-                dat.indices[right] = t;
-                right--;
-                if (clipR > minb)
-                    clipR = minb;
+                uint32 tmp = data._indices[i];
+                data._indices[i] = data._indices[right];
+                data._indices[right] = tmp;
+                --right;
+                if (clipRight > minBound)
+                    clipRight = minBound;
             }
-            nodeL = std::min(nodeL, minb);
-            nodeR = std::max(nodeR, maxb);
+            nodeLeft  = std::min(nodeLeft,  minBound);
+            nodeRight = std::max(nodeRight, maxBound);
         }
         // check for empty space
-        if (nodeL > nodeBox.lo[axis] && nodeR < nodeBox.hi[axis])
+        if (nodeLeft > nodeBox.lo[axis] && nodeRight < nodeBox.hi[axis])
         {
             float nodeBoxW = nodeBox.hi[axis] - nodeBox.lo[axis];
-            float nodeNewW = nodeR - nodeL;
+            float nodeNewW = nodeRight - nodeLeft;
             // node box is too big compare to space occupied by primitives?
             if (1.3f * nodeNewW < nodeBoxW)
             {
-                stats.updateBVH2();
-                int nextIndex = tempTree.size();
+                stats.IncBvh2Count();
+                uint32 nextIndex = tree.size();
                 // allocate child
-                tempTree.push_back(0);
-                tempTree.push_back(0);
-                tempTree.push_back(0);
+                tree.push_back(0);
+                tree.push_back(0);
+                tree.push_back(0);
                 // write bvh2 clip node
-                stats.updateInner();
-                tempTree[nodeIndex + 0] = (axis << 30) | (1 << 29) | nextIndex;
-                tempTree[nodeIndex + 1] = floatToRawIntBits(nodeL);
-                tempTree[nodeIndex + 2] = floatToRawIntBits(nodeR);
+                stats.IncNodesCount();
+                tree[nodeIndex + 0] = (axis << 30) | (1 << 29) | nextIndex;
+                tree[nodeIndex + 1] = FloatToInt(nodeLeft);
+                tree[nodeIndex + 2] = FloatToInt(nodeRight);
                 // update nodebox and recurse
-                nodeBox.lo[axis] = nodeL;
-                nodeBox.hi[axis] = nodeR;
-                subdivide(left, rightOrig, tempTree, dat, gridBox, nodeBox, nextIndex, depth + 1, stats);
+                nodeBox.lo[axis] = nodeLeft;
+                nodeBox.hi[axis] = nodeRight;
+                _SubDivide(left, rightOrig, tree, data, gridBox, nodeBox, nextIndex, depth + 1, stats);
                 return;
             }
         }
@@ -129,14 +133,14 @@ void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildDat
             // all left
             if (prevAxis == axis && G3D::fuzzyEq(prevSplit, split)) {
                 // we are stuck here - create a leaf
-                stats.updateLeaf(depth, right - left + 1);
-                createNode(tempTree, nodeIndex, left, right);
+                stats.UpdateLeaf(depth, right - left + 1);
+                _CreateNode(tree, nodeIndex, left, right);
                 return;
             }
-            if (clipL <= split) {
+            if (clipLeft <= split) {
                 // keep looping on left half
                 gridBox.hi[axis] = split;
-                prevClip = clipL;
+                prevClip = clipLeft;
                 wasLeft = true;
                 continue;
             }
@@ -148,15 +152,15 @@ void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildDat
             // all right
             if (prevAxis == axis && G3D::fuzzyEq(prevSplit, split)) {
                 // we are stuck here - create a leaf
-                stats.updateLeaf(depth, right - left + 1);
-                createNode(tempTree, nodeIndex, left, right);
+                stats.UpdateLeaf(depth, right - left + 1);
+                _CreateNode(tree, nodeIndex, left, right);
                 return;
             }
             right = rightOrig;
-            if (clipR >= split) {
+            if (clipRight >= split) {
                 // keep looping on right half
                 gridBox.lo[axis] = split;
-                prevClip = clipR;
+                prevClip = clipRight;
                 wasLeft = false;
                 continue;
             }
@@ -170,29 +174,32 @@ void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildDat
             {
                 // second time through - lets create the previous split
                 // since it produced empty space
-                int nextIndex = tempTree.size();
+                uint32 nextIndex = tree.size();
                 // allocate child node
-                tempTree.push_back(0);
-                tempTree.push_back(0);
-                tempTree.push_back(0);
-                if (wasLeft) {
+                tree.push_back(0);
+                tree.push_back(0);
+                tree.push_back(0);
+                if (wasLeft)
+                {
                     // create a node with a left child
                     // write leaf node
-                    stats.updateInner();
-                    tempTree[nodeIndex + 0] = (prevAxis << 30) | nextIndex;
-                    tempTree[nodeIndex + 1] = floatToRawIntBits(prevClip);
-                    tempTree[nodeIndex + 2] = floatToRawIntBits(G3D::inf());
-                } else {
+                    stats.IncNodesCount();
+                    tree[nodeIndex + 0] = (prevAxis << 30) | nextIndex;
+                    tree[nodeIndex + 1] = FloatToInt(prevClip);
+                    tree[nodeIndex + 2] = FloatToInt(G3D::inf());
+                }
+                else
+                {
                     // create a node with a right child
                     // write leaf node
-                    stats.updateInner();
-                    tempTree[nodeIndex + 0] = (prevAxis << 30) | (nextIndex - 3);
-                    tempTree[nodeIndex + 1] = floatToRawIntBits(-G3D::inf());
-                    tempTree[nodeIndex + 2] = floatToRawIntBits(prevClip);
+                    stats.IncNodesCount();
+                    tree[nodeIndex + 0] = (prevAxis << 30) | (nextIndex - 3);
+                    tree[nodeIndex + 1] = FloatToInt(-G3D::inf());
+                    tree[nodeIndex + 2] = FloatToInt(prevClip);
                 }
                 // count stats for the unused leaf
-                depth++;
-                stats.updateLeaf(depth, 0);
+                ++depth;
+                stats.UpdateLeaf(depth, 0);
                 // now we keep going as we are, with a new nodeIndex:
                 nodeIndex = nextIndex;
             }
@@ -200,105 +207,112 @@ void BIH::subdivide(int left, int right, std::vector<uint32> &tempTree, buildDat
         }
     }
     // compute index of child nodes
-    int nextIndex = tempTree.size();
+    uint32 nextIndex = tree.size();
     // allocate left node
-    int nl = right - left + 1;
-    int nr = rightOrig - (right + 1) + 1;
-    if (nl > 0) {
-        tempTree.push_back(0);
-        tempTree.push_back(0);
-        tempTree.push_back(0);
-    } else
+    uint32 nl = right - left + 1;
+    uint32 nr = rightOrig - (right + 1) + 1;
+    if (nl > 0)
+    {
+        tree.push_back(0);
+        tree.push_back(0);
+        tree.push_back(0);
+    }
+    else
         nextIndex -= 3;
     // allocate right node
-    if (nr > 0) {
-        tempTree.push_back(0);
-        tempTree.push_back(0);
-        tempTree.push_back(0);
+    if (nr > 0)
+    {
+        tree.push_back(0);
+        tree.push_back(0);
+        tree.push_back(0);
     }
     // write leaf node
-    stats.updateInner();
-    tempTree[nodeIndex + 0] = (axis << 30) | nextIndex;
-    tempTree[nodeIndex + 1] = floatToRawIntBits(clipL);
-    tempTree[nodeIndex + 2] = floatToRawIntBits(clipR);
+    stats.IncNodesCount();
+    tree[nodeIndex + 0] = (axis << 30) | nextIndex;
+    tree[nodeIndex + 1] = FloatToInt(clipLeft);
+    tree[nodeIndex + 2] = FloatToInt(clipRight);
     // prepare L/R child boxes
-    AABound gridBoxL(gridBox), gridBoxR(gridBox);
-    AABound nodeBoxL(nodeBox), nodeBoxR(nodeBox);
-    gridBoxL.hi[axis] = gridBoxR.lo[axis] = split;
-    nodeBoxL.hi[axis] = clipL;
-    nodeBoxR.lo[axis] = clipR;
+    AABound gridBoxLeft(gridBox);
+    AABound gridBoxRight(gridBox);
+    AABound nodeBoxLeft(nodeBox);
+    AABound nodeBoxRight(nodeBox);
+    gridBoxLeft.hi[axis] = gridBoxRight.lo[axis] = split;
+    nodeBoxLeft.hi[axis] = clipLeft;
+    nodeBoxRight.lo[axis] = clipRight;
     // recurse
     if (nl > 0)
-        subdivide(left, right, tempTree, dat, gridBoxL, nodeBoxL, nextIndex, depth + 1, stats);
+        _SubDivide(left, right, tree, data, gridBoxLeft, nodeBoxLeft, nextIndex, depth + 1, stats);
     else
-        stats.updateLeaf(depth + 1, 0);
+        stats.UpdateLeaf(depth + 1, 0);
     if (nr > 0)
-        subdivide(right + 1, rightOrig, tempTree, dat, gridBoxR, nodeBoxR, nextIndex + 3, depth + 1, stats);
+        _SubDivide(right + 1, rightOrig, tree, data, gridBoxRight, nodeBoxRight, nextIndex + 3, depth + 1, stats);
     else
-        stats.updateLeaf(depth + 1, 0);
+        stats.UpdateLeaf(depth + 1, 0);
 }
 
-bool BIH::writeToFile(FILE *wf) const
+bool BIH::WriteToFile(FILE* wf) const
 {
-    uint32 treeSize = tree.size();
-    uint32 check=0, count=0;
-    check += fwrite(&bounds.low(), sizeof(float), 3, wf);
-    check += fwrite(&bounds.high(), sizeof(float), 3, wf);
+    uint32 treeSize = _tree.size();
+    uint32 check = 0;
+    check += fwrite(&_bounds.low(), sizeof(float), 3, wf);
+    check += fwrite(&_bounds.high(), sizeof(float), 3, wf);
     check += fwrite(&treeSize, sizeof(uint32), 1, wf);
-    check += fwrite(&tree[0], sizeof(uint32), treeSize, wf);
-    count = objects.size();
+    check += fwrite(&_tree[0], sizeof(uint32), treeSize, wf);
+    uint32 count = _objects.size();
     check += fwrite(&count, sizeof(uint32), 1, wf);
-    check += fwrite(&objects[0], sizeof(uint32), count, wf);
+    check += fwrite(&_objects[0], sizeof(uint32), count, wf);
     return check == (3 + 3 + 2 + treeSize + count);
 }
 
-bool BIH::readFromFile(FILE *rf)
+bool BIH::ReadFromFile(FILE* rf)
 {
-    uint32 treeSize;
-    Vector3 lo, hi;
-    uint32 check=0, count=0;
+    uint32 check = 0;
+    G3D::Vector3 lo;
     check += fread(&lo, sizeof(float), 3, rf);
+    G3D::Vector3 hi;
     check += fread(&hi, sizeof(float), 3, rf);
-    bounds = AABox(lo, hi);
+    _bounds = G3D::AABox(lo, hi);
+    uint32 treeSize;
     check += fread(&treeSize, sizeof(uint32), 1, rf);
-    tree.resize(treeSize);
-    check += fread(&tree[0], sizeof(uint32), treeSize, rf);
+    _tree.resize(treeSize);
+    check += fread(&_tree[0], sizeof(uint32), treeSize, rf);
+    uint32 count = 0;
     check += fread(&count, sizeof(uint32), 1, rf);
-    objects.resize(count); // = new uint32[nObjects];
-    check += fread(&objects[0], sizeof(uint32), count, rf);
+    _objects.resize(count);
+    check += fread(&_objects[0], sizeof(uint32), count, rf);
     return check == (3 + 3 + 2 + treeSize + count);
 }
 
-void BIH::BuildStats::updateLeaf(int depth, int n)
+void BIH::BuildStats::UpdateLeaf(uint32 depth, uint32 objects)
 {
-    numLeaves++;
-    minDepth = std::min(depth, minDepth);
-    maxDepth = std::max(depth, maxDepth);
-    sumDepth += depth;
-    minObjects = std::min(n, minObjects);
-    maxObjects = std::max(n, maxObjects);
-    sumObjects += n;
-    int nl = std::min(n, 5);
-    ++numLeavesN[nl];
+    ++_leavesCount;
+    _depthMin = std::min(depth, _depthMin);
+    _depthMax = std::max(depth, _depthMax);
+    _depthSum += depth;
+    _objectsMin = std::min(objects, _objectsMin);
+    _objectsMax = std::max(objects, _objectsMax);
+    _objectsSum += objects;
+    uint32 index = std::min(objects, 5U);
+    ++_leavesCountN[index];
 }
 
-void BIH::BuildStats::printStats()
+void BIH::BuildStats::Print()
 {
     printf("Tree stats:\n");
-    printf("  * Nodes:          %d\n", numNodes);
-    printf("  * Leaves:         %d\n", numLeaves);
-    printf("  * Objects: min    %d\n", minObjects);
-    printf("             avg    %.2f\n", (float) sumObjects / numLeaves);
-    printf("           avg(n>0) %.2f\n", (float) sumObjects / (numLeaves - numLeavesN[0]));
-    printf("             max    %d\n", maxObjects);
-    printf("  * Depth:   min    %d\n", minDepth);
-    printf("             avg    %.2f\n", (float) sumDepth / numLeaves);
-    printf("             max    %d\n", maxDepth);
-    printf("  * Leaves w/: N=0  %3d%%\n", 100 * numLeavesN[0] / numLeaves);
-    printf("               N=1  %3d%%\n", 100 * numLeavesN[1] / numLeaves);
-    printf("               N=2  %3d%%\n", 100 * numLeavesN[2] / numLeaves);
-    printf("               N=3  %3d%%\n", 100 * numLeavesN[3] / numLeaves);
-    printf("               N=4  %3d%%\n", 100 * numLeavesN[4] / numLeaves);
-    printf("               N>4  %3d%%\n", 100 * numLeavesN[5] / numLeaves);
-    printf("  * BVH2 nodes:     %d (%3d%%)\n", numBVH2, 100 * numBVH2 / (numNodes + numLeaves - 2 * numBVH2));
+    printf("  * Nodes:          %d\n", _nodesCount);
+    printf("  * Leaves:         %d\n", _leavesCount);
+    printf("  * Objects: min    %d\n", _objectsMin);
+    printf("             avg    %.2f\n", (float) _objectsSum / _leavesCount);
+    printf("           avg(n>0) %.2f\n", (float) _objectsSum / (_leavesCount - _leavesCountN[0]));
+    printf("             max    %d\n", _objectsMax);
+    printf("  * Depth:   min    %d\n", _depthMin);
+    printf("             avg    %.2f\n", (float) _depthSum / _leavesCount);
+    printf("             max    %d\n", _depthMax);
+    printf("  * Leaves w/: N=0  %3d%%\n", 100 * _leavesCountN[0] / _leavesCount);
+    printf("               N=1  %3d%%\n", 100 * _leavesCountN[1] / _leavesCount);
+    printf("               N=2  %3d%%\n", 100 * _leavesCountN[2] / _leavesCount);
+    printf("               N=3  %3d%%\n", 100 * _leavesCountN[3] / _leavesCount);
+    printf("               N=4  %3d%%\n", 100 * _leavesCountN[4] / _leavesCount);
+    printf("               N>4  %3d%%\n", 100 * _leavesCountN[5] / _leavesCount);
+    printf("  * BVH2 nodes:     %d (%3d%%)\n", _bvh2count, 100 * _bvh2count / (_nodesCount + _leavesCount - 2 * _bvh2count));
 }

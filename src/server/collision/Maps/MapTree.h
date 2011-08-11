@@ -31,66 +31,71 @@ namespace VMAP
 
     struct LocationInfo
     {
-        LocationInfo(): hitInstance(0), hitModel(0), ground_Z(-G3D::inf()) {};
-        const ModelInstance *hitInstance;
-        const GroupModel *hitModel;
-        float ground_Z;
+        LocationInfo(): _hitInstance(NULL), _hitModel(NULL), _groundZ(-G3D::inf()) { }
+
+        const ModelInstance* _hitInstance;
+        const GroupModel* _hitModel;
+        float _groundZ;
     };
 
     class StaticMapTree
     {
-        typedef UNORDERED_MAP<uint32, bool> loadedTileMap;
-        typedef UNORDERED_MAP<uint32, uint32> loadedSpawnMap;
-        private:
-            uint32 iMapID;
-            bool iIsTiled;
-            BIH iTree;
-            ModelInstance *iTreeValues; // the tree entries
-            uint32 iNTreeValues;
+        typedef UNORDERED_MAP<uint32, bool> LoadedTiles;
+        typedef UNORDERED_MAP<uint32, uint32> LoadedSpawns;
 
-            // Store all the map tile idents that are loaded for that map
-            // some maps are not splitted into tiles and we have to make sure, not removing the map before all tiles are removed
-            // empty tiles have no tile file, hence map with bool instead of just a set (consistency check)
-            loadedTileMap iLoadedTiles;
-            // stores <tree_index, reference_count> to invalidate tree values, unload map, and to be able to report errors
-            loadedSpawnMap iLoadedSpawns;
-            std::string iBasePath;
+    private:
+        uint32 _mapId;
+        bool _isTiled;
+        BIH _tree;
+        ModelInstance* _values; // the tree entries
+        uint32 _valuesCount;
 
-        private:
-            bool getIntersectionTime(const G3D::Ray& pRay, float &pMaxDist, bool pStopAtFirstHit) const;
-            //bool containsLoadedMapTile(unsigned int pTileIdent) const { return(iLoadedMapTiles.containsKey(pTileIdent)); }
-        public:
-            static std::string getTileFileName(uint32 mapID, uint32 tileX, uint32 tileY);
-            static uint32 packTileID(uint32 tileX, uint32 tileY) { return tileX<<16 | tileY; }
-            static void unpackTileID(uint32 ID, uint32 &tileX, uint32 &tileY) { tileX = ID>>16; tileY = ID&0xFF; }
-            static bool CanLoadMap(const std::string &basePath, uint32 mapID, uint32 tileX, uint32 tileY);
+        // Store all the map tile idents that are loaded for that map
+        // some maps are not splitted into tiles and we have to make sure, not removing the map before all tiles are removed
+        // empty tiles have no tile file, hence map with bool instead of just a set (consistency check)
+        LoadedTiles _loadedTiles;
+        // stores <tree_index, reference_count> to invalidate tree values, unload map, and to be able to report errors
+        LoadedSpawns _loadedSpawns;
+        std::string _basePath;
 
-            StaticMapTree(uint32 mapID, const std::string &basePath);
-            ~StaticMapTree();
+    private:
+        bool _GetIntersectionTime(const G3D::Ray& ray, float& maxDist, bool stopAtFirstHit) const;
 
-            bool isInLineOfSight(const G3D::Vector3& pos1, const G3D::Vector3& pos2) const;
-            bool getObjectHitPos(const G3D::Vector3& pos1, const G3D::Vector3& pos2, G3D::Vector3& pResultHitPos, float pModifyDist) const;
-            float getHeight(const G3D::Vector3& pPos, float maxSearchDist) const;
-            bool getAreaInfo(G3D::Vector3 &pos, uint32 &flags, int32 &adtId, int32 &rootId, int32 &groupId) const;
-            bool GetLocationInfo(const Vector3 &pos, LocationInfo &info) const;
+    public:
+        static std::string GetFileName(uint32 mapId, uint32 tileX, uint32 tileY);
+        static uint32 PackTileId(uint32 tileX, uint32 tileY) { return tileX << 16 | tileY; }
+        static void UnpackTileId(uint32 tileId, uint32& tileX, uint32& tileY) { tileX = tileId >> 16; tileY = tileId & 0xFF; }
+        static bool CanLoadMap(const std::string& basePath, uint32 mapId, uint32 tileX, uint32 tileY);
 
-            bool InitMap(const std::string &fname, VMapManager2 *vm);
-            void UnloadMap(VMapManager2 *vm);
-            bool LoadMapTile(uint32 tileX, uint32 tileY, VMapManager2 *vm);
-            void UnloadMapTile(uint32 tileX, uint32 tileY, VMapManager2 *vm);
-            bool isTiled() const { return iIsTiled; }
-            uint32 numLoadedTiles() const { return iLoadedTiles.size(); }
+    public:
+        StaticMapTree(uint32 mapId, const std::string& basePath);
+        ~StaticMapTree();
+
+        bool IsInLoS(const G3D::Vector3& pos1, const G3D::Vector3& pos2) const;
+        bool GetObjectHitPos(const G3D::Vector3& pos1, const G3D::Vector3& pos2, G3D::Vector3& hitPos, float modifyDist) const;
+        float GetHeight(const G3D::Vector3& pos, float maxDist) const;
+        bool GetAreaInfo(G3D::Vector3& pos, uint32& flags, int32& adtId, int32& rootId, int32& groupId) const;
+        bool GetLocationInfo(const G3D::Vector3& pos, LocationInfo& info) const;
+
+        bool InitMap(const std::string& fileName, VMapManager2* vm);
+        void UnloadMap(VMapManager2* vm);
+        bool LoadMapTile(uint32 tileX, uint32 tileY, VMapManager2* vm);
+        void UnloadMapTile(uint32 tileX, uint32 tileY, VMapManager2* vm);
+
+        bool IsTiled() const { return _isTiled; }
+        uint32 GetLoadedTilesCount() const { return _loadedTiles.size(); }
     };
 
     struct AreaInfo
     {
-        AreaInfo(): result(false), ground_Z(-G3D::inf()) {};
-        bool result;
-        float ground_Z;
-        uint32 flags;
-        int32 adtId;
-        int32 rootId;
-        int32 groupId;
+        AreaInfo(): _res(false), _groundZ(-G3D::inf()) { }
+
+        bool _res;
+        float _groundZ;
+        uint32 _flags;
+        int32 _adtId;
+        int32 _rootId;
+        int32 _groupId;
     };
 }                                                           // VMAP
 

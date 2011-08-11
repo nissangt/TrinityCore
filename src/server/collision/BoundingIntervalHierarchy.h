@@ -41,35 +41,30 @@
     #define isnan(x) _isnan(x)
 #endif
 
-using G3D::Vector3;
-using G3D::AABox;
-using G3D::Ray;
-
-static inline uint32 floatToRawIntBits(float f)
+union IntFloat
 {
-    union
-    {
-        uint32 ival;
-        float fval;
-    } temp;
-    temp.fval=f;
-    return temp.ival;
+    uint32 i;
+    float f;
+};
+
+static inline uint32 FloatToInt(const float f)
+{
+    IntFloat tmp;
+    tmp.f = f;
+    return tmp.i;
 }
 
-static inline float intBitsToFloat(uint32 i)
+static inline float IntToFloat(const uint32 i)
 {
-    union
-    {
-        uint32 ival;
-        float fval;
-    } temp;
-    temp.ival=i;
-    return temp.fval;
+    IntFloat tmp;
+    tmp.i = i;
+    return tmp.f;
 }
 
 struct AABound
 {
-    Vector3 lo, hi;
+    G3D::Vector3 lo;
+    G3D::Vector3 hi;
 };
 
 /** Bounding Interval Hierarchy Class.
@@ -78,322 +73,329 @@ struct AABound
     http://sunflow.sourceforge.net/
     Copyright (c) 2003-2007 Christopher Kulla
 */
-
 class BIH
 {
-    public:
-        BIH() {};
-        template< class T, class BoundsFunc >
-        void build(const std::vector<T> &primitives, BoundsFunc &getBounds, uint32 leafSize = 3, bool printStats=false)
-        {
-            if(primitives.empty())
-                return;
-            buildData dat;
-            dat.maxPrims = leafSize;
-            dat.numPrims = primitives.size();
-            dat.indices = new uint32[dat.numPrims];
-            dat.primBound = new AABox[dat.numPrims];
-            getBounds(primitives[0], bounds);
-            for (uint32 i=0; i<dat.numPrims; ++i)
-            {
-                dat.indices[i] = i;
-                AABox tb;
-                getBounds(primitives[i], dat.primBound[i]);
-                bounds.merge(dat.primBound[i]);
-            }
-            std::vector<uint32> tempTree;
-            BuildStats stats;
-            buildHierarchy(tempTree, dat, stats);
-            if (printStats)
-                stats.printStats();
+public:
+    BIH() { }
 
-            objects.resize(dat.numPrims);
-            for (uint32 i=0; i<dat.numPrims; ++i)
-                objects[i] = dat.indices[i];
-            //nObjects = dat.numPrims;
-            tree = tempTree;
-            delete[] dat.primBound;
-            delete[] dat.indices;
+    uint32 Count() const { return _objects.size(); }
+
+    template <class T, class BoundsFunc>
+    void Build(const std::vector<T>& primitives, BoundsFunc& getBounds, uint32 leafSize = 3, bool printStats = false)
+    {
+        if (primitives.empty())
+            return;
+
+        BuildData data;
+        data._maxPrims = leafSize;
+        data._count = primitives.size();
+        data._indices = new uint32[data._count];
+        data._bounds = new G3D::AABox[data._count];
+        getBounds(primitives[0], _bounds);
+        for (uint32 i = 0; i < data._count; ++i)
+        {
+            data._indices[i] = i;
+            getBounds(primitives[i], data._bounds[i]);
+            _bounds.merge(data._bounds[i]);
         }
-        uint32 primCount() { return objects.size(); }
+        std::vector<uint32> tree;
+        BuildStats stats;
+        _BuildHierarchy(tree, data, stats);
+        if (printStats)
+            stats.Print();
 
-        template<typename RayCallback>
-        void intersectRay(const Ray &r, RayCallback& intersectCallback, float &maxDist, bool stopAtFirst=false) const
+        _objects.resize(data._count);
+        for (uint32 i = 0; i < data._count; ++i)
+            _objects[i] = data._indices[i];
+
+        _tree = tree;
+        delete[] data._bounds;
+        delete[] data._indices;
+    }
+
+    template <typename RayCallback>
+    void IntersectRay(const G3D::Ray& ray, RayCallback& rayCallback, float& maxDist, bool stopAtFirstHit = false) const
+    {
+        float intervalMin = -1.0f;
+        float intervalMax = -1.0f;
+        G3D::Vector3 org = ray.origin();
+        G3D::Vector3 dir = ray.direction();
+        G3D::Vector3 invDir;
+        for (uint8 i = 0; i < 3; ++i)
         {
-            float intervalMin = -1.f;
-            float intervalMax = -1.f;
-            Vector3 org = r.origin();
-            Vector3 dir = r.direction();
-            Vector3 invDir;
-            for (int i=0; i<3; ++i)
+            invDir[i] = 1.0f / dir[i];
+            if (G3D::fuzzyNe(dir[i], 0.0f))
             {
-                invDir[i] = 1.f / dir[i];
-                if (G3D::fuzzyNe(dir[i], 0.0f))
-                {
-                    float t1 = (bounds.low()[i]  - org[i]) * invDir[i];
-                    float t2 = (bounds.high()[i] - org[i]) * invDir[i];
-                    if (t1 > t2)
-                        std::swap(t1, t2);
-                    if (t1 > intervalMin)
-                        intervalMin = t1;
-                    if (t2 < intervalMax || intervalMax < 0.f)
-                        intervalMax = t2;
-                    // intervalMax can only become smaller for other axis,
-                    //  and intervalMin only larger respectively, so stop early
-                    if (intervalMax <= 0 || intervalMin >= maxDist)
-                        return;
-                }
+                float t1 = (_bounds.low()[i]  - org[i]) * invDir[i];
+                float t2 = (_bounds.high()[i] - org[i]) * invDir[i];
+                if (t1 > t2)
+                    std::swap(t1, t2);
+                if (t1 > intervalMin)
+                    intervalMin = t1;
+                if (t2 < intervalMax || intervalMax < 0.0f)
+                    intervalMax = t2;
+                // intervalMax can only become smaller for other axis,
+                // and intervalMin only larger respectively, so stop early
+                if (intervalMax <= 0 || intervalMin >= maxDist)
+                    return;
             }
+        }
 
-            if (intervalMin > intervalMax)
-                return;
-            intervalMin = std::max(intervalMin, 0.f);
-            intervalMax = std::min(intervalMax, maxDist);
+        if (intervalMin > intervalMax)
+            return;
 
-            uint32 offsetFront[3];
-            uint32 offsetBack[3];
-            uint32 offsetFront3[3];
-            uint32 offsetBack3[3];
-            // compute custom offsets from direction sign bit
+        intervalMin = std::max(intervalMin, 0.0f);
+        intervalMax = std::min(intervalMax, maxDist);
 
-            for(int i=0; i<3; ++i)
+        uint32 offsetFront[3];
+        uint32 offsetBack[3];
+        uint32 offsetFront3[3];
+        uint32 offsetBack3[3];
+
+        // compute custom offsets from direction sign bit
+        for (uint8 i = 0; i < 3; ++i)
+        {
+            offsetFront[i]  = FloatToInt(dir[i]) >> 31;
+            offsetBack[i]   = offsetFront[i] ^ 1;
+            offsetFront3[i] = offsetFront[i] * 3;
+            offsetBack3[i]  = offsetBack[i]  * 3;
+            // avoid always adding 1 during the inner loop
+            ++offsetFront[i];
+            ++offsetBack[i];
+        }
+
+        StackNode stack[MAX_STACK_SIZE];
+        uint32 stackPos = 0;
+        uint32 nodeIndex = 0;
+        while (true)
+        {
+            while (true)
             {
-                offsetFront[i] = floatToRawIntBits(dir[i]) >> 31;
-                offsetBack[i] = offsetFront[i] ^ 1;
-                offsetFront3[i] = offsetFront[i] * 3;
-                offsetBack3[i] = offsetBack[i] * 3;
-
-                // avoid always adding 1 during the inner loop
-                ++offsetFront[i];
-                ++offsetBack[i];
-            }
-
-            StackNode stack[MAX_STACK_SIZE];
-            int stackPos = 0;
-            int node = 0;
-
-            while (true) {
-                while (true)
+                uint32 node     = _tree[nodeIndex];
+                uint32 axis     = (node & (3 << 30)) >> 30;
+                bool BVH2       = node & (1 << 29);
+                uint32 offset   = node & ~(7 << 29);
+                if (!BVH2)
                 {
-                    uint32 tn = tree[node];
-                    uint32 axis = (tn & (3 << 30)) >> 30;
-                    bool BVH2 = tn & (1 << 29);
-                    int offset = tn & ~(7 << 29);
-                    if (!BVH2)
+                    if (axis < 3)
                     {
-                        if (axis < 3)
-                        {
-                            // "normal" interior node
-                            float tf = (intBitsToFloat(tree[node + offsetFront[axis]]) - org[axis]) * invDir[axis];
-                            float tb = (intBitsToFloat(tree[node + offsetBack[axis]]) - org[axis]) * invDir[axis];
-                            // ray passes between clip zones
-                            if (tf < intervalMin && tb > intervalMax)
-                                break;
-                            int back = offset + offsetBack3[axis];
-                            node = back;
-                            // ray passes through far node only
-                            if (tf < intervalMin) {
-                                intervalMin = (tb >= intervalMin) ? tb : intervalMin;
-                                continue;
-                            }
-                            node = offset + offsetFront3[axis]; // front
-                            // ray passes through near node only
-                            if (tb > intervalMax) {
-                                intervalMax = (tf <= intervalMax) ? tf : intervalMax;
-                                continue;
-                            }
-                            // ray passes through both nodes
-                            // push back node
-                            stack[stackPos].node = back;
-                            stack[stackPos].tnear = (tb >= intervalMin) ? tb : intervalMin;
-                            stack[stackPos].tfar = intervalMax;
-                            stackPos++;
-                            // update ray interval for front node
-                            intervalMax = (tf <= intervalMax) ? tf : intervalMax;
+                        // "normal" interior node
+                        float front = (IntToFloat(_tree[nodeIndex + offsetFront[axis]]) - org[axis]) * invDir[axis];
+                        float back  = (IntToFloat(_tree[nodeIndex + offsetBack [axis]]) - org[axis]) * invDir[axis];
+                        // ray passes between clip zones
+                        if (front < intervalMin && back > intervalMax)
+                            break;
+
+                        uint32 backIndex = offset + offsetBack3[axis];
+                        nodeIndex = backIndex;
+                        // ray passes through far node only
+                        if (front < intervalMin) {
+                            intervalMin = std::max(back, intervalMin);
                             continue;
                         }
-                        else
-                        {
-                            // leaf - test some objects
-                            int n = tree[node + 1];
-                            while (n > 0) {
-                                bool hit = intersectCallback(r, objects[offset], maxDist, stopAtFirst);
-                                if(stopAtFirst && hit) return;
-                                --n;
-                                ++offset;
-                            }
-                            break;
+                        nodeIndex = offset + offsetFront3[axis]; // front
+                        // ray passes through near node only
+                        if (back > intervalMax) {
+                            intervalMax = std::min(front, intervalMax);
+                            continue;
                         }
+                        // ray passes through both nodes
+                        // push back node
+                        stack[stackPos]._node = backIndex;
+                        stack[stackPos]._near = std::max(back, intervalMin);
+                        stack[stackPos]._far  = intervalMax;
+                        ++stackPos;
+                        // update ray interval for front node
+                        intervalMax = std::min(front, intervalMax);
                     }
                     else
                     {
-                        if (axis>2)
-                            return; // should not happen
-                        float tf = (intBitsToFloat(tree[node + offsetFront[axis]]) - org[axis]) * invDir[axis];
-                        float tb = (intBitsToFloat(tree[node + offsetBack[axis]]) - org[axis]) * invDir[axis];
-                        node = offset;
-                        intervalMin = (tf >= intervalMin) ? tf : intervalMin;
-                        intervalMax = (tb <= intervalMax) ? tb : intervalMax;
-                        if (intervalMin > intervalMax)
-                            break;
-                        continue;
-                    }
-                } // traversal loop
-                do
-                {
-                    // stack is empty?
-                    if (stackPos == 0)
-                        return;
-                    // move back up the stack
-                    stackPos--;
-                    intervalMin = stack[stackPos].tnear;
-                    if (maxDist < intervalMin)
-                        continue;
-                    node = stack[stackPos].node;
-                    intervalMax = stack[stackPos].tfar;
-                    break;
-                } while (true);
-            }
-        }
-
-        template<typename IsectCallback>
-        void intersectPoint(const Vector3 &p, IsectCallback& intersectCallback) const
-        {
-            if (!bounds.contains(p))
-                return;
-
-            StackNode stack[MAX_STACK_SIZE];
-            int stackPos = 0;
-            int node = 0;
-
-            while (true) {
-                while (true)
-                {
-                    uint32 tn = tree[node];
-                    uint32 axis = (tn & (3 << 30)) >> 30;
-                    bool BVH2 = tn & (1 << 29);
-                    int offset = tn & ~(7 << 29);
-                    if (!BVH2)
-                    {
-                        if (axis < 3)
+                        // leaf - test some objects
+                        uint32 o = _tree[nodeIndex + 1];
+                        while (o > 0)
                         {
-                            // "normal" interior node
-                            float tl = intBitsToFloat(tree[node + 1]);
-                            float tr = intBitsToFloat(tree[node + 2]);
-                            // point is between clip zones
-                            if (tl < p[axis] && tr > p[axis])
-                                break;
-                            int right = offset + 3;
-                            node = right;
-                            // point is in right node only
-                            if (tl < p[axis]) {
-                                continue;
-                            }
-                            node = offset; // left
-                            // point is in left node only
-                            if (tr > p[axis]) {
-                                continue;
-                            }
-                            // point is in both nodes
-                            // push back right node
-                            stack[stackPos].node = right;
-                            stackPos++;
-                            continue;
+                            bool hit = rayCallback(ray, _objects[offset], maxDist, stopAtFirstHit);
+                            if (stopAtFirstHit && hit)
+                                return;
+                            --o;
+                            ++offset;
                         }
-                        else
-                        {
-                            // leaf - test some objects
-                            int n = tree[node + 1];
-                            while (n > 0) {
-                                intersectCallback(p, objects[offset]); // !!!
-                                --n;
-                                ++offset;
-                            }
-                            break;
-                        }
+                        break;
                     }
-                    else // BVH2 node (empty space cut off left and right)
-                    {
-                        if (axis>2)
-                            return; // should not happen
-                        float tl = intBitsToFloat(tree[node + 1]);
-                        float tr = intBitsToFloat(tree[node + 2]);
-                        node = offset;
-                        if (tl > p[axis] || tr < p[axis])
-                            break;
-                        continue;
-                    }
-                } // traversal loop
+                }
+                else
+                {
+                    if (axis > 2)
+                        return; // should not happen
 
+                    float front = (IntToFloat(_tree[nodeIndex + offsetFront[axis]]) - org[axis]) * invDir[axis];
+                    float back  = (IntToFloat(_tree[nodeIndex + offsetBack [axis]]) - org[axis]) * invDir[axis];
+                    nodeIndex = offset;
+                    intervalMin = std::max(front, intervalMin);
+                    intervalMax = std::min(back, intervalMax);
+                    if (intervalMin > intervalMax)
+                        break;
+                }
+            } // traversal loop
+            while (true)
+            {
                 // stack is empty?
                 if (stackPos == 0)
                     return;
+
                 // move back up the stack
-                stackPos--;
-                node = stack[stackPos].node;
+                --stackPos;
+                intervalMin = stack[stackPos]._near;
+                if (maxDist < intervalMin)
+                    continue;
+
+                nodeIndex = stack[stackPos]._node;
+                intervalMax = stack[stackPos]._far;
+                break;
             }
         }
+    }
 
-        bool writeToFile(FILE *wf) const;
-        bool readFromFile(FILE *rf);
+    template<typename IsectCallback>
+    void IntersectPoint(const G3D::Vector3& pos, IsectCallback& isectCallback) const
+    {
+        if (!_bounds.contains(pos))
+            return;
 
-    protected:
-        std::vector<uint32> tree;
-        std::vector<uint32> objects;
-        AABox bounds;
-
-        struct buildData
+        StackNode stack[MAX_STACK_SIZE];
+        uint32 stackPos = 0;
+        uint32 nodeIndex = 0;
+        while (true)
         {
-            uint32 *indices;
-            AABox *primBound;
-            uint32 numPrims;
-            int maxPrims;
-        };
-        struct StackNode
-        {
-            uint32 node;
-            float tnear;
-            float tfar;
-        };
-
-        class BuildStats
-        {
-            private:
-                int numNodes;
-                int numLeaves;
-                int sumObjects;
-                int minObjects;
-                int maxObjects;
-                int sumDepth;
-                int minDepth;
-                int maxDepth;
-                int numLeavesN[6];
-                int numBVH2;
-
-            public:
-            BuildStats():
-                numNodes(0), numLeaves(0), sumObjects(0), minObjects(0x0FFFFFFF),
-                maxObjects(0xFFFFFFFF), sumDepth(0), minDepth(0x0FFFFFFF),
-                maxDepth(0xFFFFFFFF), numBVH2(0)
+            while (true)
             {
-                for(int i=0; i<6; ++i) numLeavesN[i] = 0;
-            }
+                uint32 node     = _tree[nodeIndex];
+                uint32 axis     = (node & (3 << 30)) >> 30;
+                bool BVH2       = node & (1 << 29);
+                uint32 offset   = node & ~(7 << 29);
+                if (!BVH2)
+                {
+                    if (axis < 3)
+                    {
+                        // "normal" interior node
+                        float left  = IntToFloat(_tree[nodeIndex + 1]);
+                        float right = IntToFloat(_tree[nodeIndex + 2]);
+                        // point is between clip zones
+                        if (left < pos[axis] && right > pos[axis])
+                            break;
 
-            void updateInner() { numNodes++; }
-            void updateBVH2() { numBVH2++; }
-            void updateLeaf(int depth, int n);
-            void printStats();
-        };
+                        uint32 rightIndex = offset + 3;
+                        nodeIndex = rightIndex;
+                        // point is in right node only
+                        if (left < pos[axis]) {
+                            continue;
+                        }
+                        nodeIndex = offset; // left
+                        // point is in left node only
+                        if (right > pos[axis]) {
+                            continue;
+                        }
+                        // point is in both nodes
+                        // push back right node
+                        stack[stackPos]._node = rightIndex;
+                        ++stackPos;
+                    }
+                    else
+                    {
+                        // leaf - test some objects
+                        uint32 o = _tree[nodeIndex + 1];
+                        while (o > 0) {
+                            isectCallback(pos, _objects[offset]); // !!!
+                            --o;
+                            ++offset;
+                        }
+                        break;
+                    }
+                }
+                else // BVH2 node (empty space cut off left and right)
+                {
+                    if (axis > 2)
+                        return; // should not happen
 
-        void buildHierarchy(std::vector<uint32> &tempTree, buildData &dat, BuildStats &stats);
+                    float left  = IntToFloat(_tree[nodeIndex + 1]);
+                    float right = IntToFloat(_tree[nodeIndex + 2]);
+                    nodeIndex = offset;
+                    if (left > pos[axis] || right < pos[axis])
+                        break;
+                }
+            } // traversal loop
 
-        void createNode(std::vector<uint32> &tempTree, int nodeIndex, uint32 left, uint32 right) {
-            // write leaf node
-            tempTree[nodeIndex + 0] = (3 << 30) | left;
-            tempTree[nodeIndex + 1] = right - left + 1;
+            // stack is empty?
+            if (stackPos == 0)
+                return;
+
+            // move back up the stack
+            --stackPos;
+            nodeIndex = stack[stackPos]._node;
+        }
+    }
+
+    bool WriteToFile(FILE* wf) const;
+    bool ReadFromFile(FILE* rf);
+
+protected:
+    std::vector<uint32> _tree;
+    std::vector<uint32> _objects;
+    G3D::AABox _bounds;
+
+    struct BuildData
+    {
+        uint32* _indices;
+        G3D::AABox* _bounds;
+        uint32 _count;
+        uint32 _maxPrims;
+    };
+
+    struct StackNode
+    {
+        uint32 _node;
+        float _near;
+        float _far;
+    };
+
+    class BuildStats
+    {
+    private:
+        uint32 _nodesCount;
+        uint32 _leavesCount;
+        uint32 _objectsSum;
+        uint32 _objectsMin;
+        uint32 _objectsMax;
+        uint32 _depthSum;
+        uint32 _depthMin;
+        uint32 _depthMax;
+        uint32 _leavesCountN[6];
+        uint32 _bvh2count;
+
+    public:
+        BuildStats() : _nodesCount(0), _leavesCount(0),
+            _objectsSum(0), _objectsMin(0x0FFFFFFF), _objectsMax(0xFFFFFFFF),
+            _depthSum(0), _depthMin(0x0FFFFFFF), _depthMax(0xFFFFFFFF), _bvh2count(0)
+        {
+            memset(_leavesCountN, 0, sizeof(uint32) * 6);
         }
 
-        void subdivide(int left, int right, std::vector<uint32> &tempTree, buildData &dat, AABound &gridBox, AABound &nodeBox, int nodeIndex, int depth, BuildStats &stats);
+        void IncNodesCount() { ++_nodesCount; }
+        void IncBvh2Count() { ++_bvh2count; }
+        void UpdateLeaf(uint32 depth, uint32 objects);
+        void Print();
+    };
+
+    void _BuildHierarchy(std::vector<uint32>& tree, BuildData& data, BuildStats& stats);
+
+    void _CreateNode(std::vector<uint32>& tree, uint32 nodeIndex, uint32 left, uint32 right)
+    {
+        // write leaf node
+        tree[nodeIndex + 0] = (3 << 30) | left;
+        tree[nodeIndex + 1] = right - left + 1;
+    }
+
+    void _SubDivide(uint32 left, uint32 right, std::vector<uint32>& tree, BuildData& data, AABound& gridBox, AABound& nodeBox, uint32 nodeIndex, uint32 depth, BuildStats& stats);
 };
 
 #endif // _BIH_H

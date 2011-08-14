@@ -28,6 +28,7 @@
 #include "SpellScript.h"
 #include "SpellAuraEffects.h"
 #include "ulduar.h"
+#include "Vehicle.h"
 
 enum Spells
 {
@@ -181,14 +182,14 @@ class boss_xt002 : public CreatureScript
     public:
         boss_xt002() : CreatureScript("boss_xt002") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return GetUlduarAI<boss_xt002_AI>(pCreature);
+            return GetUlduarAI<boss_xt002_AI>(creature);
         }
 
         struct boss_xt002_AI : public BossAI
         {
-            boss_xt002_AI(Creature *pCreature) : BossAI(pCreature, BOSS_XT002)
+            boss_xt002_AI(Creature* creature) : BossAI(creature, BOSS_XT002)
             {
             }
 
@@ -270,14 +271,14 @@ class boss_xt002 : public CreatureScript
                     switch (eventId)
                     {
                         case EVENT_SEARING_LIGHT:
-                            if (Unit* pTarget = SelectTarget(SELECT_TARGET_RANDOM, 0))
-                                DoCast(pTarget, RAID_MODE(SPELL_SEARING_LIGHT_10, SPELL_SEARING_LIGHT_25));
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                DoCast(target, RAID_MODE(SPELL_SEARING_LIGHT_10, SPELL_SEARING_LIGHT_25));
 
                             events.RepeatEvent(TIMER_SEARING_LIGHT);
                             break;
                         case EVENT_GRAVITY_BOMB:
-                            if (Unit* pTarget = SelectTarget(SELECT_TARGET_RANDOM, 0))
-                                DoCast(pTarget, RAID_MODE(SPELL_GRAVITY_BOMB_10, SPELL_GRAVITY_BOMB_25));
+                            if (Unit* target = SelectTarget(SELECT_TARGET_RANDOM, 0))
+                                DoCast(target, RAID_MODE(SPELL_GRAVITY_BOMB_10, SPELL_GRAVITY_BOMB_25));
 
                             events.RepeatEvent(TIMER_GRAVITY_BOMB);
                             break;
@@ -429,16 +430,16 @@ class mob_xt002_heart : public CreatureScript
     public:
         mob_xt002_heart() : CreatureScript("mob_xt002_heart") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new mob_xt002_heartAI(pCreature);
+            return new mob_xt002_heartAI(creature);
         }
 
         struct mob_xt002_heartAI : public ScriptedAI
         {
-            mob_xt002_heartAI(Creature* pCreature) : ScriptedAI(pCreature)
+            mob_xt002_heartAI(Creature* creature) : ScriptedAI(creature)
             {
-                _instance = pCreature->GetInstanceScript();
+                _instance = creature->GetInstanceScript();
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE | UNIT_FLAG_STUNNED | UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE);
                 me->SetReactState(REACT_PASSIVE);
             }
@@ -473,14 +474,14 @@ class mob_scrapbot : public CreatureScript
     public:
         mob_scrapbot() : CreatureScript("mob_scrapbot") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new mob_scrapbotAI(pCreature);
+            return new mob_scrapbotAI(creature);
         }
 
         struct mob_scrapbotAI : public ScriptedAI
         {
-            mob_scrapbotAI(Creature* pCreature) : ScriptedAI(pCreature)
+            mob_scrapbotAI(Creature* creature) : ScriptedAI(creature)
             {
                 _instance = me->GetInstanceScript();
             }
@@ -530,16 +531,16 @@ class mob_pummeller : public CreatureScript
     public:
         mob_pummeller() : CreatureScript("mob_pummeller") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new mob_pummellerAI(pCreature);
+            return new mob_pummellerAI(creature);
         }
 
         struct mob_pummellerAI : public ScriptedAI
         {
-            mob_pummellerAI(Creature* pCreature) : ScriptedAI(pCreature)
+            mob_pummellerAI(Creature* creature) : ScriptedAI(creature)
             {
-                _instance = pCreature->GetInstanceScript();
+                _instance = creature->GetInstanceScript();
             }
 
             void Reset()
@@ -632,16 +633,16 @@ class mob_boombot : public CreatureScript
     public:
         mob_boombot() : CreatureScript("mob_boombot") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new mob_boombotAI(pCreature);
+            return new mob_boombotAI(creature);
         }
 
         struct mob_boombotAI : public ScriptedAI
         {
-            mob_boombotAI(Creature* pCreature) : ScriptedAI(pCreature)
+            mob_boombotAI(Creature* creature) : ScriptedAI(creature)
             {
-                _instance = pCreature->GetInstanceScript();
+                _instance = creature->GetInstanceScript();
             }
 
             void Reset()
@@ -711,14 +712,14 @@ class mob_life_spark : public CreatureScript
     public:
         mob_life_spark() : CreatureScript("mob_life_spark") { }
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new mob_life_sparkAI(pCreature);
+            return new mob_life_sparkAI(creature);
         }
 
         struct mob_life_sparkAI : public ScriptedAI
         {
-            mob_life_sparkAI(Creature* pCreature) : ScriptedAI(pCreature)
+            mob_life_sparkAI(Creature* creature) : ScriptedAI(creature)
             {
             }
 
@@ -758,19 +759,19 @@ class spell_xt002_searing_light_spawn_life_spark : public SpellScriptLoader
         {
             PrepareAuraScript(spell_xt002_searing_light_spawn_life_spark_AuraScript);
 
-            bool Validate(SpellEntry const* /*spell*/)
+            bool Validate(SpellInfo const* /*spell*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_SUMMON_LIFE_SPARK))
+                if (!sSpellMgr->GetSpellInfo(SPELL_SUMMON_LIFE_SPARK))
                     return false;
                 return true;
             }
 
             void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
             {
-                if (Player* plr = GetOwner()->ToPlayer())
+                if (Player* player = GetOwner()->ToPlayer())
                     if (Unit* xt002 = GetCaster())
                         if (xt002->HasAura(aurEff->GetAmount()))   // Heartbreak aura indicating hard mode
-                            plr->CastSpell(plr, SPELL_SUMMON_LIFE_SPARK, true);
+                            player->CastSpell(player, SPELL_SUMMON_LIFE_SPARK, true);
             }
 
             void Register()
@@ -794,19 +795,19 @@ class spell_xt002_gravity_bomb_aura : public SpellScriptLoader
         {
             PrepareAuraScript(spell_xt002_gravity_bomb_aura_AuraScript);
 
-            bool Validate(SpellEntry const* /*spell*/)
+            bool Validate(SpellInfo const* /*spell*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_SUMMON_VOID_ZONE))
+                if (!sSpellMgr->GetSpellInfo(SPELL_SUMMON_VOID_ZONE))
                     return false;
                 return true;
             }
 
             void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
             {
-                if (Player* plr = GetOwner()->ToPlayer())
+                if (Player* player = GetOwner()->ToPlayer())
                     if (Unit* xt002 = GetCaster())
                         if (xt002->HasAura(aurEff->GetAmount()))   // Heartbreak aura indicating hard mode
-                            plr->CastSpell(plr, SPELL_SUMMON_VOID_ZONE, true);
+                            player->CastSpell(player, SPELL_SUMMON_VOID_ZONE, true);
             }
 
             void OnPeriodic(AuraEffect const* aurEff)
@@ -878,18 +879,18 @@ class spell_xt002_heart_overload_periodic : public SpellScriptLoader
         {
             PrepareSpellScript(spell_xt002_heart_overload_periodic_SpellScript);
 
-            bool Validate(SpellEntry const* /*spell*/)
+            bool Validate(SpellInfo const* /*spell*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_ENERGY_ORB))
+                if (!sSpellMgr->GetSpellInfo(SPELL_ENERGY_ORB))
                     return false;
 
-                if (!sSpellStore.LookupEntry(SPELL_RECHARGE_BOOMBOT))
+                if (!sSpellMgr->GetSpellInfo(SPELL_RECHARGE_BOOMBOT))
                     return false;
 
-                if (!sSpellStore.LookupEntry(SPELL_RECHARGE_PUMMELER))
+                if (!sSpellMgr->GetSpellInfo(SPELL_RECHARGE_PUMMELER))
                     return false;
 
-                if (!sSpellStore.LookupEntry(SPELL_RECHARGE_SCRAPBOT))
+                if (!sSpellMgr->GetSpellInfo(SPELL_RECHARGE_SCRAPBOT))
                     return false;
 
                 return true;

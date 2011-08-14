@@ -152,6 +152,7 @@ class ChatHandler
         bool HandleCastDistCommand(const char *args);
         bool HandleCastSelfCommand(const char *args);
         bool HandleCastTargetCommand(const char *args);
+        bool HandleCastDestCommand(const char *args);
 
         bool HandleCharacterCustomizeCommand(const char * args);
         bool HandleCharacterChangeFactionCommand(const char * args);
@@ -258,7 +259,6 @@ class ChatHandler
         bool HandleRecallCommand(const char* args);
         bool HandleAnnounceCommand(const char* args);
         bool HandleNotifyCommand(const char* args);
-        bool HandleGPSCommand(const char* args);
         bool HandleTaxiCheatCommand(const char* args);
         bool HandleWhispersCommand(const char* args);
 

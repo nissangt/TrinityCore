@@ -29,7 +29,7 @@
 
 #include <list>
 
-struct SpellEntry;
+class SpellInfo;
 
 class CreatureAI;
 class Quest;
@@ -254,7 +254,6 @@ struct CreatureData
     uint32 currentwaypoint;
     uint32 curhealth;
     uint32 curmana;
-    bool  is_dead;
     uint8 movementType;
     uint8 spawnMask;
     uint32 npcflag;
@@ -459,9 +458,9 @@ class Creature : public Unit, public GridObject<Creature>
         bool isCanInteractWithBattleMaster(Player* player, bool msg) const;
         bool isCanTrainingAndResetTalentsOf(Player* pPlayer) const;
         bool canCreatureAttack(Unit const *pVictim, bool force = true) const;
-        bool IsImmunedToSpell(SpellEntry const* spellInfo);
+        bool IsImmunedToSpell(SpellInfo const* spellInfo);
                                                             // redefine Unit::IsImmunedToSpell
-        bool IsImmunedToSpellEffect(SpellEntry const* spellInfo, uint32 index) const;
+        bool IsImmunedToSpellEffect(SpellInfo const* spellInfo, uint32 index) const;
                                                             // redefine Unit::IsImmunedToSpellEffect
         bool isElite() const
         {
@@ -571,8 +570,8 @@ class Creature : public Unit, public GridObject<Creature>
         void RemoveLootMode(uint16 lootMode) { m_LootMode &= ~lootMode; }
         void ResetLootMode() { m_LootMode = LOOT_MODE_DEFAULT; }
 
-        SpellEntry const *reachWithSpellAttack(Unit *pVictim);
-        SpellEntry const *reachWithSpellCure(Unit *pVictim);
+        SpellInfo const *reachWithSpellAttack(Unit *pVictim);
+        SpellInfo const *reachWithSpellCure(Unit *pVictim);
 
         uint32 m_spells[CREATURE_MAX_SPELLS];
         CreatureSpellCooldowns m_CreatureSpellCooldowns;
@@ -585,6 +584,7 @@ class Creature : public Unit, public GridObject<Creature>
 
         Unit* SelectNearestTarget(float dist = 0) const;
         Unit* SelectNearestTargetInAttackDistance(float dist = 0) const;
+        Player* SelectNearestPlayer(float distance = 0) const;
 
         void DoFleeToGetAssistance();
         void CallForHelp(float fRadius);
@@ -603,7 +603,6 @@ class Creature : public Unit, public GridObject<Creature>
         void SetCurrentCell(Cell const& cell) { m_currentCell = cell; }
 
         void RemoveCorpse(bool setSpawnTime = true);
-        bool isDeadByDefault() const { return m_isDeadByDefault; };
 
         void ForcedDespawn(uint32 timeMSToDespawn = 0);
         void DespawnOrUnsummon(uint32 msTimeToDespawn = 0);
@@ -656,7 +655,6 @@ class Creature : public Unit, public GridObject<Creature>
         void SetFormation(CreatureGroup *formation) {m_formation = formation;}
 
         Unit *SelectVictim();
-        void SetDeadByDefault (bool death_state) {m_isDeadByDefault = death_state;}
 
         void SetDisableReputationGain(bool disable) { DisableReputationGain = disable; }
         bool IsReputationGainDisabled() { return DisableReputationGain; }
@@ -713,7 +711,6 @@ class Creature : public Unit, public GridObject<Creature>
         bool m_AlreadySearchedAssistance;
         bool m_regenHealth;
         bool m_AI_locked;
-        bool m_isDeadByDefault;
 
         SpellSchoolMask m_meleeDamageSchoolMask;
         uint32 m_originalEntry;
@@ -743,10 +740,10 @@ class Creature : public Unit, public GridObject<Creature>
 class AssistDelayEvent : public BasicEvent
 {
     public:
-        AssistDelayEvent(const uint64& victim, Unit& owner) : BasicEvent(), m_victim(victim), m_owner(owner) { }
+        AssistDelayEvent(const uint64 victim, Unit& owner) : BasicEvent(), m_victim(victim), m_owner(owner) { }
 
         bool Execute(uint64 e_time, uint32 p_time);
-        void AddAssistant(const uint64& guid) { m_assistants.push_back(guid); }
+        void AddAssistant(const uint64 guid) { m_assistants.push_back(guid); }
     private:
         AssistDelayEvent();
 

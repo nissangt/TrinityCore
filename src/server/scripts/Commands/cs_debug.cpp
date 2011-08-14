@@ -249,7 +249,7 @@ public:
 
     static bool HandleDebugSendOpcodeCommand(ChatHandler* handler, const char* /*args*/)
     {
-        Unit *unit = handler->getSelectedUnit();
+        Unit* unit = handler->getSelectedUnit();
         Player* player = NULL;
         if (!unit || (unit->GetTypeId() != TYPEID_PLAYER))
             player = handler->GetSession()->GetPlayer();
@@ -320,7 +320,7 @@ public:
             }
             else if (type == "appgoguid")
             {
-                GameObject *obj = handler->GetNearbyGameObject();
+                GameObject* obj = handler->GetNearbyGameObject();
                 if (!obj)
                 {
                     handler->PSendSysMessage(LANG_COMMAND_OBJNOTFOUND, 0);
@@ -332,7 +332,7 @@ public:
             }
             else if (type == "goguid")
             {
-                GameObject *obj = handler->GetNearbyGameObject();
+                GameObject* obj = handler->GetNearbyGameObject();
                 if (!obj)
                 {
                     handler->PSendSysMessage(LANG_COMMAND_OBJNOTFOUND, 0);
@@ -364,7 +364,7 @@ public:
             }
             else
             {
-                sLog->outError("Sending opcode: unknown type '%s'", type.c_str());
+                sLog->outError("Sending opcode that has unknown type '%s'", type.c_str());
                 break;
             }
         }
@@ -392,14 +392,14 @@ public:
 
     static bool HandleDebugAreaTriggersCommand(ChatHandler* handler, const char* /*args*/)
     {
-        Player* plr = handler->GetSession()->GetPlayer();
-        if (!plr->isDebugAreaTriggers)
+        Player* player = handler->GetSession()->GetPlayer();
+        if (!player->isDebugAreaTriggers)
         {
             handler->PSendSysMessage(LANG_DEBUG_AREATRIGGER_ON);
-            plr->isDebugAreaTriggers = true;
+            player->isDebugAreaTriggers = true;
         } else {
             handler->PSendSysMessage(LANG_DEBUG_AREATRIGGER_OFF);
-            plr->isDebugAreaTriggers = false;
+            player->isDebugAreaTriggers = false;
         }
         return true;
     }
@@ -449,7 +449,7 @@ public:
         if (!target)
             return false;
 
-        handler->PSendSysMessage("loot recipient: %s", target->hasLootRecipient()?(target->GetLootRecipient()?target->GetLootRecipient()->GetName():"offline"):"no loot recipient");
+        handler->PSendSysMessage("Loot recipient for creature %s (GUID %u, DB GUID %u) is %s", target->GetName(), target->GetGUIDLow(), target->GetDBTableGUIDLow(), target->hasLootRecipient()?(target->GetLootRecipient()?target->GetLootRecipient()->GetName():"offline"):"no loot recipient");
         return true;
     }
 
@@ -489,7 +489,7 @@ public:
                 if (i >= BUYBACK_SLOT_START && i < BUYBACK_SLOT_END)
                     continue;
 
-                if (Item *item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
+                if (Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
                 {
                     if (Bag* bag = item->ToBag())
                     {
@@ -509,7 +509,7 @@ public:
             std::vector<Item *> &updateQueue = player->GetItemUpdateQueue();
             for (size_t i = 0; i < updateQueue.size(); ++i)
             {
-                Item *item = updateQueue[i];
+                Item* item = updateQueue[i];
                 if (!item) continue;
 
                 Bag *container = item->GetContainer();
@@ -518,16 +518,16 @@ public:
                 std::string st;
                 switch(item->GetState())
                 {
-                case ITEM_UNCHANGED: st = "unchanged"; break;
-                case ITEM_CHANGED: st = "changed"; break;
-                case ITEM_NEW: st = "new"; break;
-                case ITEM_REMOVED: st = "removed"; break;
+                    case ITEM_UNCHANGED: st = "unchanged"; break;
+                    case ITEM_CHANGED: st = "changed"; break;
+                    case ITEM_NEW: st = "new"; break;
+                    case ITEM_REMOVED: st = "removed"; break;
                 }
 
                 handler->PSendSysMessage("bag: %d slot: %d guid: %d - state: %s", bag_slot, item->GetSlot(), item->GetGUIDLow(), st.c_str());
             }
             if (updateQueue.empty())
-                handler->PSendSysMessage("updatequeue empty");
+                handler->PSendSysMessage("The player's updatequeue is empty");
         }
 
         if (check_all)
@@ -539,24 +539,24 @@ public:
                 if (i >= BUYBACK_SLOT_START && i < BUYBACK_SLOT_END)
                     continue;
 
-                Item *item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i);
+                Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i);
                 if (!item) continue;
 
                 if (item->GetSlot() != i)
                 {
-                    handler->PSendSysMessage("item at slot %d, guid %d has an incorrect slot value: %d", i, item->GetGUIDLow(), item->GetSlot());
+                    handler->PSendSysMessage("Item with slot %d and guid %d has an incorrect slot value: %d", i, item->GetGUIDLow(), item->GetSlot());
                     error = true; continue;
                 }
 
                 if (item->GetOwnerGUID() != player->GetGUID())
                 {
-                    handler->PSendSysMessage("for the item at slot %d and itemguid %d, owner's guid (%d) and player's guid (%d) don't match!", item->GetSlot(), item->GetGUIDLow(), GUID_LOPART(item->GetOwnerGUID()), player->GetGUIDLow());
+                    handler->PSendSysMessage("The item with slot %d and itemguid %d does have non-matching owner guid (%d) and player guid (%d) !", item->GetSlot(), item->GetGUIDLow(), GUID_LOPART(item->GetOwnerGUID()), player->GetGUIDLow());
                     error = true; continue;
                 }
 
                 if (Bag *container = item->GetContainer())
                 {
-                    handler->PSendSysMessage("item at slot: %d guid: %d has a container (slot: %d, guid: %d) but shouldnt!", item->GetSlot(), item->GetGUIDLow(), container->GetSlot(), container->GetGUIDLow());
+                    handler->PSendSysMessage("The item with slot %d and guid %d has a container (slot: %d, guid: %d) but shouldn't!", item->GetSlot(), item->GetGUIDLow(), container->GetSlot(), container->GetGUIDLow());
                     error = true; continue;
                 }
 
@@ -565,25 +565,25 @@ public:
                     uint16 qp = item->GetQueuePos();
                     if (qp > updateQueue.size())
                     {
-                        handler->PSendSysMessage("item at slot: %d guid: %d has a queuepos (%d) larger than the update queue size! ", item->GetSlot(), item->GetGUIDLow(), qp);
+                        handler->PSendSysMessage("The item with slot %d and guid %d has its queuepos (%d) larger than the update queue size! ", item->GetSlot(), item->GetGUIDLow(), qp);
                         error = true; continue;
                     }
 
                     if (updateQueue[qp] == NULL)
                     {
-                        handler->PSendSysMessage("item at slot: %d guid: %d has a queuepos (%d) that points to NULL in the queue!", item->GetSlot(), item->GetGUIDLow(), qp);
+                        handler->PSendSysMessage("The item with slot %d and guid %d has its queuepos (%d) pointing to NULL in the queue!", item->GetSlot(), item->GetGUIDLow(), qp);
                         error = true; continue;
                     }
 
                     if (updateQueue[qp] != item)
                     {
-                        handler->PSendSysMessage("item at slot: %d guid: %d has has a queuepos (%d) that points to another item in the queue (bag: %d, slot: %d, guid: %d)", item->GetSlot(), item->GetGUIDLow(), qp, updateQueue[qp]->GetBagSlot(), updateQueue[qp]->GetSlot(), updateQueue[qp]->GetGUIDLow());
+                        handler->PSendSysMessage("The item with slot %d and guid %d has a queuepos (%d) that points to another item in the queue (bag: %d, slot: %d, guid: %d)", item->GetSlot(), item->GetGUIDLow(), qp, updateQueue[qp]->GetBagSlot(), updateQueue[qp]->GetSlot(), updateQueue[qp]->GetGUIDLow());
                         error = true; continue;
                     }
                 }
                 else if (item->GetState() != ITEM_UNCHANGED)
                 {
-                    handler->PSendSysMessage("item at slot: %d guid: %d is not in queue but should be (state: %d)!", item->GetSlot(), item->GetGUIDLow(), item->GetState());
+                    handler->PSendSysMessage("The item with slot %d and guid %d is not in queue but should be (state: %d)!", item->GetSlot(), item->GetGUIDLow(), item->GetState());
                     error = true; continue;
                 }
 
@@ -596,26 +596,26 @@ public:
 
                         if (item2->GetSlot() != j)
                         {
-                            handler->PSendSysMessage("the item in bag %d slot %d, guid %d has an incorrect slot value: %d", bag->GetSlot(), j, item2->GetGUIDLow(), item2->GetSlot());
+                            handler->PSendSysMessage("The item in bag %d and slot %d (guid: %d) has an incorrect slot value: %d", bag->GetSlot(), j, item2->GetGUIDLow(), item2->GetSlot());
                             error = true; continue;
                         }
 
                         if (item2->GetOwnerGUID() != player->GetGUID())
                         {
-                            handler->PSendSysMessage("for the item in bag %d at slot %d and itemguid %d, owner's guid (%d) and player's guid (%d) don't match!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), GUID_LOPART(item2->GetOwnerGUID()), player->GetGUIDLow());
+                            handler->PSendSysMessage("The item in bag %d at slot %d and with itemguid %d, the owner's guid (%d) and the player's guid (%d) don't match!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), GUID_LOPART(item2->GetOwnerGUID()), player->GetGUIDLow());
                             error = true; continue;
                         }
 
                         Bag *container = item2->GetContainer();
                         if (!container)
                         {
-                            handler->PSendSysMessage("the item in bag %d at slot %d with guid %d has no container!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow());
+                            handler->PSendSysMessage("The item in bag %d at slot %d with guid %d has no container!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow());
                             error = true; continue;
                         }
 
                         if (container != bag)
                         {
-                            handler->PSendSysMessage("the item in bag %d at slot %d with guid %d has a different container(slot %d guid %d)!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), container->GetSlot(), container->GetGUIDLow());
+                            handler->PSendSysMessage("The item in bag %d at slot %d with guid %d has a different container(slot %d guid %d)!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), container->GetSlot(), container->GetGUIDLow());
                             error = true; continue;
                         }
 
@@ -624,25 +624,25 @@ public:
                             uint16 qp = item2->GetQueuePos();
                             if (qp > updateQueue.size())
                             {
-                                handler->PSendSysMessage("item in bag: %d at slot: %d guid: %d has a queuepos (%d) larger than the update queue size! ", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), qp);
+                                handler->PSendSysMessage("The item in bag %d at slot %d having guid %d has a queuepos (%d) larger than the update queue size! ", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), qp);
                                 error = true; continue;
                             }
 
                             if (updateQueue[qp] == NULL)
                             {
-                                handler->PSendSysMessage("item in bag: %d at slot: %d guid: %d has a queuepos (%d) that points to NULL in the queue!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), qp);
+                                handler->PSendSysMessage("The item in bag %d at slot %d having guid %d has a queuepos (%d) that points to NULL in the queue!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), qp);
                                 error = true; continue;
                             }
 
                             if (updateQueue[qp] != item2)
                             {
-                                handler->PSendSysMessage("item in bag: %d at slot: %d guid: %d has has a queuepos (%d) that points to another item in the queue (bag: %d, slot: %d, guid: %d)", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), qp, updateQueue[qp]->GetBagSlot(), updateQueue[qp]->GetSlot(), updateQueue[qp]->GetGUIDLow());
+                                handler->PSendSysMessage("The item in bag %d at slot %d having guid %d has a queuepos (%d) that points to another item in the queue (bag: %d, slot: %d, guid: %d)", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), qp, updateQueue[qp]->GetBagSlot(), updateQueue[qp]->GetSlot(), updateQueue[qp]->GetGUIDLow());
                                 error = true; continue;
                             }
                         }
                         else if (item2->GetState() != ITEM_UNCHANGED)
                         {
-                            handler->PSendSysMessage("item in bag: %d at slot: %d guid: %d is not in queue but should be (state: %d)!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), item2->GetState());
+                            handler->PSendSysMessage("The item in bag %d at slot %d having guid %d is not in queue but should be (state: %d)!", bag->GetSlot(), item2->GetSlot(), item2->GetGUIDLow(), item2->GetState());
                             error = true; continue;
                         }
                     }
@@ -651,33 +651,33 @@ public:
 
             for (size_t i = 0; i < updateQueue.size(); ++i)
             {
-                Item *item = updateQueue[i];
+                Item* item = updateQueue[i];
                 if (!item) continue;
 
                 if (item->GetOwnerGUID() != player->GetGUID())
                 {
-                    handler->PSendSysMessage("queue(" SIZEFMTD "): for the an item (guid %d), the owner's guid (%d) and player's guid (%d) don't match!", i, item->GetGUIDLow(), GUID_LOPART(item->GetOwnerGUID()), player->GetGUIDLow());
+                    handler->PSendSysMessage("queue(" SIZEFMTD "): For the item with guid %d, the owner's guid (%d) and the player's guid (%d) don't match!", i, item->GetGUIDLow(), GUID_LOPART(item->GetOwnerGUID()), player->GetGUIDLow());
                     error = true; continue;
                 }
 
                 if (item->GetQueuePos() != i)
                 {
-                    handler->PSendSysMessage("queue(" SIZEFMTD "): for the an item (guid %d), the queuepos doesn't match it's position in the queue!", i, item->GetGUIDLow());
+                    handler->PSendSysMessage("queue(" SIZEFMTD "): For the item with guid %d, the queuepos doesn't match it's position in the queue!", i, item->GetGUIDLow());
                     error = true; continue;
                 }
 
                 if (item->GetState() == ITEM_REMOVED) continue;
-                Item *test = player->GetItemByPos(item->GetBagSlot(), item->GetSlot());
+                Item* test = player->GetItemByPos(item->GetBagSlot(), item->GetSlot());
 
                 if (test == NULL)
                 {
-                    handler->PSendSysMessage("queue(" SIZEFMTD "): the bag(%d) and slot(%d) values for the item with guid %d are incorrect, the player doesn't have an item at that position!", i, item->GetBagSlot(), item->GetSlot(), item->GetGUIDLow());
+                    handler->PSendSysMessage("queue(" SIZEFMTD "): The bag(%d) and slot(%d) values for the item with guid %d are incorrect, the player doesn't have any item at that position!", i, item->GetBagSlot(), item->GetSlot(), item->GetGUIDLow());
                     error = true; continue;
                 }
 
                 if (test != item)
                 {
-                    handler->PSendSysMessage("queue(" SIZEFMTD "): the bag(%d) and slot(%d) values for the item with guid %d are incorrect, the item with guid %d is there instead!", i, item->GetBagSlot(), item->GetSlot(), item->GetGUIDLow(), test->GetGUIDLow());
+                    handler->PSendSysMessage("queue(" SIZEFMTD "): The bag(%d) and slot(%d) values for the item with guid %d are incorrect, an item which guid is %d is there instead!", i, item->GetBagSlot(), item->GetSlot(), item->GetGUIDLow(), test->GetGUIDLow());
                     error = true; continue;
                 }
             }
@@ -784,7 +784,7 @@ public:
             handler->GetSession()->GetPlayer()->EnterVehicle(target, seatId);
         else
         {
-            Creature *passenger = NULL;
+            Creature* passenger = NULL;
             Trinity::AllCreaturesOfEntryInRange check(handler->GetSession()->GetPlayer(), entry, 20.0f);
             Trinity::CreatureSearcher<Trinity::AllCreaturesOfEntryInRange> searcher(handler->GetSession()->GetPlayer(), passenger, check);
             handler->GetSession()->GetPlayer()->VisitNearbyObject(30.0f, searcher);
@@ -828,7 +828,7 @@ public:
         if (!ve)
             return false;
 
-        Creature *v = new Creature;
+        Creature* v = new Creature;
 
         Map *map = handler->GetSession()->GetPlayer()->GetMap();
 
@@ -877,7 +877,7 @@ public:
         uint32 guid = (uint32)atoi(e);
         uint32 index = (uint32)atoi(f);
 
-        Item *i = handler->GetSession()->GetPlayer()->GetItemByGuid(MAKE_NEW_GUID(guid, 0, HIGHGUID_ITEM));
+        Item* i = handler->GetSession()->GetPlayer()->GetItemByGuid(MAKE_NEW_GUID(guid, 0, HIGHGUID_ITEM));
 
         if (!i)
             return false;
@@ -908,7 +908,7 @@ public:
         uint32 index = (uint32)atoi(f);
         uint32 value = (uint32)atoi(g);
 
-        Item *i = handler->GetSession()->GetPlayer()->GetItemByGuid(MAKE_NEW_GUID(guid, 0, HIGHGUID_ITEM));
+        Item* i = handler->GetSession()->GetPlayer()->GetItemByGuid(MAKE_NEW_GUID(guid, 0, HIGHGUID_ITEM));
 
         if (!i)
             return false;
@@ -932,7 +932,7 @@ public:
 
         uint32 guid = (uint32)atoi(e);
 
-        Item *i = handler->GetSession()->GetPlayer()->GetItemByGuid(MAKE_NEW_GUID(guid, 0, HIGHGUID_ITEM));
+        Item* i = handler->GetSession()->GetPlayer()->GetItemByGuid(MAKE_NEW_GUID(guid, 0, HIGHGUID_ITEM));
 
         if (!i)
             return false;
@@ -976,11 +976,11 @@ public:
         {
             // reset all states
             for (int i = 1; i <= 32; ++i)
-                unit->ModifyAuraState(AuraState(i), false);
+                unit->ModifyAuraState(AuraStateType(i), false);
             return true;
         }
 
-        unit->ModifyAuraState(AuraState(abs(state)), state > 0);
+        unit->ModifyAuraState(AuraStateType(abs(state)), state > 0);
         return true;
     }
 

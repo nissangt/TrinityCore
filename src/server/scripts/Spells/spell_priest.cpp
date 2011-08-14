@@ -46,14 +46,14 @@ class spell_pri_guardian_spirit : public SpellScriptLoader
 
             uint32 healPct;
 
-            bool Validate(SpellEntry const* /*spellEntry*/)
+            bool Validate(SpellInfo const* /*spellEntry*/)
             {
-                return sSpellStore.LookupEntry(PRIEST_SPELL_GUARDIAN_SPIRIT_HEAL) != NULL;
+                return sSpellMgr->GetSpellInfo(PRIEST_SPELL_GUARDIAN_SPIRIT_HEAL) != NULL;
             }
 
             bool Load()
             {
-                healPct = SpellMgr::CalculateSpellEffectAmount(GetSpellProto(), EFFECT_1);
+                healPct = GetSpellInfo()->Effects[EFFECT_1].CalcValue();
                 return true;
             }
 
@@ -158,7 +158,7 @@ class spell_pri_pain_and_suffering_proc : public SpellScriptLoader
             void HandleEffectScriptEffect(SpellEffIndex /*effIndex*/)
             {
                 // Refresh Shadow Word: Pain on target
-                if (Unit *unitTarget = GetHitUnit())
+                if (Unit* unitTarget = GetHitUnit())
                     if (AuraEffect* aur = unitTarget->GetAuraEffect(SPELL_AURA_PERIODIC_DAMAGE, SPELLFAMILY_PRIEST, 0x8000, 0, 0, GetCaster()->GetGUID()))
                         aur->GetBase()->RefreshDuration();
             }
@@ -184,9 +184,9 @@ class spell_pri_penance : public SpellScriptLoader
         {
             PrepareSpellScript(spell_pri_penance_SpellScript);
 
-            bool Validate(SpellEntry const* spellEntry)
+            bool Validate(SpellInfo const* spellEntry)
             {
-                if (!sSpellStore.LookupEntry(PRIEST_SPELL_PENANCE_R1))
+                if (!sSpellMgr->GetSpellInfo(PRIEST_SPELL_PENANCE_R1))
                     return false;
                 // can't use other spell than this penance due to spell_ranks dependency
                 if (sSpellMgr->GetFirstSpellInChain(PRIEST_SPELL_PENANCE_R1) != sSpellMgr->GetFirstSpellInChain(spellEntry->Id))
@@ -203,11 +203,11 @@ class spell_pri_penance : public SpellScriptLoader
 
             void HandleDummy(SpellEffIndex /*effIndex*/)
             {
-                Unit *unitTarget = GetHitUnit();
+                Unit* unitTarget = GetHitUnit();
                 if (!unitTarget || !unitTarget->isAlive())
                     return;
 
-                Unit *caster = GetCaster();
+                Unit* caster = GetCaster();
 
                 uint8 rank = sSpellMgr->GetSpellRank(GetSpellInfo()->Id);
 
@@ -240,9 +240,9 @@ class spell_pri_reflective_shield_trigger : public SpellScriptLoader
         {
             PrepareAuraScript(spell_pri_reflective_shield_trigger_AuraScript);
 
-            bool Validate(SpellEntry const* /*spellEntry*/)
+            bool Validate(SpellInfo const* /*spellEntry*/)
             {
-                return sSpellStore.LookupEntry(PRIEST_SPELL_REFLECTIVE_SHIELD_TRIGGERED) && sSpellStore.LookupEntry(PRIEST_SPELL_REFLECTIVE_SHIELD_R1);
+                return sSpellMgr->GetSpellInfo(PRIEST_SPELL_REFLECTIVE_SHIELD_TRIGGERED) && sSpellMgr->GetSpellInfo(PRIEST_SPELL_REFLECTIVE_SHIELD_R1);
             }
 
             void Trigger(AuraEffect * aurEff, DamageInfo & dmgInfo, uint32 & absorbAmount)

@@ -44,7 +44,7 @@ void MapInstanced::InitVisibilityDistance()
     }
 }
 
-void MapInstanced::Update(const uint32& t)
+void MapInstanced::Update(const uint32 t)
 {
     // take care of loaded GridMaps (when unused, unload it!)
     Map::Update(t);
@@ -64,7 +64,10 @@ void MapInstanced::Update(const uint32& t)
         else
         {
             // update only here, because it may schedule some bad things before delete
-            i->second->Update(t);
+            if (sMapMgr->GetMapUpdater()->activated())
+                sMapMgr->GetMapUpdater()->schedule_update(*i->second, t);
+            else
+                i->second->Update(t);
             ++i;
         }
     }

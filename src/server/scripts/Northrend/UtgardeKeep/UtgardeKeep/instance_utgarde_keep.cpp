@@ -113,8 +113,8 @@ public:
             {
                 for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
                 {
-                    if (Player* plr = itr->getSource())
-                    return plr;
+                    if (Player* player = itr->getSource())
+                    return player;
                 }
             }
 
@@ -261,8 +261,8 @@ public:
             OUT_SAVE_INST_DATA;
 
             std::ostringstream saveStream;
-            saveStream << "U K " << m_auiEncounter[0] << " " << m_auiEncounter[1] << " "
-                << m_auiEncounter[2] << " " << forge_event[0] << " " << forge_event[1] << " " << forge_event[2];
+            saveStream << "U K " << m_auiEncounter[0] << ' ' << m_auiEncounter[1] << ' '
+                << m_auiEncounter[2] << ' ' << forge_event[0] << ' ' << forge_event[1] << ' ' << forge_event[2];
 
             str_data = saveStream.str();
 

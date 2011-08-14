@@ -123,13 +123,13 @@ class boss_devourer_of_souls : public CreatureScript
 
         struct boss_devourer_of_soulsAI : public BossAI
         {
-            boss_devourer_of_soulsAI(Creature *creature) : BossAI(creature, DATA_DEVOURER_EVENT)
+            boss_devourer_of_soulsAI(Creature* creature) : BossAI(creature, DATA_DEVOURER_EVENT)
             {
             }
 
             void InitializeAI()
             {
-                if (!instance || static_cast<InstanceMap*>(me->GetMap())->GetScriptId() != GetScriptId(FoSScriptName))
+                if (!instance || static_cast<InstanceMap*>(me->GetMap())->GetScriptId() != sObjectMgr->GetScriptId(FoSScriptName))
                     me->IsAIEnabled = false;
                 else if (!me->isDead())
                     Reset();
@@ -223,7 +223,7 @@ class boss_devourer_of_souls : public CreatureScript
 
                 for (int8 i = 0; outroPositions[i].entry[entryIndex] != 0; ++i)
                 {
-                    if (Creature *summon = me->SummonCreature(outroPositions[i].entry[entryIndex], spawnPoint, TEMPSUMMON_DEAD_DESPAWN))
+                    if (Creature* summon = me->SummonCreature(outroPositions[i].entry[entryIndex], spawnPoint, TEMPSUMMON_DEAD_DESPAWN))
                     {
                         summon->GetMotionMaster()->MovePoint(0, outroPositions[i].movePosition);
                         if (summon->GetEntry() == NPC_JAINA_PART2)
@@ -234,7 +234,7 @@ class boss_devourer_of_souls : public CreatureScript
                 }
             }
 
-            void SpellHitTarget(Unit* /*target*/, const SpellEntry *spell)
+            void SpellHitTarget(Unit* /*target*/, const SpellInfo *spell)
             {
                 if (spell->Id == H_SPELL_PHANTOM_BLAST)
                     threeFaced = false;
@@ -315,7 +315,7 @@ class boss_devourer_of_souls : public CreatureScript
                             me->SetReactState(REACT_PASSIVE);
 
                             //Remove any target
-                            me->SetUInt64Value(UNIT_FIELD_TARGET, 0);
+                            me->SetTarget(0);
 
                             me->GetMotionMaster()->Clear();
                             me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);

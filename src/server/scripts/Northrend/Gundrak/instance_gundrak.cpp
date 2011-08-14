@@ -366,11 +366,11 @@ public:
             OUT_SAVE_INST_DATA;
 
             std::ostringstream saveStream;
-            saveStream << "G D " << m_auiEncounter[0] << " " << m_auiEncounter[1] << " "
-                 << m_auiEncounter[2] << " " << m_auiEncounter[3] << " " << m_auiEncounter[4] << " "
-                 << (uiSladRanStatue ? GetObjState(uiSladRanStatue) : GO_STATE_ACTIVE) << " " << (uiMoorabiStatue ? GetObjState(uiMoorabiStatue) : GO_STATE_ACTIVE) << " "
-                 << (uiDrakkariColossusStatue ? GetObjState(uiDrakkariColossusStatue) : GO_STATE_ACTIVE) << " " << (uiGalDarahStatue ? GetObjState(uiGalDarahStatue) : GO_STATE_READY) << " "
-                 << (uiBridge ? GetObjState(uiBridge) : GO_STATE_ACTIVE) << " " << (uiCollision ? GetObjState(uiCollision) : GO_STATE_READY);
+            saveStream << "G D " << m_auiEncounter[0] << ' ' << m_auiEncounter[1] << ' '
+                 << m_auiEncounter[2] << ' ' << m_auiEncounter[3] << ' ' << m_auiEncounter[4] << ' '
+                 << (uiSladRanStatue ? GetObjState(uiSladRanStatue) : GO_STATE_ACTIVE) << ' ' << (uiMoorabiStatue ? GetObjState(uiMoorabiStatue) : GO_STATE_ACTIVE) << ' '
+                 << (uiDrakkariColossusStatue ? GetObjState(uiDrakkariColossusStatue) : GO_STATE_ACTIVE) << ' ' << (uiGalDarahStatue ? GetObjState(uiGalDarahStatue) : GO_STATE_READY) << ' '
+                 << (uiBridge ? GetObjState(uiBridge) : GO_STATE_ACTIVE) << ' ' << (uiCollision ? GetObjState(uiCollision) : GO_STATE_READY);
 
             str_data = saveStream.str();
 
@@ -519,7 +519,7 @@ class go_gundrak_altar : public GameObjectScript
 public:
     go_gundrak_altar() : GameObjectScript("go_gundrak_altar") { }
 
-    bool OnGossipHello(Player* /*pPlayer*/, GameObject* pGO)
+    bool OnGossipHello(Player* /*player*/, GameObject* pGO)
     {
         InstanceScript *pInstance = pGO->GetInstanceScript();
         uint64 uiStatue = 0;

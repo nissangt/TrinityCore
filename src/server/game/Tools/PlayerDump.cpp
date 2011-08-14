@@ -91,7 +91,7 @@ bool findnth(std::string &str, int n, std::string::size_type &s, std::string::si
 
     do
     {
-        e = str.find("'", s);
+        e = str.find('\'', s);
         if (e == std::string::npos) return false;
     } while (str[e-1] == '\\');
 
@@ -100,7 +100,7 @@ bool findnth(std::string &str, int n, std::string::size_type &s, std::string::si
         do
         {
             s = e+4;
-            e = str.find("'", s);
+            e = str.find('\'', s);
             if (e == std::string::npos) return false;
         } while (str[e-1] == '\\');
     }
@@ -202,14 +202,14 @@ std::string CreateDumpString(char const* tableName, QueryResult result)
     Field *fields = result->Fetch();
     for (uint32 i = 0; i < result->GetFieldCount(); ++i)
     {
-        if (i == 0) ss << "'";
+        if (i == 0) ss << '\'';
         else ss << ", '";
 
         std::string s = fields[i].GetString();
-        CharacterDatabase.escape_string(s);
+        CharacterDatabase.EscapeString(s);
         ss << s;
 
-        ss << "'";
+        ss << '\'';
     }
     ss << ");";
     return ss.str();
@@ -218,7 +218,7 @@ std::string CreateDumpString(char const* tableName, QueryResult result)
 std::string PlayerDumpWriter::GenerateWhereStr(char const* field, uint32 guid)
 {
     std::ostringstream wherestr;
-    wherestr << field << " = '" << guid << "'";
+    wherestr << field << " = '" << guid << '\'';
     return wherestr.str();
 }
 
@@ -411,7 +411,7 @@ DumpReturn PlayerDumpReader::LoadDump(const std::string& file, uint32 account, s
 
     if (ObjectMgr::CheckPlayerName(name, true) == CHAR_NAME_SUCCESS)
     {
-        CharacterDatabase.escape_string(name);              // for safe, we use name only for sql quearies anyway
+        CharacterDatabase.EscapeString(name);              // for safe, we use name only for sql quearies anyway
         result = CharacterDatabase.PQuery("SELECT 1 FROM characters WHERE name = '%s'", name.c_str());
         if (result)
             name = "";                                      // use the one from the dump
@@ -507,7 +507,7 @@ DumpReturn PlayerDumpReader::LoadDump(const std::string& file, uint32 account, s
                 {
                     // check if the original name already exists
                     name = getnth(line, 3);
-                    CharacterDatabase.escape_string(name);
+                    CharacterDatabase.EscapeString(name);
 
                     result = CharacterDatabase.PQuery("SELECT 1 FROM characters WHERE name = '%s'", name.c_str());
                     if (result)

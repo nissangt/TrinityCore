@@ -142,9 +142,8 @@ lootForPickPocketed(false), lootForBody(false), m_groupLootTimer(0), lootingGrou
 m_PlayerDamageReq(0), m_lootMoney(0), m_lootRecipient(0), m_lootRecipientGroup(0), m_corpseRemoveTime(0), m_respawnTime(0),
 m_respawnDelay(300), m_corpseDelay(60), m_respawnradius(0.0f), m_reactState(REACT_AGGRESSIVE),
 m_defaultMovementType(IDLE_MOTION_TYPE), m_DBTableGuid(0), m_equipmentId(0), m_AlreadyCallAssistance(false),
-m_AlreadySearchedAssistance(false), m_regenHealth(true), m_AI_locked(false), m_isDeadByDefault(false),
-m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL), m_creatureInfo(NULL), m_creatureData(NULL),
-m_formation(NULL)
+m_AlreadySearchedAssistance(false), m_regenHealth(true), m_AI_locked(false), m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL),
+m_creatureInfo(NULL), m_creatureData(NULL), m_formation(NULL)
 {
     m_regenTimer = CREATURE_REGEN_INTERVAL;
     m_valuesCount = UNIT_END;
@@ -229,11 +228,12 @@ void Creature::SearchFormation()
 
 void Creature::RemoveCorpse(bool setSpawnTime)
 {
-    if ((getDeathState() != CORPSE && !m_isDeadByDefault) || (getDeathState() != ALIVE && m_isDeadByDefault))
+    if (getDeathState() != CORPSE)
         return;
 
     m_corpseRemoveTime = time(NULL);
     setDeathState(DEAD);
+    RemoveAllAuras();
     UpdateObjectVisibility();
     loot.clear();
     uint32 respawnDelay = m_respawnDelay;
@@ -437,11 +437,11 @@ void Creature::Update(uint32 diff)
     switch(m_deathState)
     {
         case JUST_ALIVED:
-            // Don't must be called, see Creature::setDeathState JUST_ALIVED -> ALIVE promoting.
+            // Must not be called, see Creature::setDeathState JUST_ALIVED -> ALIVE promoting.
             sLog->outError("Creature (GUID: %u Entry: %u) in wrong state: JUST_ALIVED (4)", GetGUIDLow(), GetEntry());
             break;
         case JUST_DIED:
-            // Don't must be called, see Creature::setDeathState JUST_DIED -> CORPSE promoting.
+            // Must not be called, see Creature::setDeathState JUST_DIED -> CORPSE promoting.
             sLog->outError("Creature (GUID: %u Entry: %u) in wrong state: JUST_DEAD (1)", GetGUIDLow(), GetEntry());
             break;
         case DEAD:
@@ -471,14 +471,15 @@ void Creature::Update(uint32 diff)
         }
         case CORPSE:
         {
-            if (m_isDeadByDefault)
+            m_Events.Update(diff);
+            _UpdateSpells(diff);
+
+            // deathstate changed on spells update, prevent problems
+            if (m_deathState != CORPSE)
                 break;
 
             if (m_groupLootTimer && lootingGroupLowGUID)
             {
-                // for delayed spells
-                m_Events.Update(diff);
-
                 if (m_groupLootTimer <= diff)
                 {
                     Group* group = sGroupMgr->GetGroupByGUID(lootingGroupLowGUID);
@@ -494,25 +495,10 @@ void Creature::Update(uint32 diff)
                 RemoveCorpse(false);
                 sLog->outStaticDebug("Removing corpse... %u ", GetUInt32Value(OBJECT_FIELD_ENTRY));
             }
-            else
-            {
-                // for delayed spells
-                m_Events.Update(diff);
-            }
-
             break;
         }
         case ALIVE:
         {
-            if (m_isDeadByDefault)
-            {
-                if (m_corpseRemoveTime <= time(NULL))
-                {
-                    RemoveCorpse(false);
-                    sLog->outStaticDebug("Removing alive corpse... %u ", GetUInt32Value(OBJECT_FIELD_ENTRY));
-                }
-            }
-
             Unit::Update(diff);
 
             // creature can be dead after Unit::Update call
@@ -1066,7 +1052,7 @@ void Creature::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
             dynamicflags = 0;
     }
 
-    // data->guid = guid don't must be update at save
+    // data->guid = guid must not be updated at save
     data.id = GetEntry();
     data.mapid = mapid;
     data.phaseMask = phaseMask;
@@ -1082,7 +1068,6 @@ void Creature::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
     data.currentwaypoint = 0;
     data.curhealth = GetHealth();
     data.curmana = GetPower(POWER_MANA);
-    data.is_dead = m_isDeadByDefault;
     // prevent add data integrity problems
     data.movementType = !m_respawnradius && GetDefaultMovementType() == RANDOM_MOTION_TYPE
         ? IDLE_MOTION_TYPE : GetDefaultMovementType();
@@ -1091,34 +1076,33 @@ void Creature::SaveToDB(uint32 mapid, uint8 spawnMask, uint32 phaseMask)
     data.unit_flags = unit_flags;
     data.dynamicflags = dynamicflags;
 
-    // updated in DB
+    // update in DB
     SQLTransaction trans = WorldDatabase.BeginTransaction();
 
     trans->PAppend("DELETE FROM creature WHERE guid = '%u'", m_DBTableGuid);
 
     std::ostringstream ss;
     ss << "INSERT INTO creature VALUES ("
-        << m_DBTableGuid << ", "
-        << GetEntry() << ", "
-        << mapid <<", "
-        << uint32(spawnMask) << ", "                         // cast to prevent save as symbol
-        << uint16(GetPhaseMask()) << ", "                    // prevent out of range error
-        << displayId <<", "
-        << GetEquipmentId() <<", "
-        << GetPositionX() << ", "
-        << GetPositionY() << ", "
-        << GetPositionZ() << ", "
-        << GetOrientation() << ", "
-        << m_respawnDelay << ", "                            //respawn time
-        << (float) m_respawnradius << ", "                   //spawn distance (float)
-        << (uint32) (0) << ", "                              //currentwaypoint
-        << GetHealth() << ", "                               //curhealth
-        << GetPower(POWER_MANA) << ", "                      //curmana
-        << (m_isDeadByDefault ? 1 : 0) << ", "               //is_dead
-        << GetDefaultMovementType() << ", "                  //default movement generator type
-        << npcflag << ", "
-        << unit_flags << ", "
-        << dynamicflags << ")";
+        << m_DBTableGuid << ','
+        << GetEntry() << ','
+        << mapid << ','
+        << uint32(spawnMask) << ','                         // cast to prevent save as symbol
+        << uint16(GetPhaseMask()) << ','                    // prevent out of range error
+        << displayId << ','
+        << GetEquipmentId() << ','
+        << GetPositionX() << ','
+        << GetPositionY() << ','
+        << GetPositionZ() << ','
+        << GetOrientation() << ','
+        << m_respawnDelay << ','                            //respawn time
+        << (float) m_respawnradius << ','                   //spawn distance (float)
+        << (uint32) (0) << ','                              //currentwaypoint
+        << GetHealth() << ','                               //curhealth
+        << GetPower(POWER_MANA) << ','                      //curmana
+        << GetDefaultMovementType() << ','                  //default movement generator type
+        << npcflag << ','
+        << unit_flags << ','
+        << dynamicflags << ')';
 
     trans->Append(ss.str().c_str());
 
@@ -1292,8 +1276,7 @@ bool Creature::LoadFromDB(uint32 guid, Map *map)
     m_respawnradius = data->spawndist;
 
     m_respawnDelay = data->spawntimesecs;
-    m_isDeadByDefault = data->is_dead;
-    m_deathState = m_isDeadByDefault ? DEAD : ALIVE;
+    m_deathState = ALIVE;
 
     m_respawnTime  = sObjectMgr->GetCreatureRespawnTime(m_DBTableGuid, GetInstanceId());
     if (m_respawnTime)                          // respawn on Update
@@ -1404,7 +1387,7 @@ bool Creature::isVisibleForInState(WorldObject const* seer) const
     if (!Unit::isVisibleForInState(seer))
         return false;
 
-    if (isAlive() || (m_isDeadByDefault && m_deathState == CORPSE) || m_corpseRemoveTime > time(NULL))
+    if (isAlive() || m_corpseRemoveTime > time(NULL))
         return true;
 
     return false;
@@ -1440,7 +1423,7 @@ bool Creature::canStartAttack(Unit const* who, bool force) const
         if (!_IsTargetAcceptable(who))
             return false;
 
-        if (who->isInCombat())
+        if (who->isInCombat() && IsWithinDist(who, ATTACK_DISTANCE))
             if (Unit* victim = who->getAttackerForHelper())
                 if (IsWithinDistInMap(victim, sWorld->getFloatConfig(CONFIG_CREATURE_FAMILY_ASSISTANCE_RADIUS)))
                     force = true;
@@ -1495,7 +1478,9 @@ float Creature::GetAttackDistance(Unit const* pl) const
 
 void Creature::setDeathState(DeathState s)
 {
-    if ((s == JUST_DIED && !m_isDeadByDefault)||(s == JUST_ALIVED && m_isDeadByDefault))
+    Unit::setDeathState(s);
+
+    if (s == JUST_DIED)
     {
         m_corpseRemoveTime = time(NULL) + m_corpseDelay;
         m_respawnTime = time(NULL) + m_respawnDelay + m_corpseDelay;
@@ -1503,12 +1488,8 @@ void Creature::setDeathState(DeathState s)
         // always save boss respawn time at death to prevent crash cheating
         if (sWorld->getBoolConfig(CONFIG_SAVE_RESPAWN_TIME_IMMEDIATELY) || isWorldBoss())
             SaveRespawnTime();
-    }
-    Unit::setDeathState(s);
 
-    if (s == JUST_DIED)
-    {
-        SetUInt64Value(UNIT_FIELD_TARGET, 0);                // remove target selection in any cases (can be set at aura remove in Unit::setDeathState)
+        SetTarget(0);                // remove target selection in any cases (can be set at aura remove in Unit::setDeathState)
         SetUInt32Value(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_NONE);
 
         setActive(false);
@@ -1608,15 +1589,7 @@ void Creature::Respawn(bool force)
         CreatureTemplate const *cinfo = GetCreatureInfo();
         SelectLevel(cinfo);
 
-        if (m_isDeadByDefault)
-        {
-            setDeathState(JUST_DIED);
-            i_motionMaster.Clear();
-            ClearUnitState(uint32(UNIT_STAT_ALL_STATE));
-            LoadCreaturesAddon(true);
-        }
-        else
-            setDeathState(JUST_ALIVED);
+        setDeathState(JUST_ALIVED);
 
         uint32 displayID = GetNativeDisplayId();
         CreatureModelInfo const *minfo = sObjectMgr->GetCreatureModelRandomGender(&displayID);
@@ -1668,7 +1641,7 @@ void Creature::DespawnOrUnsummon(uint32 msTimeToDespawn /*= 0*/)
         ForcedDespawn(msTimeToDespawn);
 }
 
-bool Creature::IsImmunedToSpell(SpellEntry const* spellInfo)
+bool Creature::IsImmunedToSpell(SpellInfo const* spellInfo)
 {
     if (!spellInfo)
         return false;
@@ -1679,18 +1652,18 @@ bool Creature::IsImmunedToSpell(SpellEntry const* spellInfo)
     return Unit::IsImmunedToSpell(spellInfo);
 }
 
-bool Creature::IsImmunedToSpellEffect(SpellEntry const* spellInfo, uint32 index) const
+bool Creature::IsImmunedToSpellEffect(SpellInfo const* spellInfo, uint32 index) const
 {
-    if (GetCreatureInfo()->MechanicImmuneMask & (1 << (spellInfo->EffectMechanic[index] - 1)))
+    if (GetCreatureInfo()->MechanicImmuneMask & (1 << (spellInfo->Effects[index].Mechanic - 1)))
         return true;
 
-    if (GetCreatureInfo()->type == CREATURE_TYPE_MECHANICAL && spellInfo->Effect[index] == SPELL_EFFECT_HEAL)
+    if (GetCreatureInfo()->type == CREATURE_TYPE_MECHANICAL && spellInfo->Effects[index].Effect == SPELL_EFFECT_HEAL)
         return true;
 
     return Unit::IsImmunedToSpellEffect(spellInfo, index);
 }
 
-SpellEntry const *Creature::reachWithSpellAttack(Unit *pVictim)
+SpellInfo const *Creature::reachWithSpellAttack(Unit *pVictim)
 {
     if (!pVictim)
         return NULL;
@@ -1699,7 +1672,7 @@ SpellEntry const *Creature::reachWithSpellAttack(Unit *pVictim)
     {
         if (!m_spells[i])
             continue;
-        SpellEntry const *spellInfo = sSpellStore.LookupEntry(m_spells[i]);
+        SpellInfo const *spellInfo = sSpellMgr->GetSpellInfo(m_spells[i]);
         if (!spellInfo)
         {
             sLog->outError("WORLD: unknown spell id %i", m_spells[i]);
@@ -1709,10 +1682,10 @@ SpellEntry const *Creature::reachWithSpellAttack(Unit *pVictim)
         bool bcontinue = true;
         for (uint32 j = 0; j < MAX_SPELL_EFFECTS; j++)
         {
-            if ((spellInfo->Effect[j] == SPELL_EFFECT_SCHOOL_DAMAGE)       ||
-                (spellInfo->Effect[j] == SPELL_EFFECT_INSTAKILL)            ||
-                (spellInfo->Effect[j] == SPELL_EFFECT_ENVIRONMENTAL_DAMAGE) ||
-                (spellInfo->Effect[j] == SPELL_EFFECT_HEALTH_LEECH)
+            if ((spellInfo->Effects[j].Effect == SPELL_EFFECT_SCHOOL_DAMAGE)       ||
+                (spellInfo->Effects[j].Effect == SPELL_EFFECT_INSTAKILL)            ||
+                (spellInfo->Effects[j].Effect == SPELL_EFFECT_ENVIRONMENTAL_DAMAGE) ||
+                (spellInfo->Effects[j].Effect == SPELL_EFFECT_HEALTH_LEECH)
 )
             {
                 bcontinue = false;
@@ -1721,14 +1694,11 @@ SpellEntry const *Creature::reachWithSpellAttack(Unit *pVictim)
         }
         if (bcontinue) continue;
 
-        if (spellInfo->manaCost > GetPower(POWER_MANA))
+        if (spellInfo->ManaCost > GetPower(POWER_MANA))
             continue;
-        SpellRangeEntry const* srange = sSpellRangeStore.LookupEntry(spellInfo->rangeIndex);
-        float range = GetSpellMaxRangeForHostile(srange);
-        float minrange = GetSpellMinRangeForHostile(srange);
+        float range = spellInfo->GetMaxRange(false);
+        float minrange = spellInfo->GetMinRange(false);
         float dist = GetDistance(pVictim);
-        //if (!isInFront(pVictim, range) && spellInfo->AttributesEx)
-        //    continue;
         if (dist > range || dist < minrange)
             continue;
         if (spellInfo->PreventionType == SPELL_PREVENTION_TYPE_SILENCE && HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SILENCED))
@@ -1740,7 +1710,7 @@ SpellEntry const *Creature::reachWithSpellAttack(Unit *pVictim)
     return NULL;
 }
 
-SpellEntry const *Creature::reachWithSpellCure(Unit *pVictim)
+SpellInfo const *Creature::reachWithSpellCure(Unit *pVictim)
 {
     if (!pVictim)
         return NULL;
@@ -1749,7 +1719,7 @@ SpellEntry const *Creature::reachWithSpellCure(Unit *pVictim)
     {
         if (!m_spells[i])
             continue;
-        SpellEntry const *spellInfo = sSpellStore.LookupEntry(m_spells[i]);
+        SpellInfo const *spellInfo = sSpellMgr->GetSpellInfo(m_spells[i]);
         if (!spellInfo)
         {
             sLog->outError("WORLD: unknown spell id %i", m_spells[i]);
@@ -1759,7 +1729,7 @@ SpellEntry const *Creature::reachWithSpellCure(Unit *pVictim)
         bool bcontinue = true;
         for (uint32 j = 0; j < MAX_SPELL_EFFECTS; j++)
         {
-            if ((spellInfo->Effect[j] == SPELL_EFFECT_HEAL))
+            if ((spellInfo->Effects[j].Effect == SPELL_EFFECT_HEAL))
             {
                 bcontinue = false;
                 break;
@@ -1767,11 +1737,11 @@ SpellEntry const *Creature::reachWithSpellCure(Unit *pVictim)
         }
         if (bcontinue) continue;
 
-        if (spellInfo->manaCost > GetPower(POWER_MANA))
+        if (spellInfo->ManaCost > GetPower(POWER_MANA))
             continue;
-        SpellRangeEntry const* srange = sSpellRangeStore.LookupEntry(spellInfo->rangeIndex);
-        float range = GetSpellMaxRangeForFriend(srange);
-        float minrange = GetSpellMinRangeForFriend(srange);
+
+        float range = spellInfo->GetMaxRange(true);
+        float minrange = spellInfo->GetMinRange(true);
         float dist = GetDistance(pVictim);
         //if (!isInFront(pVictim, range) && spellInfo->AttributesEx)
         //    continue;
@@ -1839,6 +1809,17 @@ Unit* Creature::SelectNearestTargetInAttackDistance(float dist) const
         cell.Visit(p, world_unit_searcher, *GetMap(), *this, ATTACK_DISTANCE > dist ? ATTACK_DISTANCE : dist);
         cell.Visit(p, grid_unit_searcher, *GetMap(), *this, ATTACK_DISTANCE > dist ? ATTACK_DISTANCE : dist);
     }
+
+    return target;
+}
+
+Player* Creature::SelectNearestPlayer(float distance) const
+{
+    Player* target = NULL;
+
+    Trinity::NearestPlayerInObjectRangeCheck checker(this, distance);
+    Trinity::PlayerLastSearcher<Trinity::NearestPlayerInObjectRangeCheck> searcher(this, target, checker);
+    VisitNearbyObject(distance, searcher);
 
     return target;
 }
@@ -2091,7 +2072,7 @@ bool Creature::LoadCreaturesAddon(bool reload)
     {
         for (std::vector<uint32>::const_iterator itr = cainfo->auras.begin(); itr != cainfo->auras.end(); ++itr)
         {
-            SpellEntry const *AdditionalSpellInfo = sSpellStore.LookupEntry(*itr);
+            SpellInfo const *AdditionalSpellInfo = sSpellMgr->GetSpellInfo(*itr);
             if (!AdditionalSpellInfo)
             {
                 sLog->outErrorDb("Creature (GUID: %u Entry: %u) has wrong spell %u defined in `auras` field.", GetGUIDLow(), GetEntry(), *itr);
@@ -2174,11 +2155,11 @@ void Creature::_AddCreatureCategoryCooldown(uint32 category, time_t apply_time)
 
 void Creature::AddCreatureSpellCooldown(uint32 spellid)
 {
-    SpellEntry const *spellInfo = sSpellStore.LookupEntry(spellid);
+    SpellInfo const *spellInfo = sSpellMgr->GetSpellInfo(spellid);
     if (!spellInfo)
         return;
 
-    uint32 cooldown = GetSpellRecoveryTime(spellInfo);
+    uint32 cooldown = spellInfo->GetRecoveryTime();
     if (Player *modOwner = GetSpellModOwner())
         modOwner->ApplySpellMod(spellid, SPELLMOD_COOLDOWN, cooldown);
 
@@ -2191,7 +2172,7 @@ void Creature::AddCreatureSpellCooldown(uint32 spellid)
 
 bool Creature::HasCategoryCooldown(uint32 spell_id) const
 {
-    SpellEntry const *spellInfo = sSpellStore.LookupEntry(spell_id);
+    SpellInfo const *spellInfo = sSpellMgr->GetSpellInfo(spell_id);
     if (!spellInfo)
         return false;
 

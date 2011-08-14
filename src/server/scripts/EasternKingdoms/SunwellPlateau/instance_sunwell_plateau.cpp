@@ -128,9 +128,9 @@ public:
             {
                 for (Map::PlayerList::const_iterator itr = players.begin(); itr != players.end(); ++itr)
                 {
-                    Player* plr = itr->getSource();
-                    if (plr && !plr->HasAura(45839, 0))
-                            return plr;
+                    Player* player = itr->getSource();
+                    if (player && !player->HasAura(45839, 0))
+                            return player;
                 }
             }
 
@@ -273,8 +273,8 @@ public:
         {
             OUT_SAVE_INST_DATA;
             std::ostringstream stream;
-            stream << m_auiEncounter[0] << " "  << m_auiEncounter[1] << " "  << m_auiEncounter[2] << " "  << m_auiEncounter[3] << " "
-                << m_auiEncounter[4] << " "  << m_auiEncounter[5];
+            stream << m_auiEncounter[0] << ' '  << m_auiEncounter[1] << ' '  << m_auiEncounter[2] << ' '  << m_auiEncounter[3] << ' '
+                << m_auiEncounter[4] << ' '  << m_auiEncounter[5];
             char* out = new char[stream.str().length() + 1];
             strcpy(out, stream.str().c_str());
             if (out)

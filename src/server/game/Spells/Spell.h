@@ -22,6 +22,7 @@
 #include "GridDefines.h"
 #include "SharedDefines.h"
 #include "ObjectMgr.h"
+#include "SpellInfo.h"
 
 class Unit;
 class Player;
@@ -32,43 +33,42 @@ class Aura;
 class SpellScript;
 class ByteBuffer;
 
-struct SpellEntry;
-
 #define SPELL_CHANNEL_UPDATE_INTERVAL (1 * IN_MILLISECONDS)
 
 enum SpellCastTargetFlags
 {
     TARGET_FLAG_SELF            = 0x00000000,
-    TARGET_FLAG_UNUSED1         = 0x00000001,               // not used in any spells as of 3.2.2a (can be set dynamically)
+    TARGET_FLAG_UNUSED_1        = 0x00000001,               // not used
     TARGET_FLAG_UNIT            = 0x00000002,               // pguid
-    TARGET_FLAG_UNUSED2         = 0x00000004,               // not used in any spells as of 3.2.2a (can be set dynamically)
-    TARGET_FLAG_UNUSED3         = 0x00000008,               // not used in any spells as of 3.2.2a (can be set dynamically)
+    TARGET_FLAG_UNIT_RAID       = 0x00000004,               // not sent, used to validate target (if raid member)
+    TARGET_FLAG_UNIT_PARTY      = 0x00000008,               // not sent, used to validate target (if party member)
     TARGET_FLAG_ITEM            = 0x00000010,               // pguid
-    TARGET_FLAG_SOURCE_LOCATION = 0x00000020,               // 3 float
-    TARGET_FLAG_DEST_LOCATION   = 0x00000040,               // 3 float
-    TARGET_FLAG_OBJECT_CASTER   = 0x00000080,               // used in 7 spells only
-    TARGET_FLAG_UNIT_CASTER     = 0x00000100,               // looks like self target (480 spells)
-    TARGET_FLAG_PVP_CORPSE      = 0x00000200,               // pguid
-    TARGET_FLAG_UNIT_CORPSE     = 0x00000400,               // 10 spells (gathering professions)
-    TARGET_FLAG_OBJECT          = 0x00000800,               // pguid, 2 spells
-    TARGET_FLAG_TRADE_ITEM      = 0x00001000,               // pguid, 0 spells
-    TARGET_FLAG_STRING          = 0x00002000,               // string, 0 spells
-    TARGET_FLAG_OPEN_LOCK       = 0x00004000,               // 199 spells, opening object/lock
-    TARGET_FLAG_CORPSE          = 0x00008000,               // pguid, resurrection spells
-    TARGET_FLAG_UNK17           = 0x00010000,               // pguid, not used in any spells as of 3.2.2a (can be set dynamically)
-    TARGET_FLAG_GLYPH           = 0x00020000,               // used in glyph spells
-    TARGET_FLAG_UNK19           = 0x00040000,               //
-    TARGET_FLAG_UNUSED20        = 0x00080000                // uint32 counter, loop { vec3 - screen position (?), guid }, not used so far
+    TARGET_FLAG_SOURCE_LOCATION = 0x00000020,               // pguid, 3 float
+    TARGET_FLAG_DEST_LOCATION   = 0x00000040,               // pguid, 3 float
+    TARGET_FLAG_UNIT_ENEMY      = 0x00000080,               // not sent, used to validate target (if enemy)
+    TARGET_FLAG_UNIT_ALLY       = 0x00000100,               // not sent, used to validate target (if ally)
+    TARGET_FLAG_CORPSE_ENEMY    = 0x00000200,               // pguid
+    TARGET_FLAG_UNIT_DEAD       = 0x00000400,               // not sent, used to validate target (if dead creature)
+    TARGET_FLAG_GAMEOBJECT      = 0x00000800,               // pguid, used with TARGET_GAMEOBJECT
+    TARGET_FLAG_TRADE_ITEM      = 0x00001000,               // pguid
+    TARGET_FLAG_STRING          = 0x00002000,               // string
+    TARGET_FLAG_GAMEOBJECT_ITEM = 0x00004000,               // not sent, used with TARGET_GAMEOBJECT_ITEM
+    TARGET_FLAG_CORPSE_ALLY     = 0x00008000,               // pguid
+    TARGET_FLAG_UNIT_MINIPET    = 0x00010000,               // pguid, used to validate target (if non combat pet)
+    TARGET_FLAG_GLYPH_SLOT      = 0x00020000,               // used in glyph spells
+    TARGET_FLAG_UNK19           = 0x00040000,               // sometimes appears with DEST_TARGET spells (may appear or not for a given spell)
+    TARGET_FLAG_UNUSED20        = 0x00080000,               // uint32 counter, loop { vec3 - screen position (?), guid }, not used so far
+    TARGET_FLAG_UNIT_PASSENGER  = 0x00100000,               // guessed, used to validate target (if vehicle passenger)
 };
 #define MAX_TARGET_FLAGS 21
 
 enum SpellCastFlags
 {
     CAST_FLAG_NONE               = 0x00000000,
-    CAST_FLAG_PENDING            = 0x00000001,              // Pending == 1
+    CAST_FLAG_PENDING            = 0x00000001,              // aoe combat log?
     CAST_FLAG_UNKNOWN_2          = 0x00000002,
     CAST_FLAG_UNKNOWN_3          = 0x00000004,
-    CAST_FLAG_UNKNOWN_4          = 0x00000008,
+    CAST_FLAG_UNKNOWN_4          = 0x00000008,              // ignore AOE visual
     CAST_FLAG_UNKNOWN_5          = 0x00000010,
     CAST_FLAG_AMMO               = 0x00000020,              // Projectiles visual
     CAST_FLAG_UNKNOWN_7          = 0x00000040,
@@ -210,14 +210,7 @@ class SpellCastTargets
 
 struct SpellValue
 {
-    explicit SpellValue(SpellEntry const* proto)
-    {
-        for (uint32 i = 0; i < MAX_SPELL_EFFECTS; ++i)
-            EffectBasePoints[i] = proto->EffectBasePoints[i];
-        MaxAffectedTargets = proto->MaxAffectedTargets;
-        RadiusMod = 1.0f;
-        AuraStackAmount = 1;
-    }
+    explicit  SpellValue(SpellInfo const* proto);
     int32     EffectBasePoints[MAX_SPELL_EFFECTS];
     uint32    MaxAffectedTargets;
     float     RadiusMod;
@@ -363,14 +356,15 @@ class Spell
         void EffectEnergizePct(SpellEffIndex effIndex);
         void EffectTriggerSpellWithValue(SpellEffIndex effIndex);
         void EffectTriggerRitualOfSummoning(SpellEffIndex effIndex);
+        void EffectSummonRaFFriend(SpellEffIndex effIndex);
         void EffectKillCreditPersonal(SpellEffIndex effIndex);
         void EffectKillCredit(SpellEffIndex effIndex);
         void EffectQuestFail(SpellEffIndex effIndex);
         void EffectQuestStart(SpellEffIndex effIndex);
         void EffectRedirectThreat(SpellEffIndex effIndex);
-        void EffectWMODamage(SpellEffIndex effIndex);
-        void EffectWMORepair(SpellEffIndex effIndex);
-        void EffectWMOChange(SpellEffIndex effIndex);
+        void EffectGameObjectDamage(SpellEffIndex effIndex);
+        void EffectGameObjectRepair(SpellEffIndex effIndex);
+        void EffectGameObjectSetDestructionState(SpellEffIndex effIndex);
         void EffectActivateRune(SpellEffIndex effIndex);
         void EffectCreateTamedPet(SpellEffIndex effIndex);
         void EffectDiscoverTaxi(SpellEffIndex effIndex);
@@ -386,7 +380,7 @@ class Spell
 
         typedef std::set<Aura*> UsedSpellMods;
 
-        Spell(Unit* Caster, SpellEntry const *info, bool triggered, uint64 originalCasterGUID = 0, bool skipCheck = false, bool castedClientside = false);
+        Spell(Unit* caster, SpellInfo const *info, TriggerCastFlags triggerFlags, uint64 originalCasterGUID = 0, bool skipCheck = false);
         ~Spell();
 
         void prepare(SpellCastTargets const* targets, AuraEffect const* triggeredByAura = NULL);
@@ -430,7 +424,7 @@ class Spell
         void WriteAmmoToPacket(WorldPacket * data);
 
         void SelectSpellTargets();
-        void SelectEffectTargets(uint32 i, uint32 cur);
+        void SelectEffectTargets(uint32 i, SpellImplicitTargetInfo const& cur);
         void SelectTrajTargets();
 
         template<typename T> WorldObject* FindCorpseUsing();
@@ -440,7 +434,7 @@ class Spell
         void CheckSrc() { if (!m_targets.HasSrc()) m_targets.SetSrc(*m_caster); }
         void CheckDst() { if (!m_targets.HasDst()) m_targets.SetDst(*m_caster); }
 
-        static void SendCastResult(Player* caster, SpellEntry const* spellInfo, uint8 cast_count, SpellCastResult result, SpellCustomErrors customError = SPELL_CUSTOM_ERROR_NONE);
+        static void SendCastResult(Player* caster, SpellInfo const* spellInfo, uint8 cast_count, SpellCastResult result, SpellCustomErrors customError = SPELL_CUSTOM_ERROR_NONE);
         void SendCastResult(SpellCastResult result);
         void SendSpellStart();
         void SendSpellGo();
@@ -460,12 +454,11 @@ class Spell
         void SendChannelUpdate(uint32 time);
         void SendChannelStart(uint32 duration);
         void SendResurrectRequest(Player* target);
-        void SendPlaySpellVisual(uint32 SpellID);
 
         void HandleEffects(Unit *pUnitTarget, Item *pItemTarget, GameObject *pGOTarget, uint32 i);
-        void HandleThreatSpells(uint32 spellId);
+        void HandleThreatSpells();
 
-        const SpellEntry * const m_spellInfo;
+        SpellInfo const* const m_spellInfo;
         Item* m_CastItem;
         uint64 m_castItemGUID;
         uint8 m_cast_count;
@@ -477,17 +470,14 @@ class Spell
 
         UsedSpellMods m_appliedMods;
 
-        int32 GetCastTime() const { return m_casttime; }
+        int32 CalcCastTime() const { return m_casttime; }
         bool IsAutoRepeat() const { return m_autoRepeat; }
         void SetAutoRepeat(bool rep) { m_autoRepeat = rep; }
         void ReSetTimer() { m_timer = m_casttime > 0 ? m_casttime : 0; }
-        bool IsNextMeleeSwingSpell() const
-        {
-            return m_spellInfo->Attributes & SPELL_ATTR0_ON_NEXT_SWING;
-        }
-        bool IsTriggered() const {return m_IsTriggeredSpell;};
+        bool IsNextMeleeSwingSpell() const;
+        bool IsTriggered() const {return _triggeredCastFlags & TRIGGERED_FULL_MASK;};
         bool IsChannelActive() const { return m_caster->GetUInt32Value(UNIT_CHANNEL_SPELL) != 0; }
-        bool IsAutoActionResetSpell() const { return !m_IsTriggeredSpell && (m_spellInfo->InterruptFlags & SPELL_INTERRUPT_FLAG_AUTOATTACK);  }
+        bool IsAutoActionResetSpell() const;
 
         bool IsDeletable() const { return !m_referencedFromCurrentSpell && !m_executedCurrently; }
         void SetReferencedFromCurrent(bool yes) { m_referencedFromCurrentSpell = yes; }
@@ -503,7 +493,7 @@ class Spell
 
         Unit* GetCaster() const { return m_caster; }
         Unit* GetOriginalCaster() const { return m_originalCaster; }
-        SpellEntry const* GetSpellInfo() const { return m_spellInfo; }
+        SpellInfo const* GetSpellInfo() const { return m_spellInfo; }
         int32 GetPowerCost() const { return m_powerCost; }
 
         void UpdatePointers();                              // must be used at call Spell code after time delay (non triggered spell cast/update spell call/etc)
@@ -669,7 +659,7 @@ class Spell
 
         bool CanExecuteTriggersOnHit(uint8 effMask) const;
         void PrepareTriggersExecutedOnHit();
-        typedef std::list< std::pair<SpellEntry const*, int32> > HitTriggerSpells;
+        typedef std::list< std::pair<SpellInfo const*, int32> > HitTriggerSpells;
         HitTriggerSpells m_hitTriggerSpells;
 
         // effect helpers
@@ -683,15 +673,13 @@ class Spell
         uint32 m_spellState;
         uint32 m_timer;
 
-        bool m_IsTriggeredSpell;
-        bool m_castedClientside;
+        TriggerCastFlags _triggeredCastFlags;
 
         // if need this can be replaced by Aura copy
         // we can't store original aura link to prevent access to deleted auras
         // and in same time need aura data and after aura deleting.
-        SpellEntry const* m_triggeredByAuraSpell;
+        SpellInfo const* m_triggeredByAuraSpell;
 
-        uint32 m_customAttr;
         bool m_skipCheck;
         uint32 m_effectMask;
         uint8 m_auraScaleMask;
@@ -719,10 +707,10 @@ namespace Trinity
         uint32 i_entry;
         const Position * const i_pos;
         bool i_requireDeadTarget;
-        SpellEntry const* i_spellProto;
+        SpellInfo const* i_spellProto;
 
         SpellNotifierCreatureAndPlayer(Unit *source, std::list<Unit*> &data, float radius, SpellNotifyPushType type,
-            SpellTargets TargetType = SPELL_TARGETS_ENEMY, const Position *pos = NULL, uint32 entry = 0, SpellEntry const* spellProto = NULL)
+            SpellTargets TargetType = SPELL_TARGETS_ENEMY, const Position *pos = NULL, uint32 entry = 0, SpellInfo const* spellProto = NULL)
             : i_data(&data), i_push_type(type), i_radius(radius), i_TargetType(TargetType),
             i_source(source), i_entry(entry), i_pos(pos), i_spellProto(spellProto)
         {

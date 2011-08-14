@@ -99,7 +99,11 @@ enum Events
     EVENT_GROUP_CANCELLABLE         = 2,
 };
 
-#define GUID_VAMPIRE 1
+enum Guids
+{
+    GUID_VAMPIRE    = 1,
+    GUID_BLOODBOLT  = 2,
+};
 
 enum Points
 {
@@ -148,6 +152,7 @@ class boss_blood_queen_lana_thel : public CreatureScript
                 _offtank = NULL;
                 _vampires.clear();
                 _creditBloodQuickening = false;
+                _killMinchar = false;
             }
 
             void EnterCombat(Unit* who)
@@ -186,8 +191,8 @@ class boss_blood_queen_lana_thel : public CreatureScript
                 if (_creditBloodQuickening)
                 {
                     instance->SetData(DATA_BLOOD_QUICKENING_STATE, DONE);
-                    if (Player* plr = killer->ToPlayer())
-                        plr->RewardPlayerAndGroupAtEvent(NPC_INFILTRATOR_MINCHAR_BQ, plr);
+                    if (Player* player = killer->ToPlayer())
+                        player->RewardPlayerAndGroupAtEvent(NPC_INFILTRATOR_MINCHAR_BQ, player);
                     if (Creature* minchar = me->FindNearestCreature(NPC_INFILTRATOR_MINCHAR_BQ, 200.0f))
                     {
                         minchar->SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
@@ -252,10 +257,19 @@ class boss_blood_queen_lana_thel : public CreatureScript
                     Talk(SAY_KILL);
             }
 
-            void SetGUID(uint64 const& guid, int32 type = 0)
+            void SetGUID(uint64 const guid, int32 type = 0)
             {
-                if (type == GUID_VAMPIRE)
-                    _vampires.insert(guid);
+                switch (type)
+                {
+                    case GUID_VAMPIRE:
+                        _vampires.insert(guid);
+                        break;
+                    case GUID_BLOODBOLT:
+                        _bloodboltedPlayers.insert(guid);
+                        break;
+                    default:
+                        break;
+                }
             }
 
             void MovementInform(uint32 type, uint32 id)
@@ -273,6 +287,7 @@ class boss_blood_queen_lana_thel : public CreatureScript
                         events.ScheduleEvent(EVENT_AIR_START_FLYING, 5000);
                         break;
                     case POINT_AIR:
+                        _bloodboltedPlayers.clear();
                         DoCast(me, SPELL_BLOODBOLT_WHIRL);
                         Talk(SAY_AIR_PHASE);
                         events.ScheduleEvent(EVENT_AIR_FLY_DOWN, 10000);
@@ -402,7 +417,7 @@ class boss_blood_queen_lana_thel : public CreatureScript
                             DoStopAttack();
                             me->SetReactState(REACT_PASSIVE);
                             events.DelayEvents(7000, EVENT_GROUP_NORMAL);
-                            events.CancelEventsByGCD(EVENT_GROUP_CANCELLABLE);
+                            events.CancelEventGroup(EVENT_GROUP_CANCELLABLE);
                             me->GetMotionMaster()->MovePoint(POINT_CENTER, centerPos);
                             break;
                         case EVENT_AIR_START_FLYING:
@@ -426,6 +441,11 @@ class boss_blood_queen_lana_thel : public CreatureScript
             bool WasVampire(uint64 guid)
             {
                 return _vampires.count(guid) != 0;
+            }
+
+            bool WasBloodbolted(uint64 guid)
+            {
+                return _bloodboltedPlayers.count(guid) != 0;
             }
 
         private:
@@ -464,6 +484,7 @@ class boss_blood_queen_lana_thel : public CreatureScript
             }
 
             std::set<uint64> _vampires;
+            std::set<uint64> _bloodboltedPlayers;
             Player* _offtank;
             bool _creditBloodQuickening;
             bool _killMinchar;
@@ -487,13 +508,13 @@ class spell_blood_queen_vampiric_bite : public SpellScriptLoader
         {
             PrepareSpellScript(spell_blood_queen_vampiric_bite_SpellScript);
 
-            bool Validate(SpellEntry const* /*spell*/)
+            bool Validate(SpellInfo const* /*spell*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_ESSENCE_OF_THE_BLOOD_QUEEN_PLR))
+                if (!sSpellMgr->GetSpellInfo(SPELL_ESSENCE_OF_THE_BLOOD_QUEEN_PLR))
                     return false;
-                if (!sSpellStore.LookupEntry(SPELL_FRENZIED_BLOODTHIRST))
+                if (!sSpellMgr->GetSpellInfo(SPELL_FRENZIED_BLOODTHIRST))
                     return false;
-                if (!sSpellStore.LookupEntry(SPELL_PRESENCE_OF_THE_DARKFALLEN))
+                if (!sSpellMgr->GetSpellInfo(SPELL_PRESENCE_OF_THE_DARKFALLEN))
                     return false;
                 return true;
             }
@@ -586,6 +607,7 @@ class spell_blood_queen_frenzied_bloodthirst : public SpellScriptLoader
 
             void Register()
             {
+                OnEffectApply += AuraEffectApplyFn(spell_blood_queen_frenzied_bloodthirst_AuraScript::OnApply, EFFECT_0, SPELL_AURA_OVERRIDE_SPELLS, AURA_EFFECT_HANDLE_REAL);
                 AfterEffectRemove += AuraEffectRemoveFn(spell_blood_queen_frenzied_bloodthirst_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_OVERRIDE_SPELLS, AURA_EFFECT_HANDLE_REAL);
             }
         };
@@ -594,6 +616,20 @@ class spell_blood_queen_frenzied_bloodthirst : public SpellScriptLoader
         {
             return new spell_blood_queen_frenzied_bloodthirst_AuraScript();
         }
+};
+
+class BloodboltHitCheck
+{
+    public:
+        explicit BloodboltHitCheck(LanaThelAI* ai) : _ai(ai) {}
+
+        bool operator()(Unit* unit)
+        {
+            return _ai->WasBloodbolted(unit->GetGUID());
+        }
+
+    private:
+        LanaThelAI* _ai;
 };
 
 class spell_blood_queen_bloodbolt : public SpellScriptLoader
@@ -605,21 +641,34 @@ class spell_blood_queen_bloodbolt : public SpellScriptLoader
         {
             PrepareSpellScript(spell_blood_queen_bloodbolt_SpellScript);
 
-            bool Validate(SpellEntry const* /*spell*/)
+            bool Validate(SpellInfo const* /*spell*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_TWILIGHT_BLOODBOLT))
+                if (!sSpellMgr->GetSpellInfo(SPELL_TWILIGHT_BLOODBOLT))
                     return false;
                 return true;
             }
 
+            bool Load()
+            {
+                return GetCaster()->GetEntry() == NPC_BLOOD_QUEEN_LANA_THEL;
+            }
+
+            void FilterTargets(std::list<Unit*>& targets)
+            {
+                uint32 targetCount = targets.size() / 3 + 1;
+                targets.remove_if(BloodboltHitCheck(static_cast<LanaThelAI*>(GetCaster()->GetAI())));
+                Trinity::RandomResizeList(targets, targetCount);
+            }
+
             void HandleDummy()
             {
-                if (GetHitUnit()->GetTypeId() == TYPEID_PLAYER)
-                    GetCaster()->CastSpell(GetHitUnit(), SPELL_TWILIGHT_BLOODBOLT, true);
+                GetCaster()->CastSpell(GetHitUnit(), SPELL_TWILIGHT_BLOODBOLT, true);
+                GetCaster()->GetAI()->SetGUID(GetHitUnit()->GetGUID(), GUID_BLOODBOLT);
             }
 
             void Register()
             {
+                OnUnitTargetSelect += SpellUnitTargetFn(spell_blood_queen_bloodbolt_SpellScript::FilterTargets, EFFECT_0, TARGET_UNIT_AREA_ENEMY_SRC);
                 AfterHit += SpellHitFn(spell_blood_queen_bloodbolt_SpellScript::HandleDummy);
             }
         };
@@ -701,9 +750,9 @@ class spell_blood_queen_pact_of_the_darkfallen_dmg : public SpellScriptLoader
         {
             PrepareAuraScript(spell_blood_queen_pact_of_the_darkfallen_dmg_AuraScript);
 
-            bool Validate(SpellEntry const* /*spell*/)
+            bool Validate(SpellInfo const* /*spell*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_PACT_OF_THE_DARKFALLEN_DAMAGE))
+                if (!sSpellMgr->GetSpellInfo(SPELL_PACT_OF_THE_DARKFALLEN_DAMAGE))
                     return false;
                 return true;
             }
@@ -711,8 +760,8 @@ class spell_blood_queen_pact_of_the_darkfallen_dmg : public SpellScriptLoader
             // this is an additional effect to be executed
             void PeriodicTick(AuraEffect const* aurEff)
             {
-                SpellEntry const* damageSpell = sSpellStore.LookupEntry(SPELL_PACT_OF_THE_DARKFALLEN_DAMAGE);
-                int32 damage = SpellMgr::CalculateSpellEffectAmount(damageSpell, EFFECT_0);
+                SpellInfo const* damageSpell = sSpellMgr->GetSpellInfo(SPELL_PACT_OF_THE_DARKFALLEN_DAMAGE);
+                int32 damage = damageSpell->Effects[EFFECT_0].CalcValue();
                 float multiplier = 0.3375f + 0.1f * uint32(aurEff->GetTickNumber()/10); // do not convert to 0.01f - we need tick number/10 as INT (damage increases every 10 ticks)
                 damage = int32(damage * multiplier);
                 GetTarget()->CastCustomSpell(SPELL_PACT_OF_THE_DARKFALLEN_DAMAGE, SPELLVALUE_BASE_POINT0, damage, GetTarget(), true);

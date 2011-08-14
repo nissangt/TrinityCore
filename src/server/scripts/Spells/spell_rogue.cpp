@@ -48,14 +48,14 @@ public:
             ROG_SPELL_CHEAT_DEATH_COOLDOWN = 31231,
         };
 
-        bool Validate(SpellEntry const* /*spellEntry*/)
+        bool Validate(SpellInfo const* /*spellEntry*/)
         {
-            return sSpellStore.LookupEntry(ROG_SPELL_CHEAT_DEATH_COOLDOWN);
+            return sSpellMgr->GetSpellInfo(ROG_SPELL_CHEAT_DEATH_COOLDOWN);
         }
 
         bool Load()
         {
-            absorbChance = SpellMgr::CalculateSpellEffectAmount(GetSpellProto(), EFFECT_0);
+            absorbChance = GetSpellInfo()->Effects[EFFECT_0].CalcValue();
             return GetUnitOwner()->ToPlayer();
         }
 
@@ -115,7 +115,7 @@ public:
 
         bool Load()
         {
-            absorbPct = SpellMgr::CalculateSpellEffectAmount(GetSpellProto(), EFFECT_0, GetCaster());
+            absorbPct = GetSpellInfo()->Effects[EFFECT_0].CalcValue(GetCaster());
             return true;
         }
 
@@ -128,7 +128,7 @@ public:
         void Absorb(AuraEffect * /*aurEff*/, DamageInfo & dmgInfo, uint32 & absorbAmount)
         {
             // reduces all damage taken while stun or fear
-            if (GetTarget()->GetUInt32Value(UNIT_FIELD_FLAGS) & (UNIT_FLAG_STUNNED | UNIT_FLAG_FLEEING))
+            if (GetTarget()->GetUInt32Value(UNIT_FIELD_FLAGS) & (UNIT_FLAG_FLEEING) || (GetTarget()->GetUInt32Value(UNIT_FIELD_FLAGS) & (UNIT_FLAG_STUNNED) && GetTarget()->HasAuraWithMechanic(1<<MECHANIC_STUN)))
                 absorbAmount = CalculatePctN(dmgInfo.GetDamage(), absorbPct);
         }
 
@@ -153,16 +153,16 @@ class spell_rog_preparation : public SpellScriptLoader
         class spell_rog_preparation_SpellScript : public SpellScript
         {
             PrepareSpellScript(spell_rog_preparation_SpellScript)
-            bool Validate(SpellEntry const* /*spellEntry*/)
+            bool Validate(SpellInfo const* /*spellEntry*/)
             {
-                if (!sSpellStore.LookupEntry(ROGUE_SPELL_GLYPH_OF_PREPARATION))
+                if (!sSpellMgr->GetSpellInfo(ROGUE_SPELL_GLYPH_OF_PREPARATION))
                     return false;
                 return true;
             }
 
             void HandleDummy(SpellEffIndex /*effIndex*/)
             {
-                Unit *caster = GetCaster();
+                Unit* caster = GetCaster();
                 if (caster->GetTypeId() != TYPEID_PLAYER)
                     return;
 
@@ -170,7 +170,7 @@ class spell_rog_preparation : public SpellScriptLoader
                 const SpellCooldowns& cm = caster->ToPlayer()->GetSpellCooldownMap();
                 for (SpellCooldowns::const_iterator itr = cm.begin(); itr != cm.end();)
                 {
-                    SpellEntry const *spellInfo = sSpellStore.LookupEntry(itr->first);
+                    SpellInfo const *spellInfo = sSpellMgr->GetSpellInfo(itr->first);
 
                     if (spellInfo->SpellFamilyName == SPELLFAMILY_ROGUE)
                     {
@@ -217,27 +217,27 @@ public:
     class spell_rog_prey_on_the_weak_AuraScript : public AuraScript
     {
         PrepareAuraScript(spell_rog_prey_on_the_weak_AuraScript)
-        bool Validate(SpellEntry const* /*spellEntry*/)
+        bool Validate(SpellInfo const* /*spellEntry*/)
         {
-            if (!sSpellStore.LookupEntry(ROGUE_SPELL_PREY_ON_THE_WEAK))
+            if (!sSpellMgr->GetSpellInfo(ROGUE_SPELL_PREY_ON_THE_WEAK))
                 return false;
             return true;
         }
 
         void HandleEffectPeriodic(AuraEffect const* /*aurEff*/)
         {
-            Unit* pTarget = GetTarget();
-            Unit* pVictim = pTarget->getVictim();
-            if (pVictim && (pTarget->GetHealthPct() > pVictim->GetHealthPct()))
+            Unit* target = GetTarget();
+            Unit* victim = target->getVictim();
+            if (victim && (target->GetHealthPct() > victim->GetHealthPct()))
             {
-                if (!pTarget->HasAura(ROGUE_SPELL_PREY_ON_THE_WEAK))
+                if (!target->HasAura(ROGUE_SPELL_PREY_ON_THE_WEAK))
                 {
-                    int32 bp = SpellMgr::CalculateSpellEffectAmount(GetSpellProto(), 0);
-                    pTarget->CastCustomSpell(pTarget, ROGUE_SPELL_PREY_ON_THE_WEAK, &bp, 0, 0, true);
+                    int32 bp = GetSpellInfo()->Effects[EFFECT_0].CalcValue();
+                    target->CastCustomSpell(target, ROGUE_SPELL_PREY_ON_THE_WEAK, &bp, 0, 0, true);
                 }
             }
             else
-                pTarget->RemoveAurasDueToSpell(ROGUE_SPELL_PREY_ON_THE_WEAK);
+                target->RemoveAurasDueToSpell(ROGUE_SPELL_PREY_ON_THE_WEAK);
         }
 
         void Register()
@@ -260,20 +260,20 @@ class spell_rog_shiv : public SpellScriptLoader
         class spell_rog_shiv_SpellScript : public SpellScript
         {
             PrepareSpellScript(spell_rog_shiv_SpellScript)
-            bool Validate(SpellEntry const* /*spellEntry*/)
+            bool Validate(SpellInfo const* /*spellEntry*/)
             {
-                if (!sSpellStore.LookupEntry(ROGUE_SPELL_SHIV_TRIGGERED))
+                if (!sSpellMgr->GetSpellInfo(ROGUE_SPELL_SHIV_TRIGGERED))
                     return false;
                 return true;
             }
 
             void HandleDummy(SpellEffIndex /*effIndex*/)
             {
-                Unit *caster = GetCaster();
+                Unit* caster = GetCaster();
                 if (caster->GetTypeId() != TYPEID_PLAYER)
                     return;
 
-                if (Unit *unitTarget = GetHitUnit())
+                if (Unit* unitTarget = GetHitUnit())
                     caster->CastSpell(unitTarget, ROGUE_SPELL_SHIV_TRIGGERED, true);
             }
 
@@ -348,7 +348,7 @@ class spell_rog_deadly_poison : public SpellScriptLoader
                         if (enchant->type[s] != ITEM_ENCHANTMENT_TYPE_COMBAT_SPELL)
                             continue;
 
-                        SpellEntry const* spellInfo = sSpellStore.LookupEntry(enchant->spellid[s]);
+                        SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(enchant->spellid[s]);
                         if (!spellInfo)
                         {
                             sLog->outError("Player::CastItemCombatSpell Enchant %i, cast unknown spell %i", enchant->ID, enchant->spellid[s]);
@@ -363,7 +363,7 @@ class spell_rog_deadly_poison : public SpellScriptLoader
                         if (spellInfo->SpellFamilyFlags.IsEqual(0x10000, 0x80000, 0))
                             continue;
 
-                        if (IsPositiveSpell(enchant->spellid[s]))
+                        if (spellInfo->IsPositive())
                             player->CastSpell(player, enchant->spellid[s], true, item);
                         else
                             player->CastSpell(target, enchant->spellid[s], true, item);

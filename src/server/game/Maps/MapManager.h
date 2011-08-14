@@ -33,8 +33,6 @@ struct TransportCreatureProto;
 class MapManager
 {
     friend class ACE_Singleton<MapManager, ACE_Thread_Mutex>;
-    typedef UNORDERED_MAP<uint32, Map*> MapMapType;
-    typedef std::vector<bool> InstanceIds;
 
     public:
 
@@ -148,12 +146,17 @@ class MapManager
         uint32 GetNextInstanceId() { return _nextInstanceId; };
         void SetNextInstanceId(uint32 nextInstanceId) { _nextInstanceId = nextInstanceId; };
 
+        MapUpdater * GetMapUpdater() { return &m_updater; }
+
     private:
+        typedef UNORDERED_MAP<uint32, Map*> MapMapType;
+        typedef std::vector<bool> InstanceIds;
+
         // debugging code, should be deleted some day
         void checkAndCorrectGridStatesArray();              // just for debugging to find some memory overwrites
         GridState* i_GridStates[MAX_GRID_STATE];            // shadow entries to the global array in Map.cpp
         int i_GridStateErrorCount;
-    private:
+
         MapManager();
         ~MapManager();
 

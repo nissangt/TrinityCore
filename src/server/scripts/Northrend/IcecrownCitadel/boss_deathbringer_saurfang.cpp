@@ -377,7 +377,7 @@ class boss_deathbringer_saurfang : public CreatureScript
                 instance->HandleGameObject(instance->GetData64(GO_SAURFANG_S_DOOR), false);
             }
 
-            void SpellHitTarget(Unit* target, SpellEntry const* spell)
+            void SpellHitTarget(Unit* target, SpellInfo const* spell)
             {
                 switch (spell->Id)
                 {
@@ -625,7 +625,7 @@ class npc_high_overlord_saurfang_icc : public CreatureScript
                 }
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
+            void SpellHit(Unit* /*caster*/, SpellInfo const* spell)
             {
                 if (spell->Id == SPELL_GRIP_OF_AGONY)
                 {
@@ -828,7 +828,7 @@ class npc_muradin_bronzebeard_icc : public CreatureScript
                 }
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
+            void SpellHit(Unit* /*caster*/, SpellInfo const* spell)
             {
                 if (spell->Id == SPELL_GRIP_OF_AGONY)
                 {
@@ -930,7 +930,7 @@ class npc_saurfang_event : public CreatureScript
                 _index = data;
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
+            void SpellHit(Unit* /*caster*/, SpellInfo const* spell)
             {
                 if (spell->Id == SPELL_GRIP_OF_AGONY)
                 {
@@ -966,11 +966,11 @@ class spell_deathbringer_blood_link : public SpellScriptLoader
         {
             PrepareSpellScript(spell_deathbringer_blood_link_SpellScript);
 
-            bool Validate(SpellEntry const* /*spellInfo*/)
+            bool Validate(SpellInfo const* /*spellInfo*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_BLOOD_LINK_POWER))
+                if (!sSpellMgr->GetSpellInfo(SPELL_BLOOD_LINK_POWER))
                     return false;
-                if (!sSpellStore.LookupEntry(SPELL_BLOOD_POWER))
+                if (!sSpellMgr->GetSpellInfo(SPELL_BLOOD_POWER))
                     return false;
                 return true;
             }
@@ -1004,9 +1004,9 @@ class spell_deathbringer_blood_link_aura : public SpellScriptLoader
         {
             PrepareAuraScript(spell_deathbringer_blood_link_AuraScript);
 
-            bool Validate(SpellEntry const* /*spellInfo*/)
+            bool Validate(SpellInfo const* /*spellInfo*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_MARK_OF_THE_FALLEN_CHAMPION))
+                if (!sSpellMgr->GetSpellInfo(SPELL_MARK_OF_THE_FALLEN_CHAMPION))
                     return false;
                 return true;
             }
@@ -1096,9 +1096,9 @@ class spell_deathbringer_rune_of_blood : public SpellScriptLoader
         {
             PrepareSpellScript(spell_deathbringer_rune_of_blood_SpellScript);
 
-            bool Validate(SpellEntry const* /*spellInfo*/)
+            bool Validate(SpellInfo const* /*spellInfo*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_BLOOD_LINK_DUMMY))
+                if (!sSpellMgr->GetSpellInfo(SPELL_BLOOD_LINK_DUMMY))
                     return false;
                 return true;
             }
@@ -1131,16 +1131,16 @@ class spell_deathbringer_blood_nova : public SpellScriptLoader
         {
             PrepareSpellScript(spell_deathbringer_blood_nova_SpellScript);
 
-            bool Validate(SpellEntry const* /*spellInfo*/)
+            bool Validate(SpellInfo const* /*spellInfo*/)
             {
-                if (!sSpellStore.LookupEntry(SPELL_BLOOD_LINK_DUMMY))
+                if (!sSpellMgr->GetSpellInfo(SPELL_BLOOD_LINK_DUMMY))
                     return false;
                 return true;
             }
 
-            void HandleScript(SpellEffIndex /*effIndex*/)
+            void HandleScript(SpellEffIndex effIndex)
             {
-                PreventHitDefaultEffect(EFFECT_1);  // make this the default handler
+                PreventHitDefaultEffect(effIndex);  // make this the default handler
                 if (GetCaster()->GetPower(POWER_ENERGY) != GetCaster()->GetMaxPower(POWER_ENERGY))
                     GetHitUnit()->CastCustomSpell(SPELL_BLOOD_LINK_DUMMY, SPELLVALUE_BASE_POINT0, 2, GetCaster(), true);
             }
@@ -1238,6 +1238,9 @@ class spell_deathbringer_boiling_blood : public SpellScriptLoader
             void FilterTargets(std::list<Unit*>& unitList)
             {
                 unitList.remove(GetCaster()->getVictim());
+                if (unitList.empty())
+                    return;
+
                 std::list<Unit*>::iterator itr = unitList.begin();
                 std::advance(itr, urand(0, unitList.size() - 1));
                 Unit* target = *itr;

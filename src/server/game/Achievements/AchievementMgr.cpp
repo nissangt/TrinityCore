@@ -165,7 +165,7 @@ bool AchievementCriteriaData::IsValid(AchievementCriteriaEntry const* criteria)
         case ACHIEVEMENT_CRITERIA_DATA_TYPE_S_AURA:
         case ACHIEVEMENT_CRITERIA_DATA_TYPE_T_AURA:
         {
-            SpellEntry const* spellEntry = sSpellStore.LookupEntry(aura.spell_id);
+            SpellInfo const* spellEntry = sSpellMgr->GetSpellInfo(aura.spell_id);
             if (!spellEntry)
             {
                 sLog->outErrorDb("Table `achievement_criteria_data` (Entry: %u Type: %u) for data type %s (%u) has wrong spell id in value1 (%u), ignored.",
@@ -178,7 +178,7 @@ bool AchievementCriteriaData::IsValid(AchievementCriteriaEntry const* criteria)
                     criteria->ID, criteria->requiredType, (dataType == ACHIEVEMENT_CRITERIA_DATA_TYPE_S_AURA?"ACHIEVEMENT_CRITERIA_DATA_TYPE_S_AURA":"ACHIEVEMENT_CRITERIA_DATA_TYPE_T_AURA"), dataType, aura.effect_idx);
                 return false;
             }
-            if (!spellEntry->EffectApplyAuraName[aura.effect_idx])
+            if (!spellEntry->Effects[aura.effect_idx].ApplyAuraName)
             {
                 sLog->outErrorDb("Table `achievement_criteria_data` (Entry: %u Type: %u) for data type %s (%u) has non-aura spell effect (ID: %u Effect: %u), ignores.",
                     criteria->ID, criteria->requiredType, (dataType == ACHIEVEMENT_CRITERIA_DATA_TYPE_S_AURA?"ACHIEVEMENT_CRITERIA_DATA_TYPE_S_AURA":"ACHIEVEMENT_CRITERIA_DATA_TYPE_T_AURA"), dataType, aura.spell_id, aura.effect_idx);
@@ -433,7 +433,8 @@ void AchievementMgr::ResetAchievementCriteria(AchievementCriteriaTypes type, uin
 {
     sLog->outDebug(LOG_FILTER_ACHIEVEMENTSYS, "AchievementMgr::ResetAchievementCriteria(%u, %u, %u)", type, miscvalue1, miscvalue2);
 
-    if (m_player->GetSession()->GetSecurity() > AccountTypes(sWorld->getIntConfig(CONFIG_GM_LEVEL_ALLOW_ACHIEVEMENTS)))
+    // disable for gamemasters with GM-mode enabled
+    if (m_player->isGameMaster())
         return;
 
     AchievementCriteriaEntryList const& achievementCriteriaList = sAchievementMgr->GetAchievementCriteriaByType(type);
@@ -490,20 +491,20 @@ void AchievementMgr::SaveToDB(SQLTransaction& trans)
             /// next new/changed record prefix
             else
             {
-                ssdel << ", ";
-                ssins << ", ";
+                ssdel << ',';
+                ssins << ',';
             }
 
             // new/changed record data
             ssdel << iter->first;
-            ssins << "("<<GetPlayer()->GetGUIDLow() << ", " << iter->first << ", " << uint64(iter->second.date) << ")";
+            ssins << '(' << GetPlayer()->GetGUIDLow() << ',' << iter->first << ',' << uint64(iter->second.date) << ')';
 
             /// mark as saved in db
             iter->second.changed = false;
         }
 
         if (need_execute)
-            ssdel << ")";
+            ssdel << ')';
 
         if (need_execute)
         {
@@ -534,7 +535,7 @@ void AchievementMgr::SaveToDB(SQLTransaction& trans)
                 }
                 /// next new/changed record prefix
                 else
-                    ssdel << ", ";
+                    ssdel << ',';
 
                 // new/changed record data
                 ssdel << iter->first;
@@ -551,10 +552,10 @@ void AchievementMgr::SaveToDB(SQLTransaction& trans)
                 }
                 /// next new/changed record prefix
                 else
-                    ssins << ", ";
+                    ssins << ',';
 
                 // new/changed record data
-                ssins << "(" << GetPlayer()->GetGUIDLow() << ", " << iter->first << ", " << iter->second.counter << ", " << iter->second.date << ")";
+                ssins << '(' << GetPlayer()->GetGUIDLow() << ',' << iter->first << ',' << iter->second.counter << ',' << iter->second.date << ')';
             }
 
             /// mark as updated in db
@@ -562,7 +563,7 @@ void AchievementMgr::SaveToDB(SQLTransaction& trans)
         }
 
         if (need_execute_del)                                // DELETE ... IN (.... _)_
-            ssdel << ")";
+            ssdel << ')';
 
         if (need_execute_del || need_execute_ins)
         {
@@ -583,7 +584,7 @@ void AchievementMgr::LoadFromDB(PreparedQueryResult achievementResult, PreparedQ
             Field* fields = achievementResult->Fetch();
             uint32 achievementid = fields[0].GetUInt16();
 
-            // don't must happen: cleanup at server startup in sAchievementMgr->LoadCompletedAchievements()
+            // must not happen: cleanup at server startup in sAchievementMgr->LoadCompletedAchievements()
             AchievementEntry const* achievement = sAchievementStore.LookupEntry(achievementid);
             if (!achievement)
                 continue;
@@ -733,7 +734,8 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
 {
     sLog->outDebug(LOG_FILTER_ACHIEVEMENTSYS, "AchievementMgr::UpdateAchievementCriteria(%u, %u, %u)", type, miscValue1, miscValue2);
 
-    if (m_player->GetSession()->GetSecurity() > AccountTypes(sWorld->getIntConfig(CONFIG_GM_LEVEL_ALLOW_ACHIEVEMENTS)))
+    // disable for gamemasters with GM-mode enabled
+    if (m_player->isGameMaster())
         return;
 
     AchievementCriteriaEntryList const& achievementCriteriaList = sAchievementMgr->GetAchievementCriteriaByType(type);
@@ -866,7 +868,7 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 break;
             case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_QUEST_COUNT:
             {
-                SetCriteriaProgress(achievementCriteria, GetPlayer()->getRewardedQuests().size());
+                SetCriteriaProgress(achievementCriteria, GetPlayer()->GetRewardedQuestCount());
                 break;
             }
             case ACHIEVEMENT_CRITERIA_TYPE_COMPLETE_DAILY_QUEST_DAILY:
@@ -905,12 +907,14 @@ void AchievementMgr::UpdateAchievementCriteria(AchievementCriteriaTypes type, ui
                 if (miscValue1 && miscValue1 != achievementCriteria->complete_quests_in_zone.zoneID)
                     continue;
 
-                uint32 counter =0;
-                for (RewardedQuestSet::const_iterator itr = GetPlayer()->getRewardedQuests().begin(); itr != GetPlayer()->getRewardedQuests().end(); ++itr)
+                uint32 counter = 0;
+
+                const RewardedQuestSet &rewQuests = GetPlayer()->getRewardedQuests();
+                for (RewardedQuestSet::const_iterator itr = rewQuests.begin(); itr != rewQuests.end(); ++itr)
                 {
                     Quest const* quest = sObjectMgr->GetQuestTemplate(*itr);
                     if (quest && quest->GetZoneOrSort() >= 0 && uint32(quest->GetZoneOrSort()) == achievementCriteria->complete_quests_in_zone.zoneID)
-                        counter++;
+                        ++counter;
                 }
                 SetCriteriaProgress(achievementCriteria, counter);
                 break;
@@ -2000,11 +2004,12 @@ void AchievementMgr::RemoveTimedAchievement(AchievementCriteriaTimedTypes type, 
     }
 }
 
-void AchievementMgr::CompletedAchievement(AchievementEntry const* achievement, bool ignoreGMAllowAchievementConfig)
+void AchievementMgr::CompletedAchievement(AchievementEntry const* achievement)
 {
     sLog->outDetail("AchievementMgr::CompletedAchievement(%u)", achievement->ID);
 
-    if (m_player->GetSession()->GetSecurity() > AccountTypes(sWorld->getIntConfig(CONFIG_GM_LEVEL_ALLOW_ACHIEVEMENTS)) && !ignoreGMAllowAchievementConfig)
+    // disable for gamemasters with GM-mode enabled
+    if (m_player->isGameMaster())
         return;
 
     if (achievement->flags & ACHIEVEMENT_FLAG_COUNTER || HasAchieved(achievement))
@@ -2049,8 +2054,8 @@ void AchievementMgr::CompletedAchievement(AchievementEntry const* achievement, b
         {
             if (AchievementRewardLocale const* loc = sAchievementMgr->GetAchievementRewardLocale(achievement))
             {
-                sObjectMgr->GetLocaleString(loc->subject, loc_idx, subject);
-                sObjectMgr->GetLocaleString(loc->text, loc_idx, text);
+                ObjectMgr::GetLocaleString(loc->subject, loc_idx, subject);
+                ObjectMgr::GetLocaleString(loc->text, loc_idx, text);
             }
         }
 
@@ -2419,7 +2424,6 @@ void AchievementGlobalMgr::LoadRewards()
 
     do
     {
-
         Field *fields = result->Fetch();
         uint32 entry = fields[0].GetUInt32();
         const AchievementEntry* pAchievement = sAchievementStore.LookupEntry(entry);
@@ -2541,11 +2545,8 @@ void AchievementGlobalMgr::LoadRewardLocales()
         for (int i = 1; i < TOTAL_LOCALES; ++i)
         {
             LocaleConstant locale = (LocaleConstant) i;
-            std::string str = fields[1 + 2 * (i - 1)].GetString();
-            sObjectMgr->AddLocaleString(str, locale, data.subject);
-
-            str = fields[1 + 2 * (i - 1) + 1].GetString();
-            sObjectMgr->AddLocaleString(str, locale, data.text);
+            ObjectMgr::AddLocaleString(fields[1 + 2 * (i - 1)].GetString(), locale, data.subject);
+            ObjectMgr::AddLocaleString(fields[1 + 2 * (i - 1) + 1].GetString(), locale, data.text);
         }
     } while (result->NextRow());
 

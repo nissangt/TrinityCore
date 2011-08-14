@@ -35,6 +35,7 @@
 #include "Battleground.h"
 #include "ScriptMgr.h"
 #include "CreatureAI.h"
+#include "SpellInfo.h"
 
 enum StableResultCode
 {
@@ -177,7 +178,8 @@ void WorldSession::SendTrainerList(uint64 guid, const std::string& strTitle)
                 valid = false;
                 break;
             }
-            if (sSpellMgr->IsPrimaryProfessionFirstRankSpell(tSpell->learnedSpell[i]))
+            SpellInfo const* learnedSpellInfo = sSpellMgr->GetSpellInfo(tSpell->learnedSpell[i]);
+            if (learnedSpellInfo && learnedSpellInfo->IsPrimaryProfessionFirstRank())
                 primary_prof_first_rank = true;
         }
         if (!valid)
@@ -201,13 +203,10 @@ void WorldSession::SendTrainerList(uint64 guid, const std::string& strTitle)
         {
             if (!tSpell->learnedSpell[i])
                 continue;
-            if (SpellChainNode const* chain_node = sSpellMgr->GetSpellChainNode(tSpell->learnedSpell[i]))
+            if (uint32 prevSpellId = sSpellMgr->GetPrevSpellInChain(tSpell->learnedSpell[i]))
             {
-                if (chain_node->prev)
-                {
-                    data << uint32(chain_node->prev);
-                    ++maxReq;
-                }
+                data << uint32(prevSpellId);
+                ++maxReq;
             }
             if (maxReq == 3)
                 break;
@@ -280,15 +279,8 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket & recv_data)
 
     _player->ModifyMoney(-int32(nSpellCost));
 
-    WorldPacket data(SMSG_PLAY_SPELL_VISUAL, 12);           // visual effect on trainer
-    data << uint64(guid);
-    data << uint32(0xB3);                                   // index from SpellVisualKit.dbc
-    SendPacket(&data);
-
-    data.Initialize(SMSG_PLAY_SPELL_IMPACT, 12);            // visual effect on player
-    data << uint64(_player->GetGUID());
-    data << uint32(0x016A);                                 // index from SpellVisualKit.dbc
-    SendPacket(&data);
+    unit->SendPlaySpellVisual(179); // 53 SpellCastDirected
+    unit->SendPlaySpellImpact(_player->GetGUID(), 362); // 113 EmoteSalute
 
     // learn explicitly or cast explicitly
     if (trainer_spell->IsCastable())
@@ -296,7 +288,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket & recv_data)
     else
         _player->learnSpell(spellId, false);
 
-    data.Initialize(SMSG_TRAINER_BUY_SUCCEEDED, 12);
+    WorldPacket data(SMSG_TRAINER_BUY_SUCCEEDED, 12);
     data << uint64(guid);
     data << uint32(spellId);                                // should be same as in packet from client
     SendPacket(&data);
@@ -315,6 +307,10 @@ void WorldSession::HandleGossipHelloOpcode(WorldPacket & recv_data)
         sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: HandleGossipHelloOpcode - Unit (GUID: %u) not found or you can not interact with him.", uint32(GUID_LOPART(guid)));
         return;
     }
+
+    // set faction visible if needed
+    if (FactionTemplateEntry const* factionTemplateEntry = sFactionTemplateStore.LookupEntry(unit->getFaction()))
+        _player->GetReputationMgr().SetVisible(factionTemplateEntry);
 
     GetPlayer()->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TALK);
     // remove fake death

@@ -200,7 +200,7 @@ class boss_general_vezax : public CreatureScript
                 DoMeleeAttackIfReady();
             }
 
-            void SpellHitTarget(Unit* who, SpellEntry const* spell)
+            void SpellHitTarget(Unit* who, SpellInfo const* spell)
             {
                 if (who && who->GetTypeId() == TYPEID_PLAYER && spell->Id == SPELL_SHADOW_CRASH_HIT)
                     shadowDodger = false;
@@ -362,9 +362,9 @@ class boss_saronite_animus : public CreatureScript
             EventMap events;
         };
 
-        CreatureAI* GetAI(Creature* pCreature) const
+        CreatureAI* GetAI(Creature* creature) const
         {
-            return new boss_saronite_animusAI(pCreature);
+            return new boss_saronite_animusAI(creature);
         }
 };
 

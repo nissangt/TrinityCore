@@ -22,6 +22,7 @@
 #include "ScriptedGossip.h"
 #include "SpellScript.h"
 #include "ulduar.h"
+#include "SpellInfo.h"
 
 enum Says
 {
@@ -129,6 +130,7 @@ enum Events
 #define GROUND_Z                                 391.517f
 #define GOSSIP_ITEM_1                            "Activate Harpoons!"
 #define DATA_QUICK_SHAVE                         29192921 // 2919, 2921 are achievement IDs
+#define DATA_IRON_DWARF_MEDIUM_RARE              29232924
 
 const Position PosEngRepair[4] =
 {
@@ -184,7 +186,7 @@ class boss_razorscale_controller : public CreatureScript
                 me->SetReactState(REACT_PASSIVE);
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
+            void SpellHit(Unit* /*caster*/, SpellInfo const* spell)
             {
                 switch (spell->Id)
                 {
@@ -359,7 +361,7 @@ class boss_razorscale : public CreatureScript
                     controller->AI()->Reset();
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
+            void SpellHit(Unit* /*caster*/, SpellInfo const* spell)
             {
                 if (spell->Id == SPELL_HARPOON_TRIGGER)
                     ++HarpoonCounter;
@@ -890,7 +892,20 @@ class npc_darkrune_guardian : public CreatureScript
             void Reset()
             {
                 StormTimer = urand(3000, 6000);
+                killedByBreath = false;
             }
+
+            uint32 GetData(uint32 type)
+            {
+                return type == DATA_IRON_DWARF_MEDIUM_RARE ? killedByBreath : 0;
+            }
+
+            void SetData(uint32 type, uint32 value)
+            {
+                if (type == DATA_IRON_DWARF_MEDIUM_RARE)
+                    killedByBreath = value;
+            }
+
 
             void UpdateAI(uint32 const Diff)
             {
@@ -907,6 +922,9 @@ class npc_darkrune_guardian : public CreatureScript
 
                 DoMeleeAttackIfReady();
             }
+
+        private:
+            bool killedByBreath;
         };
 
         CreatureAI* GetAI(Creature* creature) const
@@ -987,7 +1005,7 @@ class spell_razorscale_devouring_flame : public SpellScriptLoader
             {
                 PreventHitDefaultEffect(effIndex);
                 Unit* caster = GetCaster();
-                uint32 entry = uint32(GetSpellInfo()->EffectMiscValue[effIndex]);
+                uint32 entry = uint32(GetSpellInfo()->Effects[effIndex].MiscValue);
                 WorldLocation const* summonLocation = GetTargetDest();
                 if (!caster || !summonLocation)
                     return;
@@ -1004,6 +1022,50 @@ class spell_razorscale_devouring_flame : public SpellScriptLoader
         SpellScript* GetSpellScript() const
         {
             return new spell_razorscale_devouring_flame_SpellScript();
+        }
+};
+
+class spell_razorscale_flame_breath : public SpellScriptLoader
+{
+    public:
+        spell_razorscale_flame_breath() : SpellScriptLoader("spell_razorscale_flame_breath") { }
+
+        class spell_razorscale_flame_breath_SpellScript : public SpellScript
+        {
+            PrepareSpellScript(spell_razorscale_flame_breath_SpellScript);
+
+            void CheckDamage()
+            {
+                Creature* target = GetHitCreature();
+                if (!target || target->GetEntry() != NPC_DARK_RUNE_GUARDIAN)
+                    return;
+
+                if (GetHitDamage() >= int32(target->GetHealth()))
+                    target->AI()->SetData(DATA_IRON_DWARF_MEDIUM_RARE, 1);
+            }
+
+            void Register()
+            {
+                OnHit += SpellHitFn(spell_razorscale_flame_breath_SpellScript::CheckDamage);
+            }
+        };
+
+        SpellScript* GetSpellScript() const
+        {
+            return new spell_razorscale_flame_breath_SpellScript();
+        }
+};
+
+class achievement_iron_dwarf_medium_rare : public AchievementCriteriaScript
+{
+    public:
+        achievement_iron_dwarf_medium_rare() : AchievementCriteriaScript("achievement_iron_dwarf_medium_rare")
+        {
+        }
+
+        bool OnCheck(Player* /*player*/, Unit* target)
+        {
+            return target && target->IsAIEnabled && target->GetAI()->GetData(DATA_IRON_DWARF_MEDIUM_RARE);
         }
 };
 
@@ -1035,5 +1097,7 @@ void AddSC_boss_razorscale()
     new npc_darkrune_guardian();
     new npc_darkrune_sentinel();
     new spell_razorscale_devouring_flame();
+    new spell_razorscale_flame_breath();
+    new achievement_iron_dwarf_medium_rare();
     new achievement_quick_shave();
 }

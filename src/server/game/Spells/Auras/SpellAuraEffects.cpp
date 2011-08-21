@@ -1516,7 +1516,7 @@ void AuraEffect::HandleShapeshiftBoosts(Unit* target, bool apply) const
                     // Heart of the Wild
                     if ((*i)->GetSpellInfo()->SpellIconID == 240 && (*i)->GetMiscValue() == 3)
                     {
-                        int32 HotWMod = (*i)->GetAmount();
+                        int32 HotWMod = (*i)->GetAmount() / 2; // For each 2% Intelligence, you get 1% stamina and 1% attack power.
 
                         target->CastCustomSpell(target, HotWSpellId, &HotWMod, NULL, NULL, true, NULL, this);
                         break;
@@ -4518,7 +4518,7 @@ void AuraEffect::HandleModDamagePercentDone(AuraApplication const* aurApp, uint8
         target->HandleStatModifier(UNIT_MOD_DAMAGE_RANGED,           TOTAL_PCT, float (GetAmount()), apply);
 
         if (target->GetTypeId() == TYPEID_PLAYER)
-            target->ToPlayer()->ApplyModSignedFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT, GetAmount() / 100.0f, apply);
+            target->ToPlayer()->ApplyPercentModFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT, float (GetAmount()), apply);
     }
     else
     {
@@ -4924,6 +4924,18 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                             caster->CastSpell(target, GetAmount(), true);
                     }
                     break;
+                case SPELLFAMILY_PRIEST:
+                    // Vampiric Touch
+                    if (m_spellInfo->SpellFamilyFlags[1] & 0x0400 && aurApp->GetRemoveMode() == AURA_REMOVE_BY_ENEMY_SPELL && GetEffIndex() == 0)
+                    {
+                        if (AuraEffect const* aurEff = GetBase()->GetEffect(1))
+                        {
+                            int32 damage = aurEff->GetAmount() * 8;
+                            // backfire damage
+                            target->CastCustomSpell(target, 64085, &damage, NULL, NULL, true, NULL, NULL, GetCasterGUID());
+                        }
+                    }
+                    break;
                 case SPELLFAMILY_WARLOCK:
                     // Haunt
                     if (m_spellInfo->SpellFamilyFlags[1] & 0x40000)
@@ -4949,18 +4961,6 @@ void AuraEffect::HandleAuraDummy(AuraApplication const* aurApp, uint8 mode, bool
                         {
                             int32 returnmana = CalculatePctU(caster->GetCreateMana(), GetSpellInfo()->ManaCostPercentage) * stack / 2;
                             caster->CastCustomSpell(caster, 64372, &returnmana, NULL, NULL, true, NULL, this, GetCasterGUID());
-                        }
-                    }
-                    break;
-                case SPELLFAMILY_PRIEST:
-                    // Vampiric Touch
-                    if (m_spellInfo->SpellFamilyFlags[1] & 0x0400 && aurApp->GetRemoveMode() == AURA_REMOVE_BY_ENEMY_SPELL && GetEffIndex() == 0)
-                    {
-                        if (AuraEffect const* aurEff = GetBase()->GetEffect(1))
-                        {
-                            int32 damage = aurEff->GetAmount() * 8;
-                            // backfire damage
-                            target->CastCustomSpell(target, 64085, &damage, NULL, NULL, true, NULL, NULL, GetCasterGUID());
                         }
                     }
                     break;

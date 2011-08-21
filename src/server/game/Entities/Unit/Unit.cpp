@@ -10855,16 +10855,16 @@ uint32 Unit::SpellDamageBonus(Unit* victim, SpellInfo const* spellProto, uint32 
                 coeff = DotFactor;
         }
 
-        float coeff2 = CalculateLevelPenalty(spellProto) * stack;
-        if (spellProto->SpellFamilyName) // TODO: fix this
-            TakenTotal+= int32(TakenAdvertisedBenefit * coeff * coeff2);
+        float factorMod = CalculateLevelPenalty(spellProto) * stack;
+        // level penalty still applied on Taken bonus - is it blizzlike?
+        TakenTotal+= int32(TakenAdvertisedBenefit * factorMod);
         if (Player* modOwner = GetSpellModOwner())
         {
             coeff *= 100.0f;
             modOwner->ApplySpellMod(spellProto->Id, SPELLMOD_BONUS_MULTIPLIER, coeff);
             coeff /= 100.0f;
         }
-        DoneTotal += int32(DoneAdvertisedBenefit * coeff * coeff2);
+        DoneTotal += int32(DoneAdvertisedBenefit * coeff * factorMod);
     }
 
     // Some spells don't benefit from done mods
@@ -11414,7 +11414,8 @@ uint32 Unit::SpellHealingBonus(Unit* victim, SpellInfo const* spellProto, uint32
         }
 
         factorMod *= CalculateLevelPenalty(spellProto) * stack;
-        TakenTotal += int32(TakenAdvertisedBenefit * coeff * factorMod);
+        // level penalty still applied on Taken bonus - is it blizzlike?
+        TakenTotal += int32(TakenAdvertisedBenefit * factorMod);
         if (Player* modOwner = GetSpellModOwner())
         {
             coeff *= 100.0f;
@@ -13347,7 +13348,7 @@ bool Unit::HandleStatModifier(UnitMods unitMod, UnitModifierType modifierType, f
             break;
         case BASE_PCT:
         case TOTAL_PCT:
-            m_auraModifiersGroup[unitMod][modifierType] += (apply ? amount : -amount) / 100.0f;
+            ApplyPercentModFloatVar(m_auraModifiersGroup[unitMod][modifierType], amount, apply);
             break;
         default:
             break;
@@ -16179,6 +16180,26 @@ bool Unit::IsInRaidWith(Unit const* unit) const
         return false;
 }
 
+bool Unit::IsTargetMatchingCheck(Unit const* target, SpellTargetSelectionCheckTypes check) const
+{
+    switch (check)
+    {
+        case TARGET_SELECT_CHECK_ENEMY:
+            if (IsControlledByPlayer())
+                return !IsFriendlyTo(target);
+            else
+                return IsHostileTo(target);
+        case TARGET_SELECT_CHECK_ALLY:
+            return IsFriendlyTo(target);
+        case TARGET_SELECT_CHECK_PARTY:
+            return IsInPartyWith(target);
+        case TARGET_SELECT_CHECK_RAID:
+            return IsInRaidWith(target);
+        default:
+            return true;
+    }
+}
+
 void Unit::GetRaidMember(std::list<Unit*> &nearMembers, float radius)
 {
     Player* owner = GetCharmerOrOwnerPlayerOrPlayerItself();
@@ -17364,7 +17385,7 @@ uint32 Unit::GetRemainingPeriodicAmount(uint64 caster, uint32 spellId, AuraType 
     AuraEffectList const& periodicAuras = GetAuraEffectsByType(auraType);
     for (AuraEffectList::const_iterator i = periodicAuras.begin(); i != periodicAuras.end(); ++i)
     {
-        if ((*i)->GetCasterGUID() != caster || (*i)->GetId() != spellId || (*i)->GetEffIndex() != effectIndex)
+        if ((*i)->GetCasterGUID() != caster || (*i)->GetId() != spellId || (*i)->GetEffIndex() != effectIndex || (*i)->GetTotalTicks() == 0)
             continue;
         amount += uint32(((*i)->GetAmount() * std::max<int32>((*i)->GetTotalTicks() - int32((*i)->GetTickNumber()), 0)) / (*i)->GetTotalTicks());
         break;

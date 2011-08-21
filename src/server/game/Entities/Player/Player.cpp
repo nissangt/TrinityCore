@@ -5677,8 +5677,6 @@ void Player::HandleBaseModValue(BaseModGroup modGroup, BaseModType modType, floa
             m_auraBaseMod[modGroup][modType] += apply ? amount : -amount;
             break;
         case PCT_MOD:
-            if (amount <= -100.0f)
-                amount = -200.0f;
             ApplyPercentModFloatVar(m_auraBaseMod[modGroup][modType], amount, apply);
             break;
     }
@@ -8094,7 +8092,7 @@ void Player::_ApplyWeaponDependentAuraDamageMod(Item *item, WeaponAttackType att
         if (unitModType == TOTAL_VALUE)
             ApplyModUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS, aura->GetAmount(), apply);
         else
-            ApplyModSignedFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT, aura->GetAmount() / 100.0f, apply);
+            ApplyPercentModFloatValue(PLAYER_FIELD_MOD_DAMAGE_DONE_PCT, float (aura->GetAmount()), apply);
     }
 }
 
@@ -14213,7 +14211,7 @@ void Player::OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 men
             break;
         case GOSSIP_OPTION_SPIRITHEALER:
             if (isDead())
-                source->ToCreature()->CastSpell((source->ToCreature()), 17251, true, NULL, NULL, GetGUID());
+                source->ToCreature()->CastSpell(source->ToCreature(), 17251, true, NULL, NULL, GetGUID());
             break;
         case GOSSIP_OPTION_QUESTGIVER:
             PrepareQuestMenu(guid);
@@ -14250,7 +14248,7 @@ void Player::OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 men
             ResetPetTalents();
             break;
         case GOSSIP_OPTION_TAXIVENDOR:
-            GetSession()->SendTaxiMenu((source->ToCreature()));
+            GetSession()->SendTaxiMenu(source->ToCreature());
             break;
         case GOSSIP_OPTION_INNKEEPER:
             PlayerTalkClass->SendCloseGossip();
@@ -14268,7 +14266,7 @@ void Player::OnGossipSelect(WorldObject* source, uint32 gossipListId, uint32 men
             GetSession()->SendTabardVendorActivate(guid);
             break;
         case GOSSIP_OPTION_AUCTIONEER:
-            GetSession()->SendAuctionHello(guid, (source->ToCreature()));
+            GetSession()->SendAuctionHello(guid, source->ToCreature());
             break;
         case GOSSIP_OPTION_SPIRITGUIDE:
             PrepareGossipMenu(source);

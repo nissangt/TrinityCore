@@ -18,6 +18,7 @@
  */
 
 #include "ScriptPCH.h"
+#include "Vehicle.h"
 #include "OutdoorPvPWG.h"
 #include "OutdoorPvPMgr.h"
 
@@ -427,7 +428,7 @@ public:
                 triggerPos.m_positionX -= 30;
                 veh->Relocate(triggerPos);
             }
-        
+
         return true;
     }
 };

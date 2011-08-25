@@ -358,7 +358,7 @@ class instance_ulduar : public InstanceMapScript
                         break;
                 }
             }
-            
+
             void OnCreatureDeath(Creature* creature)
             {
                 switch (creature->GetEntry())
@@ -408,7 +408,7 @@ class instance_ulduar : public InstanceMapScript
             {
                 if (!InstanceScript::SetBossState(type, state))
                     return false;
-                
+
                 switch (type)
                 {
                     case BOSS_LEVIATHAN:
@@ -445,7 +445,7 @@ class instance_ulduar : public InstanceMapScript
                         {
                             if (GameObject* HodirRareCache = instance->GetGameObject(HodirRareCacheGUID))
                                 if (GetData(DATA_HODIR_RARE_CACHE))
-                                    HodirRareCache->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NO_INTERACT);
+                                    HodirRareCache->RemoveFlag(GAMEOBJECT_FLAGS, GO_FLAG_NOT_SELECTABLE);
                             if (GameObject* HodirChest = instance->GetGameObject(HodirChestGUID))
                                 HodirChest->SetRespawnTime(HodirChest->GetRespawnDelay());
                             HandleGameObject(HodirDoorGUID, true);
@@ -463,10 +463,10 @@ class instance_ulduar : public InstanceMapScript
                                 gameObject->SetRespawnTime(gameObject->GetRespawnDelay());
                         break;
                 }
-                
+
                 return true;
             }
-            
+
             void SetData(uint32 type, uint32 data)
             {
                 switch (type)
@@ -495,7 +495,7 @@ class instance_ulduar : public InstanceMapScript
                         break;
                 }
             }
-            
+
             void SetData64(uint32 type, uint64 data)
             {
                 switch (type)
@@ -508,7 +508,7 @@ class instance_ulduar : public InstanceMapScript
                         break;
                 }
             }
-            
+
             uint64 GetData64(uint32 data)
             {
                 switch (data)
@@ -550,7 +550,7 @@ class instance_ulduar : public InstanceMapScript
                         return YoggSaronGUID;
                     case BOSS_ALGALON:
                         return AlgalonGUID;
-                        
+
                         // Razorscale expedition commander
                     case DATA_EXPEDITION_COMMANDER:
                         return ExpeditionCommanderGUID;
@@ -562,7 +562,7 @@ class instance_ulduar : public InstanceMapScript
                         return RazorHarpoonGUIDs[2];
                     case GO_RAZOR_HARPOON_4:
                         return RazorHarpoonGUIDs[3];
-                        
+
                         // Assembly of Iron
                     case BOSS_STEELBREAKER:
                         return AssemblyGUIDs[0];
@@ -570,7 +570,7 @@ class instance_ulduar : public InstanceMapScript
                         return AssemblyGUIDs[1];
                     case BOSS_BRUNDIR:
                         return AssemblyGUIDs[2];
-                        
+
                         // Freya's Keepers
                     case BOSS_BRIGHTLEAF:
                         return KeeperGUIDs[0];
@@ -579,10 +579,10 @@ class instance_ulduar : public InstanceMapScript
                     case BOSS_STONEBARK:
                         return KeeperGUIDs[2];
                 }
-                
+
                 return 0;
             }
-            
+
             uint32 GetData(uint32 type)
             {
                 switch (type)
@@ -594,20 +594,20 @@ class instance_ulduar : public InstanceMapScript
                     default:
                         break;
                 }
-                
+
                 return 0;
             }
-            
+
             std::string GetSaveData()
             {
                 OUT_SAVE_INST_DATA;
-                
+
                 std::ostringstream saveStream;
                 saveStream << "U U " << GetBossSaveData() << GetData(DATA_COLOSSUS);
                 OUT_SAVE_INST_DATA_COMPLETE;
                 return saveStream.str();
             }
-            
+
             void Load(char const* strIn)
             {
                 if (!strIn)
@@ -615,14 +615,14 @@ class instance_ulduar : public InstanceMapScript
                     OUT_LOAD_INST_DATA_FAIL;
                     return;
                 }
-                
+
                 OUT_LOAD_INST_DATA(strIn);
-                
+
                 char dataHead1, dataHead2;
-                
+
                 std::istringstream loadStream(strIn);
                 loadStream >> dataHead1 >> dataHead2;
-                
+
                 if (dataHead1 == 'U' && dataHead2 == 'U')
                 {
                     for (uint8 i = 0; i < MAX_ENCOUNTER; ++i)
@@ -637,11 +637,11 @@ class instance_ulduar : public InstanceMapScript
                             SetBossState(i, EncounterState(tmpState));
                     }
                 }
-                
+
                 OUT_LOAD_INST_DATA_COMPLETE;
             }
         };
-    
+
     InstanceScript* GetInstanceScript(InstanceMap* map) const
     {
         return new instance_ulduar_InstanceMapScript(map);

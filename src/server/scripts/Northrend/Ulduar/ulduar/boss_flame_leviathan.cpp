@@ -25,10 +25,13 @@
 #include "ScriptMgr.h"
 #include "ScriptedCreature.h"
 #include "ScriptedGossip.h"
+#include "ScriptedEscortAI.h"
 #include "CombatAI.h"
 #include "PassiveAI.h"
-#include "ScriptedEscortAI.h"
 #include "ObjectMgr.h"
+#include "SpellInfo.h"
+#include "SpellScript.h"
+#include "Vehicle.h"
 #include "ulduar.h"
 
 enum Spells
@@ -47,6 +50,7 @@ enum Spells
     SPELL_SMOKE_TRAIL              = 63575,
     SPELL_ELECTROSHOCK             = 62522,
     SPELL_NAPALM                   = 63666,
+    SPELL_INVIS_AND_STEALTH_DETECT = 18950, // Passive
     //TOWER Additional SPELLS
     SPELL_THORIM_S_HAMMER          = 62911, // Tower of Storms
     SPELL_MIMIRON_S_INFERNO        = 62909, // Tower of Flames
@@ -241,6 +245,8 @@ class boss_flame_leviathan : public CreatureScript
                 Shutout = true;
                 Unbroken = true;
 
+                DoCast(SPELL_INVIS_AND_STEALTH_DETECT);
+
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_STUNNED);
                 me->SetReactState(REACT_PASSIVE);
             }
@@ -316,7 +322,7 @@ class boss_flame_leviathan : public CreatureScript
 
             //TODO: effect 0 and effect 1 may be on different target
             //TODO: Move to spellscript
-            void SpellHitTarget(Unit* target, SpellEntry const* spell)
+            void SpellHitTarget(Unit* target, SpellInfo const* spell)
             {
                 if (spell->Id == SPELL_PURSUED)
                     AttackStart(target);
@@ -325,10 +331,13 @@ class boss_flame_leviathan : public CreatureScript
             void JustDied(Unit* /*victim*/)
             {
                 _JustDied();
+                // Set Field Flags 67108928 = 64 | 67108864 = UNIT_FLAG_UNK_6 | UNIT_FLAG_SKINNABLE
+                // Set DynFlags 12
+                // Set NPCFlags 0
                 DoScriptText(SAY_DEATH, me);
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
+            void SpellHit(Unit* /*caster*/, SpellInfo const* spell)
             {
                 if (spell->Id == SPELL_START_THE_ENGINE)
                     vehicle->InstallAllAccessories(false);
@@ -845,7 +854,7 @@ class npc_pool_of_tar : public CreatureScript
                 damage = 0;
             }
 
-            void SpellHit(Unit* /*caster*/, SpellEntry const* spell)
+            void SpellHit(Unit* /*caster*/, SpellInfo const* spell)
             {
                 if (spell->SchoolMask & SPELL_SCHOOL_MASK_FIRE && !me->HasAura(SPELL_BLAZE))
                     me->CastSpell(me, SPELL_BLAZE, true);
@@ -1464,6 +1473,51 @@ class achievement_orbit_uary : public AchievementCriteriaScript
         }
 };
 
+class spell_load_into_catapult : public SpellScriptLoader
+{
+    enum Spells
+    {
+        SPELL_PASSENGER_LOADED = 62340,
+    };
+
+    public:
+        spell_load_into_catapult() : SpellScriptLoader("spell_load_into_catapult") { }
+
+        class spell_load_into_catapult_AuraScript : public AuraScript
+        {
+            PrepareAuraScript(spell_load_into_catapult_AuraScript);
+
+            void OnApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
+            {
+                Unit* owner = GetOwner()->ToUnit();
+                if (!owner)
+                    return;
+
+                owner->CastSpell(owner, SPELL_PASSENGER_LOADED, true);
+            }
+
+            void OnRemove(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
+            {
+                Unit* owner = GetOwner()->ToUnit();
+                if (!owner)
+                    return;
+
+                owner->RemoveAurasDueToSpell(SPELL_PASSENGER_LOADED);
+            }
+
+            void Register()
+            {
+                OnEffectApply += AuraEffectApplyFn(spell_load_into_catapult_AuraScript::OnApply, EFFECT_0, SPELL_AURA_CONTROL_VEHICLE, AURA_EFFECT_HANDLE_REAL);
+                OnEffectRemove += AuraEffectRemoveFn(spell_load_into_catapult_AuraScript::OnRemove, EFFECT_0, SPELL_AURA_CONTROL_VEHICLE, AURA_EFFECT_HANDLE_REAL_OR_REAPPLY_MASK);
+            }
+        };
+
+        AuraScript* GetAuraScript() const
+        {
+            return new spell_load_into_catapult_AuraScript();
+        }
+};
+
 void AddSC_boss_flame_leviathan()
 {
     new boss_flame_leviathan();
@@ -1493,4 +1547,6 @@ void AddSC_boss_flame_leviathan()
     new achievement_orbital_devastation();
     new achievement_nuked_from_orbit();
     new achievement_orbit_uary();
+
+    new spell_load_into_catapult();
 }

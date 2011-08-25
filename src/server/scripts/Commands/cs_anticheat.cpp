@@ -51,7 +51,7 @@ public:
             return false;
 
         Player* pTarget = NULL;
-        
+
         std::string strCommand;
 
         char* command = strtok((char*)args, " ");
@@ -61,13 +61,14 @@ public:
             strCommand = command;
             normalizePlayerName(strCommand);
 
-            pTarget = sObjectMgr->GetPlayer(strCommand.c_str()); //get player by name
-        }else 
+            pTarget = sObjectAccessor->FindPlayerByName(strCommand.c_str()); //get player by name
+        }
+        else
             pTarget = handler->getSelectedPlayer();
 
         if (!pTarget)
             return false;
-        
+
         WorldPacket data;
 
         // need copy to prevent corruption by strtok call in LineFromMessage original string
@@ -90,7 +91,7 @@ public:
             return false;
 
         Player* pTarget = NULL;
-        
+
         std::string strCommand;
 
         char* command = strtok((char*)args, " ");
@@ -100,8 +101,8 @@ public:
             strCommand = command;
             normalizePlayerName(strCommand);
 
-            pTarget = sObjectMgr->GetPlayer(strCommand.c_str()); //get player by name
-        }else 
+            pTarget = sObjectAccessor->FindPlayerByName(strCommand.c_str()); //get player by name
+        }else
             pTarget = handler->getSelectedPlayer();
 
         if (!pTarget)
@@ -113,7 +114,7 @@ public:
 
         if (pTarget == handler->GetSession()->GetPlayer())
             return false;
-    
+
         // teleport both to jail.
         pTarget->TeleportTo(1,16226.5f,16403.6f,-64.5f,3.2f);
         handler->GetSession()->GetPlayer()->TeleportTo(1,16226.5f,16403.6f,-64.5f,3.2f);
@@ -144,15 +145,15 @@ public:
 
         if (!command)
             return true;
-        
+
         strCommand = command;
-        
+
         if (strCommand.compare("deleteall") == 0)
             sAnticheatMgr->AnticheatDeleteCommand(0);
         else
         {
             normalizePlayerName(strCommand);
-            Player* player = sObjectMgr->GetPlayer(strCommand.c_str()); //get player by name
+            Player* player = sObjectAccessor->FindPlayerByName(strCommand.c_str()); //get player by name
             if (!player)
                 handler->PSendSysMessage("Player doesn't exist");
             else
@@ -173,21 +174,21 @@ public:
 
         uint32 guid = 0;
         Player* player = NULL;
-        
+
         if (command)
         {
             strCommand = command;
 
             normalizePlayerName(strCommand);
-            player = sObjectMgr->GetPlayer(strCommand.c_str()); //get player by name
+            player = sObjectAccessor->FindPlayerByName(strCommand.c_str()); //get player by name
 
             if (player)
                 guid = player->GetGUIDLow();
-        }else 
+        }else
         {
             player = handler->getSelectedPlayer();
             if (player)
-                guid = player->GetGUIDLow();  
+                guid = player->GetGUIDLow();
         }
 
         if (!guid)
@@ -219,7 +220,7 @@ public:
         std::string strCommand;
 
         char* command = strtok((char*)args, " ");
-        
+
         if (!command)
             return true;
 
@@ -238,7 +239,7 @@ public:
             sWorld->setBoolConfig(CONFIG_ANTICHEAT_ENABLE,false);
             handler->SendSysMessage("The Anticheat System is now: Disabled!");
         }
-        
+
         return true;
     }
 

@@ -226,12 +226,12 @@ void WorldSession::HandlePetitionBuyOpcode(WorldPacket & recv_data)
         do
         {
             Field *fields = result->Fetch();
-            ssInvalidPetitionGUIDs << "'" << fields[0].GetUInt32() << "' , ";
+            ssInvalidPetitionGUIDs << '\'' << fields[0].GetUInt32() << "' , ";
         } while (result->NextRow());
     }
 
     // delete petitions with the same guid as this one
-    ssInvalidPetitionGUIDs << "'" << charter->GetGUIDLow() << "'";
+    ssInvalidPetitionGUIDs << '\'' << charter->GetGUIDLow() << '\'';
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "Invalid petition GUIDs: %s", ssInvalidPetitionGUIDs.str().c_str());
     CharacterDatabase.EscapeString(name);
@@ -542,7 +542,7 @@ void WorldSession::HandlePetitionSignOpcode(WorldPacket & recv_data)
         SendPacket(&data);
 
         // update for owner if online
-        if (Player *owner = sObjectMgr->GetPlayer(ownerguid))
+        if (Player *owner = ObjectAccessor::FindPlayer(ownerguid))
             owner->GetSession()->SendPacket(&data);
         return;
     }
@@ -565,7 +565,7 @@ void WorldSession::HandlePetitionSignOpcode(WorldPacket & recv_data)
     //    item->SetUInt32Value(ITEM_FIELD_ENCHANTMENT_1_1+1, signs);
 
     // update for owner if online
-    if (Player *owner = sObjectMgr->GetPlayer(ownerguid))
+    if (Player *owner = ObjectAccessor::FindPlayer(ownerguid))
         owner->GetSession()->SendPacket(&data);
 }
 
@@ -586,7 +586,7 @@ void WorldSession::HandlePetitionDeclineOpcode(WorldPacket & recv_data)
     Field *fields = result->Fetch();
     ownerguid = MAKE_NEW_GUID(fields[0].GetUInt32(), 0, HIGHGUID_PLAYER);
 
-    Player *owner = sObjectMgr->GetPlayer(ownerguid);
+    Player *owner = ObjectAccessor::FindPlayer(ownerguid);
     if (owner)                                               // petition owner online
     {
         WorldPacket data(MSG_PETITION_DECLINE, 8);

@@ -240,7 +240,7 @@ inline void ChatLog::_AppendGroupMembers(Group* group, std::ostringstream& ss)
         sprintf(sz, UI64FMTD, group->GetGUID());
         ss << " {" << sz << "} [";
         const uint64& leaderGuid = group->GetLeaderGUID();
-        if (Player* leader = sObjectMgr->GetPlayer(leaderGuid))
+        if (Player* leader = ObjectAccessor::FindPlayer(leaderGuid))
             ss << leader->GetName();
 
         Group::MemberSlotList members = group->GetMemberSlots();
@@ -249,7 +249,7 @@ inline void ChatLog::_AppendGroupMembers(Group* group, std::ostringstream& ss)
             if (itr->guid == leaderGuid)
                 continue;
 
-            if (Player* member = sObjectMgr->GetPlayer(itr->guid))
+            if (Player* member = ObjectAccessor::FindPlayer(itr->guid))
                 ss << "," << member->GetName();
         }
         ss << "]:";

@@ -98,14 +98,14 @@ bool Map::ExistMap(uint32 mapid, int gx, int gy)
 
 bool Map::ExistVMap(uint32 mapid, int gx, int gy)
 {
-    if (VMAP::IVMapManager* vmgr = VMAP::VMapFactory::createOrGetVMapManager())
+    if (VMAP::IVMapManager* vmgr = VMAP::VMapFactory::GetVMapManager())
     {
-        if (vmgr->isMapLoadingEnabled())
+        if (vmgr->IsMapLoadingEnabled())
         {
-            bool exists = vmgr->existsMap((sWorld->GetDataPath()+ "vmaps").c_str(),  mapid, gx, gy);
+            bool exists = vmgr->MapExists((sWorld->GetDataPath()+ "vmaps").c_str(),  mapid, gx, gy);
             if (!exists)
             {
-                std::string name = vmgr->getDirFileName(mapid, gx, gy);
+                std::string name = vmgr->GetFileName(mapid, gx, gy);
                 sLog->outError("VMap file '%s' is missing or points to wrong version of vmap file. Redo vmaps with latest version of vmap_assembler.exe.", (sWorld->GetDataPath()+"vmaps/"+name).c_str());
                 return false;
             }
@@ -118,7 +118,7 @@ bool Map::ExistVMap(uint32 mapid, int gx, int gy)
 void Map::LoadVMap(int gx, int gy)
 {
                                                             // x and y are swapped !!
-    int vmapLoadResult = VMAP::VMapFactory::createOrGetVMapManager()->loadMap((sWorld->GetDataPath()+ "vmaps").c_str(),  GetId(), gx, gy);
+    int vmapLoadResult = VMAP::VMapFactory::GetVMapManager()->LoadMap((sWorld->GetDataPath()+ "vmaps").c_str(), GetId(), gx, gy);
     switch(vmapLoadResult)
     {
         case VMAP::VMAP_LOAD_RESULT_OK:
@@ -981,7 +981,7 @@ bool Map::UnloadGrid(const uint32 x, const uint32 y, bool unloadAll)
                 delete GridMaps[gx][gy];
             }
             // x and y are swapped
-            VMAP::VMapFactory::createOrGetVMapManager()->unloadMap(GetId(), gx, gy);
+            VMAP::VMapFactory::GetVMapManager()->UnloadMap(GetId(), gx, gy);
         }
         else
             ((MapInstanced*)m_parentMap)->RemoveGridMapReference(GridPair(gx, gy));
@@ -1568,11 +1568,11 @@ float Map::GetHeight(float x, float y, float z, bool pUseVmaps, float maxSearchD
     float vmapHeight;
     if (pUseVmaps)
     {
-        VMAP::IVMapManager* vmgr = VMAP::VMapFactory::createOrGetVMapManager();
-        if (vmgr->isHeightCalcEnabled())
+        VMAP::IVMapManager* vmgr = VMAP::VMapFactory::GetVMapManager();
+        if (vmgr->IsEnabledHeight())
         {
             // look from a bit higher pos to find the floor
-            vmapHeight = vmgr->getHeight(GetId(), x, y, z + 2.0f, maxSearchDist);
+            vmapHeight = vmgr->GetHeight(GetId(), x, y, z + 2.0f, maxSearchDist);
         }
         else
             vmapHeight = VMAP_INVALID_HEIGHT_VALUE;
@@ -1657,8 +1657,8 @@ bool Map::IsOutdoors(float x, float y, float z) const
 bool Map::GetAreaInfo(float x, float y, float z, uint32 &flags, int32 &adtId, int32 &rootId, int32 &groupId) const
 {
     float vmap_z = z;
-    VMAP::IVMapManager* vmgr = VMAP::VMapFactory::createOrGetVMapManager();
-    if (vmgr->getAreaInfo(GetId(), x, y, vmap_z, flags, adtId, rootId, groupId))
+    VMAP::IVMapManager* vmgr = VMAP::VMapFactory::GetVMapManager();
+    if (vmgr->GetAreaInfo(GetId(), x, y, vmap_z, flags, adtId, rootId, groupId))
     {
         // check if there's terrain between player height and object height
         if (GridMap *gmap = const_cast<Map*>(this)->GetGrid(x, y))
@@ -1723,7 +1723,7 @@ uint8 Map::GetTerrainType(float x, float y) const
 ZLiquidStatus Map::getLiquidStatus(float x, float y, float z, uint8 ReqLiquidType, LiquidData *data) const
 {
     ZLiquidStatus result = LIQUID_MAP_NO_WATER;
-    VMAP::IVMapManager* vmgr = VMAP::VMapFactory::createOrGetVMapManager();
+    VMAP::IVMapManager* vmgr = VMAP::VMapFactory::GetVMapManager();
     float liquid_level, ground_level = INVALID_HEIGHT;
     uint32 liquid_type;
     if (vmgr->GetLiquidLevel(GetId(), x, y, z, ReqLiquidType, liquid_level, ground_level, liquid_type))

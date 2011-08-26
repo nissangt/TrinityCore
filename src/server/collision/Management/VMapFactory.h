@@ -27,17 +27,15 @@ This is the access point to the VMapManager.
 
 namespace VMAP
 {
-    //===========================================================
-
     class VMapFactory
     {
-        public:
-            static IVMapManager* createOrGetVMapManager();
-            static void clear();
+    public:
+        static IVMapManager* GetVMapManager();
+        static void Clear();
 
-            static void preventSpellsFromBeingTestedForLoS(const char* pSpellIdString);
-            static bool checkSpellForLoS(unsigned int pSpellId);
+        static void SetSpellsIgnoredForLoS(const char* str);
+        static bool CheckSpellForLoS(uint32 spellId);
     };
-
 }
+
 #endif

@@ -134,7 +134,7 @@ World::~World()
     while (cliCmdQueue.next(command))
         delete command;
 
-    VMAP::VMapFactory::clear();
+    VMAP::VMapFactory::Clear();
 
     //TODO free addSessQueue
 }
@@ -1145,9 +1145,9 @@ void World::LoadConfigSettings(bool reload)
     if (!enableHeight)
         sLog->outError("VMap height checking disabled! Creatures movements and other various things WILL be broken! Expect no support.");
 
-    VMAP::VMapFactory::createOrGetVMapManager()->setEnableLineOfSightCalc(enableLOS);
-    VMAP::VMapFactory::createOrGetVMapManager()->setEnableHeightCalc(enableHeight);
-    VMAP::VMapFactory::preventSpellsFromBeingTestedForLoS(ignoreSpellIds.c_str());
+    VMAP::VMapFactory::GetVMapManager()->SetEnableLoS(enableLOS);
+    VMAP::VMapFactory::GetVMapManager()->SetEnableHeight(enableHeight);
+    VMAP::VMapFactory::SetSpellsIgnoredForLoS(ignoreSpellIds.c_str());
     sLog->outString("WORLD: VMap support included. LineOfSight:%i, getHeight:%i, indoorCheck:%i PetLOS:%i", enableLOS, enableHeight, enableIndoor, enablePetLOS);
     sLog->outString("WORLD: VMap data directory is: %svmaps", m_dataPath.c_str());
 

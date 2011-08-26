@@ -18,8 +18,7 @@ int main(int argc, char* argv[])
     std::cout << "using " << src << " as source directory and writing output to " << dest << std::endl;
 
     VMAP::TileAssembler* ta = new VMAP::TileAssembler(src, dest);
-
-    if(!ta->convertWorld2())
+    if (!ta->ConvertWorld2())
     {
         std::cout << "exit with errors" << std::endl;
         delete ta;

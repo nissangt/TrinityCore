@@ -20,114 +20,99 @@
 #include "G3D/Table.h"
 #include "VMapFactory.h"
 #include "VMapManager2.h"
-#include "G3D/Table.h"
-
-using namespace G3D;
 
 namespace VMAP
-{
-    void chompAndTrim(std::string& str)
+{    
+    IVMapManager* _manager = NULL;
+    G3D::Table <uint32, bool>* _ignoredSpells = NULL; // Replace by set? map?
+
+    // TODO: Replace by normal trim
+    void ChompAndTrim(std::string& str)
     {
-        while(str.length() >0)
+        // 1. Remove new line characters, space, ' and " characters from the end of the string
+        while (str.length() > 0)
         {
-            char lc = str[str.length()-1];
-            if(lc == '\r' || lc == '\n' || lc == ' ' || lc == '"' || lc == '\'')
-            {
-                str = str.substr(0, str.length()-1);
-            }
+            char lc = str[str.length() - 1];
+            if (lc == '\r' || lc == '\n' || lc == ' ' || lc == '"' || lc == '\'')
+                str = str.substr(0, str.length() - 1);
             else
-            {
                 break;
-            }
         }
-        while(str.length() >0)
+        // 2. Remove space, ' and " characters from the beginning of the string
+        while (str.length() > 0)
         {
             char lc = str[0];
-            if(lc == ' ' || lc == '"' || lc == '\'')
-            {
-                str = str.substr(1, str.length()-1);
-            }
+            if (lc == ' ' || lc == '"' || lc == '\'')
+                str = str.substr(1, str.length() - 1);
             else
-            {
                 break;
-            }
         }
     }
 
-    IVMapManager *gVMapManager = 0;
-    Table<unsigned int , bool>* iIgnoreSpellIds=0;
-
-    //===============================================
+    // TODO: Replace by normal tokenizer
     // result false, if no more id are found
-
-    bool getNextId(const std::string& pString, unsigned int& pStartPos, unsigned int& pId)
+    bool GetNextId(const std::string& s, std::string::size_type& startPos, uint32& id)
     {
-        bool result = false;
-        unsigned int i;
-        for(i=pStartPos;i<pString.size(); ++i)
-        {
-            if(pString[i] == ',')
-            {
+        bool res = false;
+        std::string::size_type pos;
+        // Find ,
+        for (pos = startPos; pos < s.size(); ++pos)
+            if (s[pos] == ',')
                 break;
-            }
-        }
-        if(i>pStartPos)
+        if (pos > startPos)
         {
-            std::string idString = pString.substr(pStartPos, i-pStartPos);
-            pStartPos = i+1;
-            chompAndTrim(idString);
-            pId = atoi(idString.c_str());
-            result = true;
+            std::string sub = s.substr(startPos, pos - startPos);
+            startPos = pos + 1;
+            ChompAndTrim(sub);
+            id = atoi(sub.c_str());
+            res = true;
         }
-        return(result);
+        return res;
     }
 
-    //===============================================
     /**
     parameter: String of map ids. Delimiter = ","
     */
-
-    void VMapFactory::preventSpellsFromBeingTestedForLoS(const char* pSpellIdString)
+    void VMapFactory::SetSpellsIgnoredForLoS(const char* str)
     {
-        if(!iIgnoreSpellIds)
-            iIgnoreSpellIds = new Table<unsigned int , bool>();
-        if(pSpellIdString != NULL)
+        if (!_ignoredSpells)
+            _ignoredSpells = new G3D::Table<uint32, bool>();
+
+        if (str)
         {
-            unsigned int pos =0;
-            unsigned int id;
-            std::string confString(pSpellIdString);
-            chompAndTrim(confString);
-            while(getNextId(confString, pos, id))
-            {
-                iIgnoreSpellIds->set(id, true);
-            }
+            std::string::size_type pos = 0;
+            uint32 spellId;
+            std::string s(str);
+            ChompAndTrim(s);
+            while (GetNextId(s, pos, spellId))
+                _ignoredSpells->set(spellId, true);
         }
     }
 
-    //===============================================
-
-    bool VMapFactory::checkSpellForLoS(unsigned int pSpellId)
+    bool VMapFactory::CheckSpellForLoS(uint32 spellId)
     {
-        return(!iIgnoreSpellIds->containsKey(pSpellId));
+        return !_ignoredSpells->containsKey(spellId);
     }
 
-    //===============================================
-    // just return the instance
-    IVMapManager* VMapFactory::createOrGetVMapManager()
+    // Factory method
+    IVMapManager* VMapFactory::GetVMapManager()
     {
-        if(gVMapManager == 0)
-            gVMapManager= new VMapManager2();                // should be taken from config ... Please change if you like :-)
-        return gVMapManager;
+        if (!_manager)
+            _manager = new VMapManager2();                // should be taken from config ... Please change if you like :-)
+        return _manager;
     }
 
-    //===============================================
-    // delete all internal data structures
-    void VMapFactory::clear()
+    void VMapFactory::Clear()
     {
-        delete iIgnoreSpellIds;
-        iIgnoreSpellIds = NULL;
-
-        delete gVMapManager;
-        gVMapManager = NULL;
+        if (_ignoredSpells)
+        {
+            delete _ignoredSpells;
+            _ignoredSpells = NULL;
+        }
+        if (_manager)
+        {
+            delete _manager;
+            _manager = NULL;
+        }
     }
 }

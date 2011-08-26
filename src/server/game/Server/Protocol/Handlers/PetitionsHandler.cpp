@@ -30,6 +30,7 @@
 #include "ArenaTeam.h"
 #include "GossipDef.h"
 #include "SocialMgr.h"
+#include "MoneyLog.h"
 
 #define CHARTER_DISPLAY_ID 16161
 
@@ -202,7 +203,7 @@ void WorldSession::HandlePetitionBuyOpcode(WorldPacket & recv_data)
         return;
     }
 
-    _player->ModifyMoney(-(int32)cost);
+    sMoneyLog->LogMoney(_player, MLE_OTHER, -int32(cost), "buy petition (charter id: %u, name: '%s')", GUID_LOPART(guidNPC), name.c_str());
     Item *charter = _player->StoreNewItem(dest, charterid, true);
     if (!charter)
         return;

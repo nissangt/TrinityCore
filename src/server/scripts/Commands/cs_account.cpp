@@ -138,7 +138,7 @@ public:
             return false;
 
         ///- Get the account name from the command line
-        char *account_name_str=strtok ((char*)args, " ");
+        char* account_name_str = (char*)args;
         if (!account_name_str)
             return false;
 

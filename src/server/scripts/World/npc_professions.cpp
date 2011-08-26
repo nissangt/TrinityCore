@@ -24,6 +24,7 @@ SDCategory: NPCs
 EndScriptData */
 
 #include "ScriptPCH.h"
+#include "MoneyLog.h"
 
 /*
 A few notes for future developement:
@@ -218,7 +219,7 @@ void ProcessCastAction(Player* player, Creature* creature, uint32 spellId, uint3
     if (!(spellId && player->HasSpell(spellId)) && player->HasEnoughMoney(cost))
     {
         player->CastSpell(player, triggeredSpellId, true);
-        player->ModifyMoney(-cost);
+        sMoneyLog->LogMoney(player, MLE_NPC, -cost, "pay for profession (npc: %u, spell: %u)", creature->GetGUIDLow(), triggeredSpellId);
     }
     else
         player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
@@ -357,7 +358,7 @@ void ProcessUnlearnAction(Player* player, Creature* creature, uint32 spellId, ui
         {
             player->CastSpell(player, spellId, true);
             ProfessionUnlearnSpells(player, spellId);
-            player->ModifyMoney(-cost);
+            sMoneyLog->LogMoney(player, MLE_NPC, -cost, "pay for unlearning profession (npc: %u, spell: %u)", creature->GetGUIDLow(), spellId);
             if (alternativeSpellId)
                 creature->CastSpell(player, alternativeSpellId, true);
         }

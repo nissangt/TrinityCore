@@ -27,6 +27,7 @@
 #include "UpdateData.h"
 #include "ObjectAccessor.h"
 #include "SpellInfo.h"
+#include "MoneyLog.h"
 
 void WorldSession::HandleSplitItemOpcode(WorldPacket & recv_data)
 {
@@ -585,7 +586,7 @@ void WorldSession::HandleSellItemOpcode(WorldPacket & recv_data)
                 }
 
                 uint32 money = pProto->SellPrice * count;
-                _player->ModifyMoney(money);
+                sMoneyLog->LogMoney(_player, MLE_NPC, money, "sell item (item: %u, count: %u)", pItem->GetEntry(), count);
                 _player->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_MONEY_FROM_VENDORS, money);
             }
             else
@@ -631,7 +632,7 @@ void WorldSession::HandleBuybackItem(WorldPacket & recv_data)
         InventoryResult msg = _player->CanStoreItem(NULL_BAG, NULL_SLOT, dest, pItem, false);
         if (msg == EQUIP_ERR_OK)
         {
-            _player->ModifyMoney(-(int32)price);
+            sMoneyLog->LogMoney(_player, MLE_NPC, -int32(price), "buyback item (item: %u, count: %u)", pItem->GetEntry(), pItem->GetCount());
             _player->RemoveItemFromBuyBackSlot(slot, false);
             _player->ItemAddedQuestCheck(pItem->GetEntry(), pItem->GetCount());
             _player->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_RECEIVE_EPIC_ITEM, pItem->GetEntry(), pItem->GetCount());
@@ -903,7 +904,7 @@ void WorldSession::HandleBuyBankSlotOpcode(WorldPacket& recvPacket)
     }
 
     _player->SetBankBagSlotCount(slot);
-    _player->ModifyMoney(-int32(price));
+    sMoneyLog->LogMoney(_player, MLE_NPC, -int32(price), "buy bank slot (slot: %u)", slot);
 
      data << uint32(ERR_BANKSLOT_OK);
      SendPacket(&data);

@@ -27,6 +27,7 @@
 #include "Opcodes.h"
 #include "UpdateMask.h"
 #include "Util.h"
+#include "MoneyLog.h"
 
 //please DO NOT use iterator++, because it is slower than ++iterator!!!
 //post-incrementation is always slower than pre-incrementation !
@@ -206,11 +207,11 @@ void WorldSession::HandleAuctionSellItem(WorldPacket & recv_data)
 
     if (GetSecurity() > SEC_PLAYER && sWorld->getBoolConfig(CONFIG_GM_LOG_TRADE))
     {
-        sLog->outCommand(GetAccountId(), "GM %s (Account: %u) create auction: %s (Entry: %u Count: %u)",
+        sLogMgr->WriteGmCommand(GetAccountId(), "GM %s (Account: %u) create auction: %s (Entry: %u Count: %u)",
             GetPlayerName(), GetAccountId(), it->GetTemplate()->Name1.c_str(), it->GetEntry(), count);
     }
 
-    pl->ModifyMoney(-int32(deposit));
+    sMoneyLog->LogMoney(pl, MLE_AUCTION, -int32(deposit), "auction deposit (item: %u, bid: %u, buyout: %u, auctionhouse: %u)", GUID_LOPART(item), bid, buyout, auctionHouseEntry->houseId);
 
     uint32 auction_time = uint32(etime * sWorld->getRate(RATE_AUCTION_TIME));
 
@@ -319,16 +320,16 @@ void WorldSession::HandleAuctionPlaceBid(WorldPacket & recv_data)
         if (auction->bidder > 0)
         {
             if (auction->bidder == pl->GetGUIDLow())
-                pl->ModifyMoney(-int32(price - auction->bid));
+                sMoneyLog->LogMoney(pl, MLE_AUCTION, -int32(price - auction->bid), "raise auction bid (id: %u)", auctionId);
             else
             {
                 // mail to last bidder and return money
                 sAuctionMgr->SendAuctionOutbiddedMail(auction, price, GetPlayer(), trans);
-                pl->ModifyMoney(-int32(price));
+                sMoneyLog->LogMoney(pl, MLE_AUCTION, -int32(price), "bid auction (id: %u)", auctionId);
             }
         }
         else
-            pl->ModifyMoney(-int32(price));
+            sMoneyLog->LogMoney(pl, MLE_AUCTION, -int32(price), "bid auction (id: %u)", auctionId);
 
         auction->bidder = pl->GetGUIDLow();
         auction->bid = price;
@@ -342,10 +343,10 @@ void WorldSession::HandleAuctionPlaceBid(WorldPacket & recv_data)
     {
         //buyout:
         if (pl->GetGUIDLow() == auction->bidder)
-            pl->ModifyMoney(-int32(auction->buyout - auction->bid));
+            sMoneyLog->LogMoney(pl, MLE_AUCTION, -int32(auction->buyout - auction->bid), "buyout auction (id: %u)", auctionId);
         else
         {
-            pl->ModifyMoney(-int32(auction->buyout));
+            sMoneyLog->LogMoney(pl, MLE_AUCTION, -int32(auction->buyout), "buyout auction (id: %u)", auctionId);
             if (auction->bidder)                          //buyout for bidded auction ..
                 sAuctionMgr->SendAuctionOutbiddedMail(auction, auction->buyout, GetPlayer(), trans);
         }
@@ -408,7 +409,7 @@ void WorldSession::HandleAuctionRemoveItem(WorldPacket & recv_data)
                     return;
                 //some auctionBidderNotification would be needed, but don't know that parts..
                 sAuctionMgr->SendAuctionCancelledToBidderMail(auction, trans);
-                pl->ModifyMoney(-int32(auctionCut));
+                sMoneyLog->LogMoney(pl, MLE_AUCTION, -int32(auctionCut), "auction cut (id: %u)", auctionId);
             }
             // Return the item by mail
             std::ostringstream msgAuctionCanceledOwner;

@@ -11,6 +11,7 @@
 #    PERFORMANCE SETTINGS
 #    SERVER LOGGING
 #    SERVER SETTINGS
+#    WARDEN SETTINGS
 #    PLAYER INTERACTION
 #    CREATURE SETTINGS
 #    CHAT SETTINGS
@@ -60,15 +61,6 @@ RealmID = 1
 #        Default:     "."
 
 DataDir = "."
-
-#
-#    LogsDir
-#        Description: Logs directory setting.
-#        Important:   LogsDir needs to be quoted, as the string might contain space characters.
-#                     Logs directory must exists, or log file creation will be disabled.
-#        Default:     "" - (Log files will be stored in the current path)
-
-LogsDir = ""
 
 #
 #    LoginDatabaseInfo
@@ -330,23 +322,6 @@ TargetPosRecalculateRange = 1.5
 UpdateUptimeInterval = 10
 
 #
-#    LogDB.Opt.ClearInterval
-#        Description: Time (in minutes) for the WUPDATE_CLEANDB timer that clears the `logs` table
-#                     of old entries.
-#        Default:     10 - (10 minutes)
-#                     1+
-
-LogDB.Opt.ClearInterval = 10
-
-#
-#    LogDB.Opt.ClearTime
-#        Description: Time (in seconds) for keeping old `logs` table entries.
-#        Default:     1209600 - (Enabled, 14 days)
-#                     0       - (Disabled, Do not clear entries)
-
-LogDB.Opt.ClearTime = 1209600
-
-#
 #    MaxCoreStuckTime
 #        Description: Time (in seconds) before the server is forced to crash if it is frozen.
 #        Default:     0   - (Disabled)
@@ -403,56 +378,203 @@ PersistentCharacterCleanFlags = 0
 PidFile = ""
 
 #
-#    LogLevel
-#        Description: Server console level of logging
-#        Default:     1 - (Basic)
+#    Log.Directory
+#        Description: Directory for all the logs.
+#        Important:   Value needs to be quoted, as the string might contain space characters.
+#        Default:     "" - (Log files will be stored in the current path)
+
+Log.Directory = ""
+
+#
+#    Log.Console.Level
+#        Description: Log level for console messages (from all the logs which write to console).
+#        Default:     1 - (Warning)
 #                     0 - (Minimum)
-#                     2 - (Detail)
-#                     3 - (Full/Debug)
+#                     2 - (Info)
+#                     3 - (Full)
 
-LogLevel = 1
-
-#
-#    LogFile
-#        Description: Log file for main server log.
-#        Default:     "Server.log" - (Enabled)
-#                     ""           - (Disabled)
-
-LogFile = "Server.log"
+Log.Console.Level = 1
 
 #
-#    LogTimestamp
-#        Description: Append timestamp to the server log file name.
-#                     Logname_YYYY-MM-DD_HH-MM-SS.Ext for Logname.Ext
+#    Log.Console.Colors
+#        Description: Colors for log messages (Format: "minimum warning info full").
+#        Colors:      0  - Black
+#                     1  - Red
+#                     2  - Green
+#                     3  - Brown
+#                     4  - Blue
+#                     5  - Magenta
+#                     6  - Cyan
+#                     7  - Grey
+#                     8  - Yellow
+#                     9  - Light red
+#                     10 - Light green
+#                     11 - Light blue
+#                     12 - Light magenta
+#                     13 - Light cyan
+#                     14 - White
+#        Default:     ""          - (Disabled)
+#                     "13 8 10 5" - (Enabled)
+
+Log.Console.Colors = ""
+
+#
+#    Log.DB.Enable
+#        Description: Write log messages to database (LogDatabaseInfo).
 #        Default:     0 - (Disabled)
 #                     1 - (Enabled)
 
-LogTimestamp = 0
+Log.DB.Enable = 0
 
 #
-#    LogFileLevel
-#        Description: Server file level of logging
+#    Log.DB.Level
+#        Description: Log level of databases logging.
+#        Default:     1 - (Warning)
+#                     0 - (Minimum)
+#                     2 - (Info)
+#                     3 - (Full)
+
+Log.DB.Level = 1
+
+#
+#    Log.DB.Clear.Interval
+#        Description: Time (in minutes) for the WUPDATE_CLEANDB timer that clears the `logs` table
+#                     of old entries.
+#        Default:     10 - (10 minutes)
+#                     1+
+
+Log.DB.Clear.Interval = 10
+
+#
+#    Log.DB.Clear.Period
+#        Description: Time (in seconds) for keeping old `logs` table entries.
+#        Default:     1209600 - (Enabled, 14 days)
+#                     0       - (Disabled, Do not clear entries)
+
+Log.DB.Clear.Period = 1209600
+
+#
+#    Log.<name>.Enabled
+#        Description: Enable given log.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+#
+#    Log.<name>.Level
+#        Description: Level of logging for this log file.
 #        Default:     0 - (Minimum)
-#                     1 - (Basic)
-#                     2 - (Detail)
-#                     3 - (Full/Debug)
+#                     1 - (Warning)
+#                     2 - (Info)
+#                     3 - (Full)
+#
+#    Log.<name>.File
+#        Description: Path to log file.
+#        Example:     "Server.log" - (Enabled)
+#        Default:     ""           - (Disabled)
+#        Time format specifiers can be used in order to customize file name using current time, e.g.
+#        "Char_%Y-%m-%d.log"
+#        If you use SplitDate setting you should provide time format specifiers, otherwise you may
+#        get unexpected behaviour.
+#        Available format specifiers (also see C strftime function):
+#            %a    Abbreviated weekday name             Thu
+#            %A    Full weekday name                    Thursday
+#            %b    Abbreviated month name               Aug
+#            %B    Full month name                      August
+#            %c    Date and time representation         Thu Aug 23 14:55:02 2001
+#            %d    Day of the month (01-31)             23
+#            %H    Hour in 24h format (00-23)           14
+#            %I    Hour in 12h format (01-12)           02
+#            %j    Day of the year (001-366)            235
+#            %m    Month as a decimal number (01-12)    08
+#            %M    Minute (00-59)                       55
+#            %p    AM or PM designation                 PM
+#            %S    Second (00-61)                       02
+#            %U    Week number with the first Sunday
+#                  as the first day of week one (00-53) 33
+#            %w    Weekday as a decimal number with
+#                  Sunday as 0 (0-6)                    4
+#            %W    Week number with the first Monday
+#                  as the first day of week one (00-53) 34
+#            %x    Date representation                  08/23/01
+#            %X    Time representation                  14:55:02
+#            %y    Year, last two digits (00-99)        01
+#            %Y    Year                                 2001
+#            %Z    Timezone name or abbreviation        CDT
+#            %%    A % sign                             %
+#
+#    Log.<name>.TimestampFmt
+#        Description: Format string for timestamp. Uses the same format specifier as in
+#                     Log.<name>.File (also see C strftime function).
+#        Default:     "%Y-%m-%d %H:%M:%S"
+#
+#    Log.<name>.SplitDate
+#        Description: Specifies whether new log file should be created at midnight. Correct
+#                     Log.<name>.File should be given for this option to work correctly.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+#
+#    Log.<name>.Append
+#        Description: Specifies whether new log file should be created on every server start or
+#                     messages should be appended to existing log with the same name.
+#        Default:     1 - (Append)
+#                     0 - (Create new file, i.e. overwrite existing)
+#
+#    Log.<name>.Console
+#        Description: Specifies whether messages should be written to server console.
+#        Default:     0 - (Do not write)
+#                     1 - (Write)
+#
+#    Log.<name>.DB
+#        Description: Specifies whether messages should be written to database. Log name and
+#                     log level of the messages are saved with message.
+#        Default:     0 - (Do not write to DB)
+#                     1 - (Write to DB)
+#
+#    Log.<name>.FlushBytes
+#        Description: Defines number of bytes after which buffers should be flushed to disk.
+#        Default:     0 - (Flush after every message)
+#                    -1 - (Flush manually)
+#                  1024 - (Flush every kilobyte)
+#
+#    INSTRUCTION FOR DEVELOPERS:
+#    To create new log file give it a string name, which you can use in calls to sLogMgr->WriteLn()
+#    or sLogMgr->Write() methods.
+#    Set values of necessary settings for this log file here. It's not necessary to specify setting
+#    if your value is equal to default value.
+#    Default values are:
+#        Log.<name>.Enabled = 1
+#        Log.<name>.File = ""
+#        Log.<name>.Level = 0
+#        Log.<name>.TimestampFmt = "%Y-%m-%d %H:%M:%S"
+#        Log.<name>.SplitDate = 1
+#        Log.<name>.Append = 1
+#        Log.<name>.Console = 0
+#        Log.<name>.DB = 0
+#        Log.<name>.FlushBytes = 0 
 
-LogFileLevel = 0
+#    Server log
+#    Description: Main server log.
+
+Log.Server.Enabled = 1
+Log.Server.File = Server.log
+Log.Server.Level = 1
+Log.Server.SplitDate = 0
+Log.Server.Append = 0
+Log.Server.Console = 1
+Log.Server.FlushBytes = 4096
 
 #
-#    Debug Log Mask
-#        Description: Bitmask that determines which debug log output (level 3)
-#                     will be logged.
+#    Log.Debug.Mask
+#        Description: Bitmask that determines which debug log output (full level) will be logged.
 #        Possible flags:
 #                   1 - Anything related to units that doesn't fit in other
-#                          categories.
+#                       categories.
 #                   2 - Anything related to pets.
 #                   4 - Anything related to vehicles.
 #                   8 - Anything related to C++ AI, instance scripts, etc.
 #                  16 - Anything related to DB AI, such as SAI, EAI, CreatureAI
 #                  32 - Anything related to DB map scripts
 #                  64 - Anything related to network input/output,
-#                        such as packet handlers and netcode logs
+#                       such as packet handlers and netcode logs
 #                 128 - Anything related to the spellsystem and aurasystem
 #                 256 - Anything related to the achievement system
 #                 512 - Anything related to the condition system
@@ -465,10 +587,10 @@ LogFileLevel = 0
 #               65536 - Anything related to maps, instances (not scripts),
 #                       grids, cells, visibility, etc.
 #              131072 - Anything related to player loading from DB
-#                      (Player::_LoadXXX functions)
+#                       (Player::_LoadXXX functions)
 #              262144 - Anything related to items
 #              524288 - Anything related to player skills
-#                      (do not confuse with spells)
+#                       (do not confuse with spells)
 #             1048576 - Anything related to loot
 #             2097152 - Anything related to guilds
 #             4194304 - Anything related to transports
@@ -478,314 +600,340 @@ LogFileLevel = 0
 #
 #             Default: 0 (nothing)
 
-DebugLogMask = 0
+Log.Debug.Mask = 0
 
 #
-#    WorldLogFile
-#        Description: Packet logging file for the world server.
-#        Example:     "World.log" - (Enabled)
-#        Default:     ""          - (Disabled)
+#    Socket log
+#    Description: Used for logging incoming and outgoing packets.
+#                 If enabled might affect server performance.
 
-WorldLogFile = ""
-
-#
-#    DBErrorLogFile
-#        Description: Log file for database errors.
-#        Default:     "DBErrors.log" - (Enabled)
-#                     ""             - (Disabled)
-
-DBErrorLogFile = "DBErrors.log"
+Log.Socket.Enabled = 0
+Log.Socket.File = Socket_%Y-%m-%d_%H-%M-%S.log
+Log.Socket.SplitDate = 0
+Log.Socket.Append = 0
+Log.Socket.FlushBytes = -1
 
 #
-#    CharLogFile
-#        Description: Log file for character operations
-#        Default:     "Char.log" - (Enabled)
-#                     ""         - (Disabled)
+#    DbErrors log
+#    Description: Used for logging database errors.
 
-CharLogFile = "Char.log"
-
-#
-#    CharLogTimestamp
-#        Description: Append timestamp to the character log file name.
-#                     Logname_YYYY-MM-DD_HH-MM-SS.Ext for Logname.Ext
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
-
-CharLogTimestamp = 0
+Log.DbErrors.Enabled = 1
+Log.DbErrors.File = DbErrors_%Y-%m-%d_%H-%M-%S.log
+Log.DbErrors.SplitDate = 0
+Log.DbErrors.Append = 0
+Log.DbErrors.Console = 1
 
 #
-#    CharLogDump
-#        Description: Write a character dump in the CharLogFile before deleting it.
+#    Char log
+#    Description: Used for logging operation with characters such as creation, deletion,
+#                 customization, login, logout and, potentially, dumps. Has additional settings
+#                 Log.Char.Dump.* which can modify behaviour of character dumps.
+
+Log.Char.Enabled = 1
+Log.Char.File = Char_%Y-%m-%d.log
+Log.Char.TimestampFmt = "%H:%M:%S"
+Log.Char.FlushBytes = 1024
+
+#
+#    Log.Char.Dump
+#        Description: Write a character dump in the char log before deleting it.
 #                     For restoration, copy character data from log file starting from
 #                     line == START DUMP == to line == END DUMP == (exclusive)
 #                     and load it using the "pdump load" command.
 #        Default:     0 - (Disabled)
 #                     1 - (Enabled)
 
-CharLogDump = 0
+Log.Char.Dump = 0
 
 #
-#    CharLogDump.Separate
-#        Description: Write character dump to separate files files rather than adding it to the
-#                     CharLogFile.
+#    Log.Char.Dump.Separate
+#        Description: Write character dump to separate file rather than adding it to the char log.
 #        Default:     0 - (Disabled)
 #                     1 - (Enabled)
 
-CharLogDump.Separate = 0
+Log.Char.Dump.Separate = 0
 
 #
-#    CharLogDump.SeparateDir
+#    Log.Char.Dump.Directory
 #        Description: Write dump files into the sub folder within the log folder.
-#        Example:     "chardumps" - (Enabled)
-#        Default:     ""         - (Disabled)
+#        Example:     "dumps" - (Enabled)
+#        Default:     ""      - (Disabled)
 
-CharLogDump.SeparateDir = ""
-
-#
-#    GmLogFile
-#        Description: Log file for gamemaster commands.
-#        Default:     "GM.log" - (Enabled)
-#                     ""       - (Disabled)
-
-GmLogFile = "GM.log"
+Log.Char.Dump.Directory = ""
 
 #
-#    GmLogTimestamp
-#        Description: Append timestamp to the gamemaster log file name.
-#                     Logname_YYYY-MM-DD_HH-MM-SS.Ext for Logname.Ext
+#    GM log
+#    Description: Used for logging GM actions. Has additional setting Log.GM.PerAccount which
+#                 allows to log actions of GMs into separate files (one file per account).
+#                 Log path should have $a placeholder which is replaced by account ID, if
+#                 Log.GM.PerAccount setting is set to true.
+
+Log.GM.Enabled = 1
+Log.GM.File = GM_$a.log
+Log.GM.SplitDate = 0
+Log.GM.Console = 1
+
+#
+#    Log.GM.PerAccount
+#        Description: Write GM commands into separate files (one file per account)
 #        Default:     0 - (Disabled)
 #                     1 - (Enabled)
 
-GmLogTimestamp = 0
+Log.GM.PerAccount = 0
 
 #
-#    GmLogPerAccount
-#        Description: Create a log file per gamemaster account.
-#        Important:   Logs not created if GmLogFile is not set.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    RA log
+#    Description: Used to log connections and commands performed via Remote Access.
 
-GmLogPerAccount = 0
-
-#
-#    RaLogFile
-#        Description: Log file for Remote Access commands.
-#        Default:     "RA.log" - (Enabled)
-#                     ""       - (Disabled)
-
-RaLogFile = "RA.log"
+Log.RA.Enabled = 1
+Log.RA.File = RA.log
+Log.RA.SplitDate = 0
 
 #
-#    ArenaLogFile
-#        Description: Log file for arena fights and arena team creations.
-#        Example:     "Arena.log" - (Enabled)
-#        Default:     ""          - (Disabled)
+#    Arena log
+#    Description: Used to log information about arena matches.
+#                 Has additional setting Log.Arena.ExtendedInfo which allows to turn on logging
+#                 of detailed information about every arena match outcome.
+#                 To include extended info to log file for each player after rated arena
+#                 matches (guid, name, team, IP, healing/damage done, killing blows)
+#                 set Log.Level to 1.
 
-ArenaLogFile = ""
-
-#
-#    ArenaLog.ExtendedInfo
-#        Description: Include extended info to ArenaLogFile for each player after rated arena
-#                     matches (guid, name, team, IP, healing/damage done, killing blows).
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
-
-ArenaLog.ExtendedInfo = 0
+Log.Arena.Enabled = 1
+Log.Arena.File = Arena.log
+Log.Arena.Level = 1
+Log.Arena.SplitDate = 0
+Log.Arena.FlushBytes = 1024
 
 #
-#    SQLDeveloperLogFile
-#        Description: Log file for core-generated SQL queries/dumps
-#        Example:     "SQLDev.log"    - (Enabled)
-#        Default:      ""             - (Disabled)
+#    SqlDriver log
+#    Description: Used to log operations and queries performed via SQL database driver.
 
-SQLDeveloperLogFile = ""
+Log.SqlDriver.Enabled = 1
+Log.SqlDriver.File = SqlDriver.log
+Log.SqlDriver.SplitDate = 0
+Log.SqlDriver.Console = 1
 
-#
-#    SQLDriverLogFile
-#        Description: Log file for SQL driver events.
-#        Example:     "SQLDriver.log" - (Enabled)
-#        Default:      ""             - (Disabled)
+#    SqlDeveloper log
+#    Description: Used for core-generated SQL queries/dumps.
 
-SQLDriverLogFile = ""
-
-#
-#    SQLDriverQueryLogging
-#        Description: Log SQL queries to the SQLDriverLogFile and console.
-#        Default:     0 - (Disabled, Query errors only)
-#                     1 - (Enabled, Full query logging - may have performance impact)
-
-SQLDriverQueryLogging = 0
+Log.SqlDeveloper.Enabled = 0
+Log.SqlDeveloper.File = SqlDeveloper.log
+Log.SqlDeveloper.SplitDate = 0
 
 #
-#    LogColors
-#        Description: Colors for log messages (Format: "normal basic detail debug").
-#        Colors:      0  - Black
-#                     1  - Red
-#                     2  - Green
-#                     3  - Brown
-#                     4  - Blue
-#                     5  - Magenta
-#                     6  - Cyan
-#                     7  - Grey
-#                     8  - Yellow
-#                     9  - Lred
-#                     10 - Lgreen
-#                     11 - Lblue
-#                     12 - Lmagenta
-#                     13 - Lcyan
-#                     14 - White
-#        Example:     "13 11 9 5" - (Enabled)
-#        Default:     ""          - (Disabled)
+#    AntiCheat log
+#    Description: Used to log messages from anticheat system.
 
-LogColors = ""
+Log.AntiCheat.Enabled = 1
+Log.AntiCheat.File = AntiCheat_%Y-%m-%d.log
+Log.AntiCheat.TimestampFmt = "%H:%M:%S"
+Log.AntiCheat.FlushBytes = 1024
 
 #
-#    EnableLogDB
-#        Description: Write log messages to database (LogDatabaseInfo).
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+###################################################################################################
 
-EnableLogDB = 0
+###################################################################################################
+# MONEY LOG
 
-#
-#    DBLogLevel
-#        Description: Log level of databases logging.
-#        Default:     2 - (Detail)
-#                     0 - (Minimum)
-#                     1 - (Basic)
-#                     3 - (Full/Debug)
-
-DBLogLevel = 2
+Log.Money.Enabled = 1
+Log.Money.File = Money_%Y-%m-%d.log
+Log.Money.TimestampFmt = "%H:%M:%S"
 
 #
-#    LogDB.Char
-#        Description: Log character operations to database.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Money.Money.MinAmountPositive
+#        Description: Minimum number of received money to log
+#        Default: 10000 - 1 gold
 
-LogDB.Char = 0
-
-#
-#    LogDB.GM
-#        Description: Log gamemaster commands to database.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
-
-LogDB.GM = 0
+Log.Money.Money.MinAmountPositive = 10000
 
 #
-#    LogDB.RA
-#        Description: Log remote access events to database.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Money.Money.MinAmountNegative
+#        Description: Minimum number of given money to log
+#        Default: 10000 - 1 gold
 
-LogDB.RA = 0
-
-#
-#    LogDB.World
-#        Description: Log world server packets to database.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled, May have performance impact)
-
-LogDB.World = 0
+Log.Money.Money.MinAmountNegative = 10000
 
 #
-#    LogDB.Chat
-#        Description: Log chat messages to database.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Money.Money.EventMask
+#        Description: Bitmask that determines which events to log
+#        Possible flags:
+#                   1 - mail events
+#                   2 - trade with other player
+#                   4 - interaction with NPCs
+#                   8 - GM commands
+#                  16 - quest events
+#                  32 - loot events
+#                  64 - guild bank events
+#                 128 - deleting of item (not used with money)
+#                 256 - spell events
+#                 512 - other events
+#        Default: 2047 - all events
 
-LogDB.Chat = 0
-
-
-#    ChatLogFile
-#        Description: Log file for chat logs.
-#        Default:     "Chat.log" - (Enabled)
-#                     ""         - (Disabled)
-
-ChatLogFile = "Chat.log"
-
-#    ChatLogTimestamp
-#        Description: Append timestamp to the chat log file name.
-#                     Logname_YYYY-MM-DD_HH-MM-SS.Ext for Logname.Ext
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
-
-ChatLogTimestamp = 0
+Log.Money.Money.EventMask = 2047
 
 #
-#    ChatLogs.Channel
-#        Description: Log custom channel chat.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+###################################################################################################
 
-ChatLogs.Channel = 0
+###################################################################################################
+# CHAT LOGGING AND LEXICS CUTTER
+#
+#    Log.Chat.Enable
+#        Description: Enable system of chat logging.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Log.Chat.Enable = 1
 
 #
-#    ChatLogs.Whisper
-#        Description: Log whispers between players.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Chat.Ignore.Unprintable
+#        Description: Ignore messages with unprintable characters.
+#        Default:     1 - (Ignore)
+#                     0 - (Do not ignore)
 
-ChatLogs.Whisper = 0
-
-#
-#    ChatLogs.SysChan
-#        Description: Log system channel messages.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
-
-ChatLogs.SysChan = 0
+Log.Chat.Ignore.Unprintable = 1
 
 #
-#    ChatLogs.Party
-#        Description: Log party chat.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Chat.Lexics.Enable
+#        Description: Enable lexics cutter in chats.
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
 
-
-ChatLogs.Party = 0
-
-#
-#    ChatLogs.Raid
-#        Description: Log raid chat.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
-
-
-ChatLogs.Raid = 0
+Log.Chat.Lexics.Enable = 1
 
 #
-#    ChatLogs.Guild
-#        Description: Log guild chat.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Chat.Lexics.Cut.Enable
+#        Description: Cut innormative lexics in chat.
+#        Default:     1 - (Cut)
+#                     0 - (Do not cut)
 
-ChatLogs.Guild = 0
-
-#
-#    ChatLogs.Public
-#        Description: Log public chat (say/yell/emote).
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
-
-ChatLogs.Public = 0
+Log.Chat.Lexics.Cut.Enable = 1
 
 #
-#    ChatLogs.Addon
-#        Description: Log addon messages.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Chat.Lexics.Cut.Replacement
+#        Description: Text shown instead of message with innormative lexics.
 
-ChatLogs.Addon = 0
+Log.Chat.Lexics.Cut.Replacement = &!@^%!^&*!!!
 
 #
-#    ChatLogs.BattleGround
-#        Description: Log battleground chat.
-#        Default:     0 - (Disabled)
-#                     1 - (Enabled)
+#    Log.Chat.Lexics.WordsFile
+#        Description: Path to the file with words considered as innormative.
 
-ChatLogs.BattleGround = 0
+Log.Chat.Lexics.WordsFile = innormative_words.txt
+
+#
+#    Log.Chat.Lexics.AnalogsFile
+#        Description: Path to the file with letter analogs.
+
+Log.Chat.Lexics.AnalogsFile = letter_analogs.txt
+
+#
+#    Log.Chat.Lexics.Ignore.Spaces
+#        Description: Ignore spaces in filtered words. Example: W O R D
+#        Default:     1 - (Ignore)
+#                     0 - (Do not ignore)
+
+Log.Chat.Lexics.Ignore.Spaces = 1
+
+#
+#    Log.Chat.Lexics.Ignore.Repeats
+#        Description: Ignore repeating symbols in filtered words. Example: WWWOOOORRRRRRDDD
+#        Default:     1 - (Ignore)
+#                     0 - (Do not ignore)
+
+Log.Chat.Lexics.Ignore.Repeats = 1
+
+#
+#    Log.Chat.Lexics.Ignore.GM
+#        Description: Ignore (do not filter) messages from GM.
+#        Default:     1 - (Ignore)
+#                     0 - (Do not ignore)
+
+Log.Chat.Lexics.Ignore.GM = 1
+
+#
+#    Log.Chat.Lexics.Action
+#        Description: Action taken when bad lexics is found.
+#        Default:     0 - (Log only)
+#                     1 - (Polymorph)
+#                     2 - (Stun)
+#                     3 - (Instant kill)
+#                     4 - (Leave 5 health)
+#                     5 - (Mute)
+#                     6 - (Stuck - works as stun + 50% health [by KAPATEJIb])
+#                     7 - (Resurrection sickness [by Koshei])
+#                     8 - (Shear [by Koshei])
+
+Log.Chat.Lexics.Action = 0
+
+#
+#    Log.Chat.Lexics.Action.Duration
+#        Description: Duration of action (in milliseconds).
+#        Default:     0 - (No duration)
+
+Log.Chat.Lexics.Action.Duration = 0
+
+#
+#    SETTINGS FOR DIFFERENT CHAT TYPES
+#    Available types:
+#        * Chat - common chat
+#        * Party - party chat
+#        * Guild - guild chat
+#        * Whisper - whispers
+#        * Channel - channels
+#        * Raid - raid chat
+#        * BattleGround - battleground chat
+#        * Lexics.Innormative - messages filtered by lexics cutter
+#
+#    Log.*.Lexics.Cut
+#        Description: Cut lexics for given chat type (except Innormative).
+#        Default:     1 - (Cut)
+#                     0 - (Do not cut)
+
+Log.Chat.Enabled = 1
+Log.Chat.File = "chat/Main_%Y-%m-%d.log"
+Log.Chat.TimestampFmt = "%H:%M:%S"
+Log.Chat.FlushBytes = 1024
+Log.Chat.Lexics.Cut = 1
+
+Log.Party.Enabled = 1
+Log.Party.File = "chat/Party_%Y-%m-%d.log"
+Log.Party.TimestampFmt = "%H:%M:%S"
+Log.Party.FlushBytes = 1024
+Log.Party.Lexics.Cut = 1
+
+Log.Guild.Enabled = 1
+Log.Guild.File = "chat/Guild_%Y-%m-%d.log"
+Log.Guild.TimestampFmt = "%H:%M:%S"
+Log.Guild.FlushBytes = 1024
+Log.Guild.Lexics.Cut = 1
+
+Log.Whisper.Enabled = 1
+Log.Whisper.File = "chat/Whisper_%Y-%m-%d.log"
+Log.Whisper.TimestampFmt = "%H:%M:%S"
+Log.Whisper.FlushBytes = 1024
+Log.Whisper.Lexics.Cut = 1
+
+Log.Channel.Enabled = 1
+Log.Channel.File = "chat/Channel_%Y-%m-%d.log"
+Log.Channel.TimestampFmt = "%H:%M:%S"
+Log.Channel.FlushBytes = 1024
+Log.Channel.Lexics.Cut = 1
+
+Log.Raid.Enabled = 1
+Log.Raid.File = "chat/Raid_%Y-%m-%d.log"
+Log.Raid.TimestampFmt = "%H:%M:%S"
+Log.Raid.FlushBytes = 1024
+Log.Raid.Lexics.Cut = 1
+
+Log.BattleGround.Enabled = 1
+Log.BattleGround.File = "chat/Bg_%Y-%m-%d.log"
+Log.BattleGround.TimestampFmt = "%H:%M:%S"
+Log.BattleGround.FlushBytes = 1024
+Log.BattleGround.Lexics.Cut = 1
+
+Log.Lexics.Innormative.Enabled = 1
+Log.Lexics.Innormative.File = "lexics/Innormative_%Y-%m-%d.log"
+Log.Lexics.Innormative.TimestampFmt = "%H:%M:%S"
 
 #
 ###################################################################################################
@@ -1121,6 +1269,14 @@ RecruitAFriend.MaxLevel = 60
 RecruitAFriend.MaxDifference = 4
 
 #
+#    RecruitAFriend.RewardSplitInGroup
+#        Description: Allow experience and reputation split for players in group with active RAF
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+RecruitAFriend.RewardSplitInGroup = 1
+
+#
 #    InstantLogout
 #        Description: Required security level for instantly logging out everywhere.
 #                     Does not work while in combat, dueling or falling.
@@ -1307,6 +1463,21 @@ MaxRecruitAFriendBonusDistance = 100
 MailDeliveryDelay = 3600
 
 #
+#    ExternalMail
+#        Enable external mail delivery from mail_external table.
+#        Default: 0 (disabled)
+#                 1 (enabled)
+
+ExternalMail = 0
+
+#
+#    ExternalMailInterval
+#        Mail delivery delay time for item sending from mail_external table, in minutes.
+#        Default: 1 minute
+
+ExternalMailInterval = 1
+
+#
 #    SkillChance.Prospecting
 #        Description: Allow skill increase from prospecting.
 #        Default:     0 - (Disabled)
@@ -1410,6 +1581,64 @@ DBC.EnforceItemAttributes = 1
 #        Default:     5
 
 AccountInstancesPerHour = 5
+
+#
+###################################################################################################
+
+###################################################################################################
+# WARDEN SETTINGS
+#
+#    Warden.Enabled
+#        Description: Enable Warden anticheat system.
+#        Default:     0 - (Disabled)
+#                     1 - (Enabled)
+
+Warden.Enabled = 0
+
+#
+#    Warden.ClientResponseDelay
+#        Description: Time (in seconds) before client is getting disconnecting for not responding.
+#        Default:     90 - (90 Seconds)
+#                      0 - (Disabled, client won't be kicked)
+
+Warden.ClientResponseDelay = 90
+
+#
+#    Warden.ClientCheckPeriod
+#        Description: Time (in seconds) +/- 5 seconds between sending check requests to the client.
+#                     A low number increases traffic and load on client and server side.
+#        Default:     30 - (25-35 seconds)
+
+Warden.ClientCheckPeriod = 30
+
+#
+#    Warden.ClientCheckFailAction
+#        Description:
+#        Default:     0 - (Disabled, Logging only)
+#                     1 - (Kick)
+#                     2 - (Ban)
+
+Warden.ClientCheckFailAction = 0
+
+#
+#    Warden.BanDuration
+#        Description: Time (in seconds) an account will be banned if ClientCheckFailAction is set
+#                     to ban.
+#        Default:     86400 - (24 hours)
+#                     0     - (Permanent ban)
+
+Warden.BanDuration = 86400
+
+# Warden Log
+
+Log.Warden.Enabled = 1
+Log.Warden.File = Warden_%Y-%m-%d.log
+Log.Warden.Level = 0
+Log.Warden.TimestampStr = "%H:%M:%S"
+Log.Warden.SplitDate = 1
+Log.Warden.Append = 1
+Log.Warden.Console = 1
+Log.Warden.FlushBytes = 0
 
 #
 ###################################################################################################
@@ -1900,6 +2129,17 @@ GM.AllowFriend = 0
 #                     1 - (Enabled)
 
 GM.LowerSecurity = 0
+
+#
+#    GM.AllowAchievementGain.Level
+#        Description: Max GM level allowed to obtain achievements.
+#        Default:     3 - (Players, Moderators, GameMasters, Admins)
+#                     0 - (Players)
+#                     1 - (Players, Moderators)
+#                     2 - (Players, Moderators, GameMasters)
+#                     3 - (Players, Moderators, GameMasters, Admins)
+
+GM.AllowAchievementGain.Level = 3
 
 #
 #    GM.TicketSystem.ChanceOfGMSurvey
@@ -2725,6 +2965,7 @@ ShowKickInWorld = 0
 #                     0     - (Disabled)
 
 RecordUpdateTimeDiffInterval = 60000
+
 #
 #     MinRecordUpdateTimeDiff
 #        Description: Only record update time diff which is greater than this value.
@@ -2766,6 +3007,185 @@ LevelReq.Auction = 1
 #        Default:     1
 
 LevelReq.Mail = 1
+
+#
+###################################################################################################
+
+###################################################################################################
+# ANTICHEAT
+#
+#    Anticheat.Enable
+#        Description: Enables or disables the Anticheat System functionality
+#        Default:     1 - (Enabled)
+#                     0 - (Disabled)
+
+Anticheat.Enable = 1
+
+#    Anticheat.ReportsForIngameWarnings
+#        Description: How many reports the player must have to notify to GameMasters ingame when
+#                     he generates a new report.
+#        Default:     70
+
+Anticheat.ReportsForIngameWarnings = 70
+
+#    Anticheat.DetectionsEnabled
+#        Description: It represents which detections are enabled.
+#
+#        SPEED_HACK_DETECTION            = 1
+#        FLY_HACK_DETECTION              = 2
+#        WALK_WATER_HACK_DETECTION       = 4
+#        JUMP_HACK_DETECTION             = 8
+#        TELEPORT_PLANE_HACK_DETECTION   = 16
+#        CLIMB_HACK_DETECTION            = 32
+#
+#        Default:     31
+
+Anticheat.DetectionsEnabled = 31
+
+#    Anticheat.MaxReportsForDailyReport
+#        Description: How many reports must the player have to make a report that it is in DB
+#                     for a day (not only during the player's session).
+#        Default:     70
+
+Anticheat.MaxReportsForDailyReport = 70
+
+#
+###################################################################################################
+
+###################################################################################################
+# WINTERGRASP
+#
+#    OutdoorPvP.Wintergrasp.Enabled
+#        Description: Determines whether the Wintergrasp battle is enabled or not.
+#        Default:     0 - (Disabled)
+#                     1 - (Enabled)
+
+OutdoorPvP.Wintergrasp.Enabled = 1
+
+#
+#    OutdoorPvP.Wintergrasp.SaveState.Period
+#        Description: Interval of Save Wintergrasp State Data  to restore it after
+#                     crash/shutdown/restart. Interval (in milliseconds)
+#        Warning:     Do not set it less 1 second!
+#        Default:     10000 (ms)
+
+OutdoorPvP.Wintergrasp.SaveState.Period = 60000
+
+#
+#    OutdoorPvP.Wintergrasp.StartTime
+#        Description: The start time of the first battle after server starts (in minutes)
+#        Default:     30
+
+OutdoorPvP.Wintergrasp.StartTime = 30
+
+#
+#    OutdoorPvP.Wintergrasp.BattleTime
+#        Description: Time limit of a battle (in minutes)
+#        Default:     30
+
+OutdoorPvP.Wintergrasp.BattleTime = 30
+
+#
+#    OutdoorPvP.Wintergrasp.Interval
+#        Description: Interval between battles (in minutes)
+#        Default:     150
+
+OutdoorPvP.Wintergrasp.Interval = 150
+
+#
+#    OutdoorPvP.Wintergrasp.CustomHonorRewards
+#        Description: Defines whether custom honor rewards should be given to player
+#                     for partaking in the Wintergrasp Battle.
+#        Default:     0 - (Disabled)
+#                     1 - (Enabled)
+
+OutdoorPvP.Wintergrasp.CustomHonorRewards = 0
+
+#
+#    OutdoorPvP.Wintergrasp.CustomHonorBattleWin
+#        Description: Defines the amount of honor points that should be given to the
+#                     team winning the Wintergrasp Battle.
+#                     Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
+#        Default:     3000
+
+OutdoorPvP.Wintergrasp.CustomHonorBattleWin = 3000
+
+#
+#    OutdoorPvP.Wintergrasp.CustomHonorBattleLose
+#        Description: Defines the amount of honor points that should be given to the
+#                     team losing the Wintergrasp Battle.
+#                     Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
+#        Default:     1250
+
+OutdoorPvP.Wintergrasp.CustomHonorBattleLose = 1250
+
+#
+#    OutdoorPvP.Wintergrasp.CustomHonorDamageTower
+#        Description: Defines the amount of honor points that should be given to the
+#                     team for damaging a tower.
+#                     Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
+#        Default:     750
+
+OutdoorPvP.Wintergrasp.CustomHonorDamageTower = 750
+
+#
+#    OutdoorPvP.Wintergrasp.CustomHonorDestroyedTower
+#        Description: Defines the amount of honor points that should be given to the
+#                     team for destroying a tower.
+#                     Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
+#        Default:     750
+
+OutdoorPvP.Wintergrasp.CustomHonorDestroyedTower = 750
+
+#
+#    OutdoorPvP.Wintergrasp.CustomHonorIntactBuilding
+#        Description: Defines the amount of honor points that should be given to the
+#                     team for intact buildings after the battle.
+#                     Requires OutdoorPvP.Wintergrasp.CustomHonorRewards = 1.
+#        Default:     1500
+
+OutdoorPvP.Wintergrasp.CustomHonorIntactBuilding = 1500
+
+#
+#    OutdoorPvP.Wintergrasp.Antifarm.Enable
+#        Description: Enable or Disable antifarm system
+#        Default:     0 - (Disabled)
+#                     1 - (Enabled)
+
+OutdoorPvP.Wintergrasp.Antifarm.Enable = 0
+
+#
+#    OutdoorPvP.Wintergrasp.Antifarm.Atk
+#        Description: Min count attack players for antifarm
+#        Default:     5
+
+OutdoorPvP.Wintergrasp.Antifarm.Atk = 5
+
+#
+#    OutdoorPvP.Wintergrasp.Antifarm.Def
+#        Description: Min count defense players for antifarm
+#        Default:     5
+
+OutdoorPvP.Wintergrasp.Antifarm.Def = 5
+
+#
+###################################################################################################
+
+###################################################################################################
+# GUILD HOUSES
+#
+#    GuildHouse.BuyPrice
+#        Description: Price which guildmaster must pay to purchase a GuildHouse (in copper)
+#        Default:     500000000 - (50.000 gold)
+
+GuildHouse.BuyPrice = 500000000
+
+#
+#    GuildHouse.SellPrice
+#        Description: Amount of money guildmaster will get for selling GuildHouse back (in copper)
+#        Default:     250000000 - (25.000 gold)
+
+GuildHouse.SellPrice = 250000000
 
 #
 ###################################################################################################

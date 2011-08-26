@@ -49,6 +49,9 @@ MACRO(_PCH_GET_COMPILE_FLAGS _out_compile_flags)
     IF(${_targetType} STREQUAL SHARED_LIBRARY AND NOT WIN32)
       LIST(APPEND ${_out_compile_flags} -fPIC)
     ENDIF()
+    IF(APPLE)
+      LIST(APPEND ${_out_compile_flags} -fpascal-strings)
+    ENDIF()
 
   ELSE(CMAKE_COMPILER_IS_GNUCXX)
     ## TODO ... ? or does it work out of the box

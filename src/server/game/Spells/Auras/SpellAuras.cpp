@@ -550,6 +550,20 @@ void Aura::UpdateTargetMap(Unit* caster, bool apply)
                         }
                     }
                 }
+                // Prevent exploiting with doubling auras
+                else if (caster)
+                {
+                    // check if not stacking aura already on target and remove not own aura
+                    for (Unit::AuraApplicationMap::iterator iter = itr->first->GetAppliedAuras().begin(); iter != itr->first->GetAppliedAuras().end(); ++iter)
+                    {
+                        Aura const * aura = iter->second->GetBase();
+                        if (aura->GetCasterGUID() != GetCasterGUID() && !CanStackWith(aura))
+                        {
+                            caster->RemoveAurasDueToSpell(aura->GetId(), aura->GetCasterGUID());
+                            break;
+                        }
+                    }
+                }
             }
         }
         if (!addUnit)
@@ -1189,9 +1203,29 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                         break;
                 }
                 break;
+            case SPELLFAMILY_HUNTER:
+                // Animal Handler
+                if (GetId() == 68361)
+                {
+                    if (Unit* owner = target->GetOwner())
+                        if (AuraEffect* auraEff = owner->GetDummyAuraEffect(SPELLFAMILY_HUNTER, 2234, 1))
+                            GetEffect(0)->SetAmount(auraEff->GetAmount());
+                }
+                break;
             case SPELLFAMILY_WARLOCK:
                 switch(GetId())
                 {
+                    case 6358: // Seduction
+                        if (!caster)
+                            break;
+                        if (Unit *owner = caster->GetOwner())
+                            if (owner->HasAura(56250)) // Glyph of Succubus
+                            {
+                                target->RemoveAurasByType(SPELL_AURA_PERIODIC_DAMAGE, 0, target->GetAura(32409)); // SW:D shall not be removed.
+                                target->RemoveAurasByType(SPELL_AURA_PERIODIC_DAMAGE_PERCENT);
+                                target->RemoveAurasByType(SPELL_AURA_PERIODIC_LEECH);
+                            }
+                        break;
                     case 48020: // Demonic Circle
                         if (target->GetTypeId() == TYPEID_PLAYER)
                             if (GameObject* obj = target->GetGameObject(48018))
@@ -1245,6 +1279,17 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                     // in official maybe there is only one icon?
                     if (target->HasAura(58039)) // Glyph of Blurred Speed
                         target->CastSpell(target, 61922, true); // Sprint (waterwalk)
+                // Savage Combat triggered at poisons apply
+                if (GetSpellInfo()->SpellFamilyFlags[1] & 0x80000 && caster)
+                {
+                    if (AuraEffect * auraEff = caster->GetAuraEffect(SPELL_AURA_PROC_TRIGGER_SPELL, SPELLFAMILY_ROGUE, 1959, 0))
+                    {
+                        uint32 spellId = auraEff->GetSpellInfo()->Effects[0].TriggerSpell;
+                        target->RemoveAurasDueToSpell(spellId);
+                        if (Aura * newAura = caster->AddAura(spellId, target))
+                            newAura->SetDuration(GetDuration());
+                    }
+                }
                 break;
             case SPELLFAMILY_DEATHKNIGHT:
                 if (!caster)
@@ -1405,14 +1450,21 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                 }
                 switch(GetId())
                 {
-                   case 48018: // Demonic Circle
+                    case 6358: // Seduction
+                        // Interrupt cast if aura removed from target
+                        // maybe should be used SpellChannelInterruptFlags instead
+                        caster->InterruptNonMeleeSpells(false, 6358, false);
+                        break;
+                    case 48018: // Demonic Circle
                         // Do not remove GO when aura is removed by stack
                         // to prevent remove GO added by new spell
                         // old one is already removed
                         if (!onReapply)
                             target->RemoveGameObject(GetId(), true);
                         target->RemoveAura(62388);
-                    break;
+                        break;
+                    default:
+                        break;
                 }
                 break;
             case SPELLFAMILY_PRIEST:
@@ -1517,6 +1569,14 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                 // Remove the immunity shield marker on Forbearance removal if AW marker is not present
                 if (GetId() == 25771 && target->HasAura(61988) && !target->HasAura(61987))
                     target->RemoveAura(61988);
+                // Divine Storm Helper (SERVERSIDE)
+                else if (GetId() == 99999)
+                {
+                    int32 damage = aurApp->GetBase()->GetEffect(0)->GetAmount();
+                    if (!damage)
+                        break;
+                    caster->CastCustomSpell(target, 54171, &damage, NULL, NULL, true);
+                }
                 break;
             case SPELLFAMILY_DEATHKNIGHT:
                 // Blood of the North
@@ -1536,6 +1596,14 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                 }
                 break;
             case SPELLFAMILY_HUNTER:
+                // Wyvern Sting
+                // If implemented through spell_linked_spell it can't proc from breaking by damage
+                if (removeMode != AURA_REMOVE_BY_DEATH &&
+                    GetSpellInfo()->SpellFamilyFlags[1] & 0x1000 && caster)
+                {
+                    uint32 spell = sSpellMgr->GetSpellWithRank(24131, sSpellMgr->GetSpellRank(GetId()));
+                    caster->CastSpell(target, spell, true);
+                }
                 // Glyph of Freezing Trap
                 if (GetSpellInfo()->SpellFamilyFlags[0] & 0x00000008)
                     if (caster && caster->HasAura(56845))
@@ -1556,6 +1624,32 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                     else
                         target->SetReducedThreatPercent(0, 0);
                     break;
+            }
+            break;
+        case SPELLFAMILY_DRUID:
+            // Enrage
+            if (GetSpellInfo()->SpellFamilyFlags[0] & 0x80000)
+            {
+                if (target->HasAura(70726)) // Druid T10 Feral 4P Bonus
+                {
+                    if (apply)
+                        target->CastSpell(target, 70725, true);
+                }
+                else // armor reduction implemented here
+                    if (AuraEffect * auraEff = target->GetAuraEffectOfRankedSpell(1178, 0))
+                    {
+                        int32 value = auraEff->GetAmount();
+                        int32 mod;
+                        switch (auraEff->GetId())
+                        {
+                            case 1178: mod = 27; break;
+                            case 9635: mod = 16; break;
+                        }
+                        mod = value / 100 * mod;
+                        value = value + (apply ? -mod : mod);
+                        auraEff->ChangeAmount(value);
+                    }
+                //break;
             }
             break;
         case SPELLFAMILY_ROGUE:
@@ -1633,6 +1727,33 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                             target->RemoveAurasDueToSpell(71166);
                     }
                     break;
+            }
+            if (GetSpellInfo()->GetSpellSpecific() == SPELL_SPECIFIC_AURA)
+            {
+                if (GetCasterGUID() == target->GetGUID())
+                {
+                    // Sanctified Retribution
+                    if (target->HasAura(31869))
+                    {
+                        target->RemoveAurasDueToSpell(63531);
+                        if (apply)
+                            target->CastSpell(target, 63531, true);
+                    }
+                    // Improved Devotion Aura
+                    if (target->GetAuraEffect(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_PALADIN, 291, 1))
+                    {
+                        target->RemoveAurasDueToSpell(63514);
+                        if (apply)
+                            target->CastSpell(target, 63514, true);
+                    }
+                    // Improved Concentration Aura
+                    if (target->GetAuraEffect(SPELL_AURA_ADD_FLAT_MODIFIER, SPELLFAMILY_PALADIN, 1487, 0))
+                    {
+                        target->RemoveAurasDueToSpell(63510);
+                        if (apply)
+                            target->CastSpell(target, 63510, true);
+                    }
+                }
             }
             break;
         case SPELLFAMILY_DEATHKNIGHT:
@@ -1725,11 +1846,11 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
             }
             break;
         case SPELLFAMILY_WARLOCK:
+            if (!caster)
+                break;
             // Drain Soul - If the target is at or below 25% health, Drain Soul causes four times the normal damage
             if (GetSpellInfo()->SpellFamilyFlags[0] & 0x00004000)
             {
-                if (!caster)
-                    break;
                 if (apply)
                 {
                     if (target != caster && !target->HealthAbovePct(25))
@@ -1743,8 +1864,46 @@ void Aura::HandleAuraSpecificMods(AuraApplication const* aurApp, Unit* caster, b
                         caster->RemoveAurasDueToSpell(100001);
                 }
             }
+            // Health Funnel
+            else if (GetSpellInfo()->SpellFamilyFlags[0] & 0x01000000 && target != caster)
+            {
+                // Improved Health Funnel
+                AuraEffect * aurEff = caster->GetAuraEffectOfRankedSpell(18703, 0);
+                if (apply && aurEff)
+                {
+                    uint32 spell = sSpellMgr->GetSpellWithRank(60955, sSpellMgr->GetSpellRank(aurEff->GetId()));
+                    target->CastSpell(target, spell, true, 0, 0, caster->GetGUID());
+                }
+                else
+                {
+                    target->RemoveAurasDueToSpell(60955);
+                    target->RemoveAurasDueToSpell(60956);
+                }
+            }
             break;
     }
+
+    if (GetSpellInfo()->IsPassive() && !GetCastItemGUID())
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+        {
+            if (m_effects[i] && m_effects[i]->GetAuraType() == SPELL_AURA_MECHANIC_DURATION_MOD)
+            {
+                uint32 spell_immune;
+                switch(m_effects[i]->GetMiscValue())
+                {
+                    case 5:  spell_immune = 55357; break;
+                    case 7: case 11: spell_immune = 55378; break;
+                    case 9:  spell_immune = 55366; break;
+                    case 12: spell_immune = 55358; break;
+                    default: break;
+                }
+                if (spell_immune)
+                {
+                    if (apply) target->RemoveAurasDueToSpell(spell_immune);
+                    target->ApplySpellImmune(0, IMMUNITY_ID, spell_immune, apply);
+                }
+            }
+        }
 }
 
 bool Aura::CanBeAppliedOn(Unit* target)

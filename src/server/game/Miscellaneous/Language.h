@@ -705,6 +705,29 @@ enum TrinityStrings
 //  LANG_BG_AB_START_TWO_MINUTES        = 754, - defined above
 //  LANG_BG_EY_START_TWO_MINUTES        = 755, - defined above
 
+    LANG_BG_WG_BATTLE_STARTS            = 756,
+    LANG_BG_WG_DEFENDED                 = 757,
+    LANG_BG_WG_CAPTURED                 = 758,
+    LANG_BG_WG_WORKSHOP_DAMAGED         = 759,
+    LANG_BG_WG_WORKSHOP_DESTROYED       = 760,
+    LANG_BG_WG_TOWER_DAMAGED            = 761,
+    LANG_BG_WG_TOWER_DESTROYED          = 762,
+    LANG_BG_WG_FORTRESS_UNDER_ATTACK    = 763,
+    LANG_BG_WG_SWITCH_FACTION           = 764,
+    LANG_BG_WG_CHANGE_TIMER             = 765,
+    LANG_BG_WG_BATTLE_FORCE_START       = 766,
+    LANG_BG_WG_BATTLE_FORCE_STOP        = 767,
+    LANG_BG_WG_STATUS                   = 768,
+    LANG_BG_WG_DISABLE                  = 769,
+    LANG_BG_WG_ENABLE                   = 770,
+    LANG_BG_WG_RANK1                    = 771,
+    LANG_BG_WG_RANK2                    = 772,
+
+    LANG_BG_WG_WORLD_ANNOUNCE_30        = 780,
+    LANG_BG_WG_WORLD_ANNOUNCE_10        = 781,
+    LANG_BG_WG_WORLD_NO_DEF             = 782,
+    LANG_BG_WG_WORLD_NO_ATK             = 783,
+
     // Room for BG/ARENA                = 773-784, 788-799 not used
     LANG_ARENA_TESTING                  = 785,
     LANG_AUTO_ANN                       = 786,
@@ -961,6 +984,44 @@ enum TrinityStrings
     LANG_GM_ANNOUNCE_COLOR               = 6615,
 
     LANG_GM_SILENCE                      = 6616,              // "Silence is ON for %s" - Spell 1852
+
+    // Guild house
+    LANG_GH_IN_COMBAT                   = 6660,
+    LANG_GH_NO_GUILDHOUSE               = 6661,
+    LANG_GH_NO_FREE_GUILDHOUSE          = 6662,
+    LANG_GH_ALREADY_HAVE_GUILDHOUSE     = 6663,
+    LANG_GH_NOT_ENOUGH_GOLD             = 6664,
+    LANG_GH_GUILDHOUSE_IN_USE           = 6665,
+    LANG_GH_BUY_SUCCESS                 = 6666,
+    LANG_GH_SELL_SUCCESS                = 6667,
+    LANG_GH_NO_GUILD                    = 6668,
+    LANG_GH_SELL_WORD                   = 6669,
+    LANG_GH_SELL_PROMPT                 = 6670,
+    LANG_GH_GOSSIP_TELEPORT             = 6671,
+    LANG_GH_GOSSIP_BUY                  = 6672,
+    LANG_GH_GOSSIP_SELL                 = 6673,
+    LANG_GH_GOSSIP_NEXT                 = 6674,
+    LANG_GH_BUY_WORD                    = 6675,
+    LANG_GH_BUY_PROMPT                  = 6676, // 3 params - buy word (%s), gh name (%s), price (%u)
+
+    // Area guard
+    LANG_GUARD_INFO_ALL                 = 6700,
+    LANG_GUARD_INFO_TEAM_ALLIANCE       = 6701,
+    LANG_GUARD_INFO_TEAM_HORDE          = 6702,
+    LANG_GUARD_INFO_SECURITY            = 6703,
+    LANG_GUARD_INFO_LEVEL               = 6704,
+    LANG_GUARD_INFO_GUILD               = 6705,
+    LANG_GUARD_INFO_GUID                = 6706,
+    LANG_GUARD_NO_INFO                  = 6707, // 1 param - lowGuid (%u)
+    LANG_GUARD_NO_TEMPLATE              = 6708, // 1 param - entry (%u)
+    LANG_GUARD_WRONG_DISTANCE           = 6709, // 1 param - distance (%s)
+    LANG_GUARD_WRONG_GUID               = 6710, // 1 param - guid (%s)
+    LANG_GUARD_WRONG_TEAM               = 6711, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_WRONG_SECURITY           = 6712, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_WRONG_LEVEL              = 6713, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_WRONG_GUILD              = 6714, // 1 param - value (%u)
+    LANG_GUARD_WRONG_TYPE               = 6715, // 2 params - value (%u), max possible (%u)
+    LANG_GUARD_HEADER                   = 6716,
 
     LANG_WORLD_CLOSED                    = 7523,
     LANG_WORLD_OPENED                    = 7524,

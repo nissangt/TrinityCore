@@ -27,6 +27,7 @@
 #include "Language.h"
 #include "DBCStores.h"
 #include "Item.h"
+#include "MoneyLog.h"
 
 void WorldSession::HandleSendMail(WorldPacket & recv_data)
 {
@@ -230,7 +231,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data)
 
     pl->SendMailResult(0, MAIL_SEND, MAIL_OK);
 
-    pl->ModifyMoney(-int32(reqmoney));
+    sMoneyLog->LogMoney(pl, MLE_MAIL, -int32(reqmoney), "send mail (receiver: %u, subject: '%s')", GUID_LOPART(rc), subject.c_str());
     pl->GetAchievementMgr().UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GOLD_SPENT_FOR_MAIL, cost);
 
     bool needItemDelay = false;
@@ -248,7 +249,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data)
                 Item* item = items[i];
                 if (GetSecurity() > SEC_PLAYER && sWorld->getBoolConfig(CONFIG_GM_LOG_TRADE))
                 {
-                    sLog->outCommand(GetAccountId(), "GM %s (Account: %u) mail item: %s (Entry: %u Count: %u) to player: %s (Account: %u)",
+                    sLogMgr->WriteGmCommand(GetAccountId(), "GM %s (Account: %u) mail item: %s (Entry: %u Count: %u) to player: %s (Account: %u)",
                         GetPlayerName(), GetAccountId(), item->GetTemplate()->Name1.c_str(), item->GetEntry(), item->GetCount(), receiver.c_str(), rc_account);
                 }
 
@@ -268,7 +269,7 @@ void WorldSession::HandleSendMail(WorldPacket & recv_data)
 
         if (money > 0 &&  GetSecurity() > SEC_PLAYER && sWorld->getBoolConfig(CONFIG_GM_LOG_TRADE))
         {
-            sLog->outCommand(GetAccountId(), "GM %s (Account: %u) mail money: %u to player: %s (Account: %u)",
+            sLogMgr->WriteGmCommand(GetAccountId(), "GM %s (Account: %u) mail money: %u to player: %s (Account: %u)",
                 GetPlayerName(), GetAccountId(), money, receiver.c_str(), rc_account);
         }
     }
@@ -456,7 +457,7 @@ void WorldSession::HandleMailTakeItem(WorldPacket & recv_data)
                     if (!sObjectMgr->GetPlayerNameByGUID(sender_guid, sender_name))
                         sender_name = sObjectMgr->GetTrinityStringForDBCLocale(LANG_UNKNOWN);
                 }
-                sLog->outCommand(GetAccountId(), "GM %s (Account: %u) receive mail item: %s (Entry: %u Count: %u) and send COD money: %u to player: %s (Account: %u)",
+                sLogMgr->WriteGmCommand(GetAccountId(), "GM %s (Account: %u) receive mail item: %s (Entry: %u Count: %u) and send COD money: %u to player: %s (Account: %u)",
                     GetPlayerName(), GetAccountId(), it->GetTemplate()->Name1.c_str(), it->GetEntry(), it->GetCount(), m->COD, sender_name.c_str(), sender_accId);
             }
             else if (!receive)
@@ -470,7 +471,7 @@ void WorldSession::HandleMailTakeItem(WorldPacket & recv_data)
                     .SendMailTo(trans, MailReceiver(receive, m->sender), MailSender(MAIL_NORMAL, m->receiver), MAIL_CHECK_MASK_COD_PAYMENT);
             }
 
-            pl->ModifyMoney(-int32(m->COD));
+            sMoneyLog->LogMoney(pl, MLE_MAIL, -int32(m->COD), "pay mail COD (id: %u, sender: %u)", mailId, m->sender);
         }
         m->COD = 0;
         m->state = MAIL_STATE_CHANGED;
@@ -511,7 +512,7 @@ void WorldSession::HandleMailTakeMoney(WorldPacket & recv_data)
 
     pl->SendMailResult(mailId, MAIL_MONEY_TAKEN, MAIL_OK);
 
-    pl->ModifyMoney(m->money);
+    sMoneyLog->LogMoney(pl, MLE_MAIL, m->money, "withdraw mail money (id: %u, sender: %u, subject: '%s')", mailId, m->sender, m->subject);
     m->money = 0;
     m->state = MAIL_STATE_CHANGED;
     pl->m_mailsUpdated = true;

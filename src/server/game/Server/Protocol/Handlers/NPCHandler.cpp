@@ -36,6 +36,7 @@
 #include "ScriptMgr.h"
 #include "CreatureAI.h"
 #include "SpellInfo.h"
+#include "MoneyLog.h"
 
 enum StableResultCode
 {
@@ -277,7 +278,7 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket & recv_data)
     if (!_player->HasEnoughMoney(nSpellCost))
         return;
 
-    _player->ModifyMoney(-int32(nSpellCost));
+    sMoneyLog->LogMoney(_player, MLE_NPC, -int32(nSpellCost), "buy spell (npc: %u, spell: %u)", GUID_LOPART(guid), spellId);
 
     unit->SendPlaySpellVisual(179); // 53 SpellCastDirected
     unit->SendPlaySpellImpact(_player->GetGUID(), 362); // 113 EmoteSalute
@@ -757,7 +758,7 @@ void WorldSession::HandleBuyStableSlot(WorldPacket & recv_data)
         if (_player->HasEnoughMoney(SlotPrice->Price))
         {
             ++GetPlayer()->m_stableSlots;
-            _player->ModifyMoney(-int32(SlotPrice->Price));
+            sMoneyLog->LogMoney(_player, MLE_NPC, -int32(SlotPrice->Price), "buy stable slot (npc: %u)", GUID_LOPART(npcGUID));
             SendStableResult(STABLE_SUCCESS_BUY_SLOT);
         }
         else

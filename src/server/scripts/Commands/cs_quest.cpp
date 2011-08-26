@@ -25,6 +25,7 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "ObjectMgr.h"
 #include "Chat.h"
+#include "MoneyLog.h"
 
 class quest_commandscript : public CommandScript
 {
@@ -239,7 +240,7 @@ public:
         // If the quest requires money
         int32 ReqOrRewMoney = pQuest->GetRewOrReqMoney();
         if (ReqOrRewMoney < 0)
-            player->ModifyMoney(-ReqOrRewMoney);
+            sMoneyLog->LogMoney(player, MLE_QUEST, -ReqOrRewMoney, "pay for quest (id: %u)", entry);
 
         player->CompleteQuest(entry);
         return true;

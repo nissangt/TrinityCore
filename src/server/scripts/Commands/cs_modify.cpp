@@ -25,6 +25,7 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "ObjectMgr.h"
 #include "Chat.h"
+#include "MoneyLog.h"
 
 class modify_commandscript : public CommandScript
 {
@@ -1030,7 +1031,10 @@ public:
             if (addmoney >=MAX_MONEY_AMOUNT)
                 target->SetMoney(MAX_MONEY_AMOUNT);
             else
-                target->ModifyMoney(addmoney);
+            {
+                Player* sender = handler->GetSession()->GetPlayer();
+                sMoneyLog->LogMoney(target, MLE_GM, addmoney, "command (GM guid: %u)", sender ? sender->GetGUIDLow() : 0);
+            }
         }
 
         sLog->outDetail(handler->GetTrinityString(LANG_NEW_MONEY), moneyuser, addmoney, target->GetMoney());

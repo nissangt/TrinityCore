@@ -47,6 +47,7 @@ EndContentData */
 #include "ObjectMgr.h"
 #include "ScriptMgr.h"
 #include "World.h"
+#include "MoneyLog.h"
 
 /*########
 # npc_air_force_bots
@@ -1320,7 +1321,7 @@ public:
                     }
                     else
                     {
-                        player->ModifyMoney(-10000000);
+                        sMoneyLog->LogMoney(player, MLE_NPC, -10000000, "buy dualspec (npc: %u)", creature->GetGUIDLow());
 
                         // Cast spells that teach dual spec
                         // Both are also ImplicitTarget self and must be cast by player
@@ -1839,6 +1840,77 @@ public:
     }
 };
 
+enum eSpringRabbit
+{
+    NPC_SPRING_RABBIT           = 32791,
+    NPC_SPRING_RABBIT_BABBY     = 32793,
+    SPELL_SPRING_RABBIT_IN_LOVE = 61728,
+    SPELL_SPRING_RABBIT_JUMP    = 61724,
+    SPELL_SPRING_RABBIT_FLING   = 61875,
+};
+
+class npc_spring_rabbit : public CreatureScript
+{
+public:
+    npc_spring_rabbit() : CreatureScript("npc_spring_rabbit") { }
+
+    struct npc_spring_rabbitAI : public ScriptedAI
+    {
+        npc_spring_rabbitAI(Creature *c) : ScriptedAI(c) {Reset();}
+        bool m_bIsLove;
+        uint32 uiCheckTimer;
+
+        void Reset()
+        {
+            uiCheckTimer = 5000;
+            m_bIsLove = false;
+
+            if (Unit* own = me->GetOwner())
+                me->GetMotionMaster()->MoveFollow(own,0,0);
+        }
+
+        void UpdateAI(const uint32 diff)
+        {
+            if (uiCheckTimer <= diff)
+            {
+                if (!m_bIsLove)
+                {
+                    if (Creature* rabbit = me->FindNearestCreature(NPC_SPRING_RABBIT, 7, true))
+                    {
+                        if (rabbit->GetGUID() == me->GetGUID())
+                            return;
+
+                        if (!rabbit->HasAura(SPELL_SPRING_RABBIT_IN_LOVE))
+                        {
+                            me->CastSpell(me, SPELL_SPRING_RABBIT_IN_LOVE, true);
+                            rabbit->CastSpell(rabbit, SPELL_SPRING_RABBIT_IN_LOVE, true);
+
+                            if (Unit* owner = me->GetOwner())
+                                owner->CastSpell(owner, SPELL_SPRING_RABBIT_FLING, true);
+
+                            if (Unit* owner = rabbit->GetOwner())
+                                owner->CastSpell(owner, SPELL_SPRING_RABBIT_FLING, true);
+
+                            m_bIsLove = true;
+                        }
+                    }
+                }
+
+                DoCast(me, SPELL_SPRING_RABBIT_JUMP);
+
+                uiCheckTimer = urand(5000, 8000);
+            }
+            else
+                uiCheckTimer -= diff;
+        }
+    };
+
+    CreatureAI *GetAI(Creature *creature) const
+    {
+        return new npc_spring_rabbitAI(creature);
+    }
+};
+
 class npc_mirror_image : public CreatureScript
 {
 public:
@@ -1974,27 +2046,6 @@ public:
     CreatureAI *GetAI(Creature* creature) const
     {
         return new npc_ebon_gargoyleAI(creature);
-    }
-};
-
-class npc_lightwell : public CreatureScript
-{
-public:
-    npc_lightwell() : CreatureScript("npc_lightwell") { }
-
-    struct npc_lightwellAI : public PassiveAI
-    {
-        npc_lightwellAI(Creature* c) : PassiveAI(c) {}
-
-        void Reset()
-        {
-            DoCast(me, 59907, false); // Spell for Lightwell Charges
-        }
-    };
-
-    CreatureAI *GetAI(Creature* creature) const
-    {
-        return new npc_lightwellAI(creature);
     }
 };
 
@@ -2562,7 +2613,7 @@ public:
         return true;
     }
 
-    bool OnGossipSelect(Player* player, Creature* /*creature*/, uint32 /*uiSender*/, uint32 uiAction)
+    bool OnGossipSelect(Player* player, Creature* creature, uint32 /*uiSender*/, uint32 uiAction)
     {
         player->PlayerTalkClass->ClearMenus();
         bool noXPGain = player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_NO_XP_GAIN);
@@ -2589,12 +2640,12 @@ public:
                 player->SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, 0, 0, 0);
             else if (noXPGain)
             {
-                player->ModifyMoney(-EXP_COST);
+                sMoneyLog->LogMoney(player, MLE_NPC, -EXP_COST, "enable xp gain (npc: %u)", creature->GetGUIDLow());
                 player->RemoveFlag(PLAYER_FLAGS, PLAYER_FLAGS_NO_XP_GAIN);
             }
             else if (!noXPGain)
             {
-                player->ModifyMoney(-EXP_COST);
+                sMoneyLog->LogMoney(player, MLE_NPC, -EXP_COST, "disable xp gain (npc: %u)", creature->GetGUIDLow());
                 player->SetFlag(PLAYER_FLAGS, PLAYER_FLAGS_NO_XP_GAIN);
             }
         }
@@ -2624,8 +2675,8 @@ void AddSC_npcs_special()
     new npc_snake_trap;
     new npc_mirror_image;
     new npc_ebon_gargoyle;
-    new npc_lightwell;
     new mob_mojo;
+    new npc_spring_rabbit;
     new npc_training_dummy;
     new npc_shadowfiend;
     new npc_wormhole;
@@ -2634,4 +2685,3 @@ void AddSC_npcs_special()
     new npc_tabard_vendor;
     new npc_experience;
 }
-

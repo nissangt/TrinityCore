@@ -6156,6 +6156,14 @@ AreaTrigger const* ObjectMgr::GetMapEntranceTrigger(uint32 Map) const
     {
         if (itr->second.target_mapId == Map)
         {
+            // due to incorrectly selection of map entrance
+            switch (Map)
+            {
+                case 70: if (itr->first == 902) continue; break; // Uldaman
+                case 90: if (itr->first == 523) continue; break; // Gnomeregan
+                default: break;
+            }
+
             AreaTriggerEntry const* atEntry = sAreaTriggerStore.LookupEntry(itr->first);
             if (atEntry)
                 return &itr->second;
@@ -6177,13 +6185,13 @@ void ObjectMgr::SetHighestGuids()
     result = CharacterDatabase.Query("SELECT MAX(guid) FROM item_instance");
     if (result)
         m_hiItemGuid = (*result)[0].GetUInt32()+1;
-
+/*
     // Cleanup other tables from not existed guids ( >= m_hiItemGuid)
     CharacterDatabase.PExecute("DELETE FROM character_inventory WHERE item >= '%u'", m_hiItemGuid);
     CharacterDatabase.PExecute("DELETE FROM mail_items WHERE item_guid >= '%u'", m_hiItemGuid);
     CharacterDatabase.PExecute("DELETE FROM auctionhouse WHERE itemguid >= '%u'", m_hiItemGuid);
     CharacterDatabase.PExecute("DELETE FROM guild_bank_item WHERE item_guid >= '%u'", m_hiItemGuid);
-
+//*/
     result = WorldDatabase.Query("SELECT MAX(guid) FROM gameobject");
     if (result)
         m_hiGoGuid = (*result)[0].GetUInt32()+1;
@@ -7989,6 +7997,7 @@ void ObjectMgr::LoadGameTele()
 
         GameTele gt;
 
+        gt.id             = id;
         gt.position_x     = fields[1].GetFloat();
         gt.position_y     = fields[2].GetFloat();
         gt.position_z     = fields[3].GetFloat();
@@ -8059,10 +8068,11 @@ bool ObjectMgr::AddGameTele(GameTele& tele)
 
     wstrToLower(tele.wnameLow);
 
+    tele.id = new_id;
     m_GameTeleMap[new_id] = tele;
 
     WorldDatabase.PExecute("INSERT INTO game_tele (id, position_x, position_y, position_z, orientation, map, name) VALUES (%u, %f, %f, %f, %f, %d, '%s')",
-        new_id, tele.position_x, tele.position_y, tele.position_z, tele.orientation, tele.mapId, tele.name.c_str());
+        tele.id, tele.position_x, tele.position_y, tele.position_z, tele.orientation, tele.mapId, tele.name.c_str());
     return true;
 }
 

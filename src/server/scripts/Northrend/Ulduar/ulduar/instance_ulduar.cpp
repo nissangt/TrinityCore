@@ -404,7 +404,6 @@ class instance_ulduar : public InstanceMapScript
                     }
             }
 
-
             bool SetBossState(uint32 type, EncounterState state)
             {
                 if (!InstanceScript::SetBossState(type, state))
@@ -552,7 +551,7 @@ class instance_ulduar : public InstanceMapScript
                     case BOSS_ALGALON:
                         return AlgalonGUID;
 
-                    // Razorscale expedition commander
+                        // Razorscale expedition commander
                     case DATA_EXPEDITION_COMMANDER:
                         return ExpeditionCommanderGUID;
                     case GO_RAZOR_HARPOON_1:
@@ -564,7 +563,7 @@ class instance_ulduar : public InstanceMapScript
                     case GO_RAZOR_HARPOON_4:
                         return RazorHarpoonGUIDs[3];
 
-                    // Assembly of Iron
+                        // Assembly of Iron
                     case BOSS_STEELBREAKER:
                         return AssemblyGUIDs[0];
                     case BOSS_MOLGEIM:
@@ -572,7 +571,7 @@ class instance_ulduar : public InstanceMapScript
                     case BOSS_BRUNDIR:
                         return AssemblyGUIDs[2];
 
-                    // Freya's Keepers
+                        // Freya's Keepers
                     case BOSS_BRIGHTLEAF:
                         return KeeperGUIDs[0];
                     case BOSS_IRONBRANCH:
@@ -605,7 +604,6 @@ class instance_ulduar : public InstanceMapScript
 
                 std::ostringstream saveStream;
                 saveStream << "U U " << GetBossSaveData() << GetData(DATA_COLOSSUS);
-
                 OUT_SAVE_INST_DATA_COMPLETE;
                 return saveStream.str();
             }
@@ -633,7 +631,6 @@ class instance_ulduar : public InstanceMapScript
                         loadStream >> tmpState;
                         if (tmpState == IN_PROGRESS || tmpState > SPECIAL)
                             tmpState = NOT_STARTED;
-
                         if (i == DATA_COLOSSUS)
                             SetData(i, tmpState);
                         else
@@ -645,10 +642,10 @@ class instance_ulduar : public InstanceMapScript
             }
         };
 
-        InstanceScript* GetInstanceScript(InstanceMap* map) const
-        {
-            return new instance_ulduar_InstanceMapScript(map);
-        }
+    InstanceScript* GetInstanceScript(InstanceMap* map) const
+    {
+        return new instance_ulduar_InstanceMapScript(map);
+    }
 };
 
 void AddSC_instance_ulduar()

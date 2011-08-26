@@ -30,6 +30,8 @@
 #include "CreatureAI.h"
 #include "MapManager.h"
 #include "BattlegroundIC.h"
+#include "OutdoorPvPMgr.h"
+#include "OutdoorPvPWG.h"
 
 bool IsPrimaryProfessionSkill(uint32 skill)
 {
@@ -273,6 +275,50 @@ int32 GetDiminishingReturnsLimitDuration(DiminishingGroup group, SpellInfo const
     // Explicit diminishing duration
     switch (spellproto->SpellFamilyName)
     {
+        case SPELLFAMILY_GENERIC:
+            switch (spellproto->Id)
+            {
+                case 34700: // Allergic Reaction
+                case 34709: // Shadow Sight
+                case 61716: // Rabbit Costume
+                case 61734: // Noblegarden Bunny
+                case 61987: // Avenging Wrath Marker
+                case 61988: // Divine Shield exclude aura
+                case 62532: // Conservator's Grip
+                    return false;
+                case 30877: // Tag Murloc
+                case 62344: // Fists of Stone
+                    return true;
+                default:
+                    break;
+            }
+            break;
+        case SPELLFAMILY_ROGUE:
+            // Envenom
+            if (spellproto->SpellFamilyFlags[1] & 0x8)
+                return true;
+            // Slice and Dice
+            else if (spellproto->SpellFamilyFlags[0] & 0x40000)
+                return true;
+            break;
+        case SPELLFAMILY_MAGE:
+            // Amplify Magic, Dampen Magic
+            if (spellproto->SpellFamilyFlags[0] == 0x00002000)
+                return true;
+            // Ignite
+            if (spellproto->SpellIconID == 45)
+                return true;
+            break;
+        case SPELLFAMILY_PRIEST:
+            switch (spellproto->Id)
+            {
+                case 64844: // Divine Hymn
+                case 64904: // Hymn of Hope
+                case 47585: // Dispersion
+                    return true;
+                default:
+                    break;
+            }
         case SPELLFAMILY_DRUID:
         {
             // Faerie Fire - limit to 40 seconds in PvP (3.1)
@@ -1961,7 +2007,6 @@ void SpellMgr::LoadSpellThreats()
             sLog->outErrorDb("Spell %u listed in `spell_threat` does not exist", entry);
             continue;
         }
-
         mSpellThreatMap[entry] = Threat;
 
         ++count;
@@ -2832,12 +2877,29 @@ void SpellMgr::LoadSpellCustomAttr()
                 if (spellInfo->SpellFamilyFlags[0] & 0x20000 || spellInfo->SpellFamilyFlags[1] & 0x20)
                     spellInfo->AttributesCu |= SPELL_ATTR0_CU_AURA_CC;
                 break;
+            case SPELLFAMILY_HUNTER:
+                // Monstrous Bite target fix
+                // seems we incorrectly handle spell with "no target"
+                if (spellInfo->SpellIconID == 599)
+                    spellInfo->Effects[i].TargetA = TARGET_UNIT_CASTER;
+                break;
             case SPELLFAMILY_DRUID:
                 // Roar
                 if (spellInfo->SpellFamilyFlags[0] & 0x8)
                     spellInfo->AttributesCu |= SPELL_ATTR0_CU_AURA_CC;
                 break;
             default:
+                break;
+            case SPELLFAMILY_PRIEST:
+                // Twin Disciplines should affect at Prayer of Mending
+                if (spellInfo->SpellIconID == 2292)
+                    spellInfo->Effects[0].SpellClassMask[1] |= 0x20;
+                // Spiritual Healing should affect at Prayer of Mending
+                else if (spellInfo->SpellIconID == 46)
+                    spellInfo->Effects[0].SpellClassMask[1] |= 0x20;
+                // Divine Providence should affect at Prayer of Mending
+                else if (spellInfo->SpellIconID == 2845 && spellInfo->Id != 64844)
+                    spellInfo->Effects[0].SpellClassMask[1] |= 0x20;
                 break;
         }
     }
